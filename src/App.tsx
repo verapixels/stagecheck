@@ -38,6 +38,7 @@ import MessagesPage from './pages/event/MessagesPage'
 import MediaPage from './pages/event/MediaPage'
 import AnalyticsPage from './pages/event/AnalyticsPage'
 import AIInsightsPage from './pages/event/AIInsightsPage'
+import SubmitPage from './pages/SubmitPage'
 
 function AuthRoute({ children }: { children: React.ReactNode }) {
   const { user, loading } = useAuth()
@@ -91,6 +92,7 @@ export default function App() {
           <Route path="/login" element={<AuthRoute><Login /></AuthRoute>} />
           <Route path="/join/:joinCode" element={<JoinPage />} />
           <Route path="/event/:eventId" element={<EventDetailPage />} />
+          <Route path="/submit/:eventSlug/:eventId" element={<SubmitPage />} />
 
           {/* ── PROTECTED — MAIN ── */}
           <Route path="/onboarding" element={<ProtectedRoute><Onboarding /></ProtectedRoute>} />

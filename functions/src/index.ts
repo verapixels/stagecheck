@@ -1,7 +1,10 @@
-import * as functions from "firebase-functions";
+import { onRequest } from "firebase-functions/v2/https";
 import fetch from "node-fetch";
 
-export const searchDeezerArtists = functions.https.onRequest(async (req, res) => {
+export { sendEventMessage } from './Sendeventmessage'
+export { sendSubmissionEmails } from './Sendsubmissionemails'
+
+export const searchDeezerArtists = onRequest(async (req, res) => {
   res.set("Access-Control-Allow-Origin", "*");
   res.set("Access-Control-Allow-Methods", "GET, OPTIONS");
   res.set("Access-Control-Allow-Headers", "Content-Type");
@@ -21,7 +24,7 @@ export const searchDeezerArtists = functions.https.onRequest(async (req, res) =>
   }
 });
 
-export const searchKnowledgeGraph = functions.https.onRequest(async (req, res) => {
+export const searchKnowledgeGraph = onRequest(async (req, res) => {
   res.set("Access-Control-Allow-Origin", "*");
   res.set("Access-Control-Allow-Methods", "GET, OPTIONS");
   res.set("Access-Control-Allow-Headers", "Content-Type");
