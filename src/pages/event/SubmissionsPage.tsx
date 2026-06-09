@@ -1,3 +1,5 @@
+// SubmissionsPage.tsx
+
 import { useEffect, useState } from 'react'
 import { createPortal } from 'react-dom'
 import { useParams } from 'react-router-dom'
@@ -233,6 +235,7 @@ function SubmissionModal({
 }
 
 // ── Main Page ─────────────────────────────────────────────────────────────────
+
 export default function SubmissionsPage() {
   const { eventId } = useParams<{ eventId: string }>()
   const { eventType, enabledModules } = useEvent()
@@ -242,6 +245,21 @@ export default function SubmissionsPage() {
   const [statusFilter, setStatusFilter] = useState<'all' | Status>('all')
   const [selected, setSelected]       = useState<Submission | null>(null)
   const [updating, setUpdating]       = useState<string | null>(null)
+  const [eventName, setEventName]     = useState('')             // ADD THIS
+  const [submissionConfig, setSubmissionConfig] = useState<any>(null) // ADD THIS
+
+  useEffect(() => {
+    if (!eventId) return
+    // ADD: fetch event name + submission config for emails
+    import('firebase/firestore').then(({ getDoc, doc: fsDoc }) => {
+      getDoc(fsDoc(db, 'events', eventId)).then(snap => {
+        if (snap.exists()) setEventName((snap.data() as any).name || '')
+      })
+      getDoc(fsDoc(db, 'events', eventId, 'config', 'submissionForm')).then(snap => {
+        if (snap.exists()) setSubmissionConfig(snap.data())
+      })
+    })
+  }, [eventId])
 
   useEffect(() => {
     if (!eventId) return
@@ -267,10 +285,40 @@ export default function SubmissionsPage() {
     try {
       await updateDoc(doc(db, 'events', eventId, 'submissions', subId), { status })
       setSelected(prev => prev?.id === subId ? { ...prev, status } : prev)
+
+      // ADD: fire approval / rejection email (mirrors SongsPage logic)
+      if (status === 'approved' || status === 'rejected') {
+        const sub = submissions.find(s => s.id === subId)
+        if (sub?.email) {
+          const BASE = window.location.hostname === 'localhost'
+            ? `http://localhost:5001/stagecheck-699c7/us-central1`
+            : 'https://us-central1-stagecheck-699c7.cloudfunctions.net'
+
+          const performerName =
+            sub.groupName || sub.performerName || sub.speakerName ||
+            sub.teamName  || sub.ministerName  || sub.awardeeName ||
+            sub.entryName || sub.email || 'Participant'
+
+          fetch(`${BASE}/sendSubmissionEmails`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              type: status,
+              eventId,
+              eventName,
+              performerName,
+              performerEmail: sub.email,
+              organizerEmail: submissionConfig?.contactEmail || undefined,
+              songs: sub.songs || [],
+            }),
+          }).catch(() => {})
+        }
+      }
     } finally {
       setUpdating(null)
     }
   }
+
 
   const getPrimaryName = (sub: Submission) =>
     sub.groupName || sub.performerName || sub.speakerName || sub.teamName ||
