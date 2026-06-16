@@ -278,47 +278,48 @@ export default function SubmissionsPage() {
     )
     return () => unsub()
   }, [eventId])
+ const updateStatus = async (subId: string, status: Status) => {
+  if (!eventId) return
+  setUpdating(subId)
 
-  const updateStatus = async (subId: string, status: Status) => {
-    if (!eventId) return
-    setUpdating(subId)
-    try {
-      await updateDoc(doc(db, 'events', eventId, 'submissions', subId), { status })
-      setSelected(prev => prev?.id === subId ? { ...prev, status } : prev)
+  // capture BEFORE updateDoc fires the snapshot
+  const sub = submissions.find(s => s.id === subId)
 
-      // ADD: fire approval / rejection email (mirrors SongsPage logic)
-      if (status === 'approved' || status === 'rejected') {
-        const sub = submissions.find(s => s.id === subId)
-        if (sub?.email) {
-          const BASE = window.location.hostname === 'localhost'
-            ? `http://localhost:5001/stagecheck-699c7/us-central1`
-            : 'https://us-central1-stagecheck-699c7.cloudfunctions.net'
+  try {
+    await updateDoc(doc(db, 'events', eventId, 'submissions', subId), { status })
+    setSelected(prev => prev?.id === subId ? { ...prev, status } : prev)
 
-          const performerName =
-            sub.groupName || sub.performerName || sub.speakerName ||
-            sub.teamName  || sub.ministerName  || sub.awardeeName ||
-            sub.entryName || sub.email || 'Participant'
+    if ((status === 'approved' || status === 'rejected') && sub?.email) {
+      const BASE = window.location.hostname === 'localhost'
+        ? `http://localhost:5001/stagecheck-699c7/us-central1`
+        : 'https://us-central1-stagecheck-699c7.cloudfunctions.net'
 
-          fetch(`${BASE}/sendSubmissionEmails`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-              type: status,
-              eventId,
-              eventName,
-              performerName,
-              performerEmail: sub.email,
-              organizerEmail: submissionConfig?.contactEmail || undefined,
-              songs: sub.songs || [],
-            }),
-          }).catch(() => {})
-        }
-      }
-    } finally {
-      setUpdating(null)
+      const performerName =
+        sub.groupName || sub.performerName || sub.speakerName ||
+        sub.teamName  || sub.ministerName  || sub.awardeeName ||
+        sub.entryName || sub.email || 'Participant'
+
+      // log so you can confirm in console
+      console.log('Sending email:', status, 'to:', sub.email)
+
+      fetch(`${BASE}/sendSubmissionEmails`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          type: status,
+          eventId,
+          eventName,
+          performerName,
+          performerEmail: sub.email,
+          organizerEmail: submissionConfig?.contactEmail || undefined,
+          songs: sub.songs || [],
+        }),
+      }).catch(console.error) // surface errors instead of swallowing them
     }
+  } finally {
+    setUpdating(null)
   }
-
+}
 
   const getPrimaryName = (sub: Submission) =>
     sub.groupName || sub.performerName || sub.speakerName || sub.teamName ||

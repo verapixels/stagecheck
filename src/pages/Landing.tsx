@@ -14,7 +14,7 @@ import {
   RiCloseLine, RiCheckLine, RiShieldCheckLine, RiContractLine,
   RiHeartLine, RiLightbulbLine, RiRocketLine, RiTeamLine,
   RiGlobalLine, RiCustomerService2Line,
-  RiSlideshowLine, RiMicLine, RiGraduationCapLine,
+  RiSlideshowLine, RiMicLine, RiGraduationCapLine, RiStarLine,
 } from 'react-icons/ri'
 
 // ─── Types ────────────────────────────────────────────────────────────────────
@@ -39,6 +39,16 @@ interface FirebaseEvent {
   summary?: string
   eventType?: string
   featuredArtists?: FeaturedArtist[]
+}
+
+// Testimonial from Firestore (admin dashboard will write to 'testimonials' collection)
+interface Testimonial {
+  id: string
+  quote: string
+  name: string
+  role: string
+  avatar?: string
+  order?: number
 }
 
 const GRADIENTS = [
@@ -100,6 +110,13 @@ function isEventPast(date: any): boolean {
   return toDate(date) < now
 }
 
+// Default testimonials shown if Firestore has none yet
+const DEFAULT_TESTIMONIALS: Testimonial[] = [
+  { id: 't1', quote: "StageCheck removed all the stress from our choir concert. The song clash detection alone is a game changer!", name: "Pastor John D.", role: "Event Organizer", avatar: "https://i.pravatar.cc/80?img=12" },
+  { id: 't2', quote: "We managed 400+ performers across 3 stages with zero scheduling conflicts. Absolutely incredible platform.", name: "Adaeze Okafor", role: "Festival Director", avatar: "https://i.pravatar.cc/80?img=47" },
+  { id: 't3', quote: "From ticket sales to live scoring, everything is in one place. Our events have never run smoother.", name: "Emeka Chukwu", role: "Competition Organizer", avatar: "https://i.pravatar.cc/80?img=33" },
+]
+
 // ─── Scroll Reveal Hook ───────────────────────────────────────────────────────
 function useScrollReveal() {
   useEffect(() => {
@@ -148,71 +165,42 @@ function ParticleField() {
   return <canvas ref={canvasRef} style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', pointerEvents: 'none', zIndex: 1 }} />
 }
 
-// ─── Event Card — AllEvents style ─────────────────────────────────────────────
+// ─── Event Card ───────────────────────────────────────────────────────────────
 function EventCard({ ev, idx, onGetTickets }: { ev: FirebaseEvent; idx: number; onGetTickets: (id: string) => void }) {
   const navigate = useNavigate()
   const typeColor = getTypeColor(ev.eventType)
   const days = daysUntil(ev.date)
   const displayLoc = ev.venue || ev.location || 'TBA'
   const displayTime = ev.startTime ? formatTime(ev.startTime) : ev.time || ''
-
-  // Cover image = event banner only (coverImage field), no artist photos
   const hasCover = !!ev.coverImage?.startsWith('http')
-
-  // Valid artist photos for avatar stack (same filter as AllEvents)
   const validArtists = (ev.featuredArtists || []).filter(a => a.image && !a.image.includes('2a96cbd8b46e442fc41c2b86b821562f'))
   const fallbackColors = ['#8b5cf6', '#ec4899', '#f59e0b']
 
   return (
-    <div
-      className={`ev-card reveal zi d${(idx % 3) + 1}`}
-      onClick={() => navigate(`/event/${ev.id}`)}
-    >
-      {/* Cover */}
+    <div className={`ev-card reveal zi d${(idx % 3) + 1}`} onClick={() => navigate(`/event/${ev.id}`)}>
       <div className="ev-cover" style={{
         background: hasCover ? undefined : (ev.coverGradient || GRADIENTS[idx % GRADIENTS.length]),
       }}>
-        {hasCover && (
-          <img
-            src={ev.coverImage}
-            alt={ev.name}
-            className="ev-cover-photo"
-          />
-        )}
+        {hasCover && <img src={ev.coverImage} alt={ev.name} className="ev-cover-photo" />}
         <div className="ev-cover-overlay" />
-
-        {/* Type badge — dark backdrop, always readable */}
         <div className="ev-type-badge">
           <span style={{ fontSize: 10, color: typeColor, display: 'inline-flex', alignItems: 'center' }}>
             {EVENT_TYPE_META[ev.eventType || 'custom']?.icon}
           </span>
           {getTypeLabel(ev.eventType)}
         </div>
-
-        {/* Days badge */}
         {days >= 0 && days <= 7 && (
           <div className="ev-days-badge" style={{ background: days === 0 ? '#dc2626' : days <= 3 ? '#d97706' : '#0dc75e' }}>
             {days === 0 ? 'TODAY' : `${days}d left`}
           </div>
         )}
-
         <div className="ev-date-chip">{formatEventDate(ev.date)}</div>
         <h3 className="ev-name">{ev.name}</h3>
       </div>
-
-      {/* Body */}
       <div className="ev-body">
         {ev.summary && <p className="ev-summary">{ev.summary}</p>}
-        <div className="ev-meta-row">
-          <RiMapPinLine size={12} />
-          <span>{displayLoc}</span>
-        </div>
-        {displayTime && (
-          <div className="ev-meta-row">
-            <RiTimeLine size={12} />
-            <span>{displayTime}</span>
-          </div>
-        )}
+        <div className="ev-meta-row"><RiMapPinLine size={12} /><span>{displayLoc}</span></div>
+        {displayTime && <div className="ev-meta-row"><RiTimeLine size={12} /><span>{displayTime}</span></div>}
         <div className="ev-footer">
           <div className="ev-avatars">
             {Array.from({ length: 3 }, (_, i) => {
@@ -225,15 +213,9 @@ function EventCard({ ev, idx, onGetTickets }: { ev: FirebaseEvent; idx: number; 
                 <span key={i} className="ev-av" style={{ background: fallbackColors[i], marginLeft: i ? -8 : 0, zIndex: 3 - i }} />
               )
             })}
-            <span className="ev-av-count">
-              {ev.attendingCount ? `${ev.attendingCount}+ attending` : 'Be first'}
-            </span>
+            <span className="ev-av-count">{ev.attendingCount ? `${ev.attendingCount}+ attending` : 'Be first'}</span>
           </div>
-          <button
-            className="ev-btn"
-            style={{ '--tc': typeColor } as React.CSSProperties}
-            onClick={e => { e.stopPropagation(); onGetTickets(ev.id) }}
-          >
+          <button className="ev-btn" style={{ '--tc': typeColor } as React.CSSProperties} onClick={e => { e.stopPropagation(); onGetTickets(ev.id) }}>
             <RiTicketLine size={12} /> Tickets
           </button>
         </div>
@@ -244,9 +226,106 @@ function EventCard({ ev, idx, onGetTickets }: { ev: FirebaseEvent; idx: number; 
 
 // ─── 3D Feature Icon ──────────────────────────────────────────────────────────
 function F3D({ icon, color, bg }: { icon: React.ReactNode; color: string; bg: string }) {
+  return <div className="f3d-icon" style={{ '--ic': color, '--ib': bg } as React.CSSProperties}>{icon}</div>
+}
+
+// ─── Testimonial Carousel (auto-scroll + Firestore) ───────────────────────────
+function TestimonialCarousel({ testimonials }: { testimonials: Testimonial[] }) {
+  const [idx, setIdx] = useState(0)
+  const [animating, setAnimating] = useState(false)
+  const timerRef = useRef<ReturnType<typeof setInterval> | null>(null)
+
+  const goTo = useCallback((next: number) => {
+    if (animating) return
+    setAnimating(true)
+    setTimeout(() => {
+      setIdx(next)
+      setAnimating(false)
+    }, 350)
+  }, [animating])
+
+  const prev = useCallback(() => goTo((idx - 1 + testimonials.length) % testimonials.length), [idx, testimonials.length, goTo])
+  const next = useCallback(() => goTo((idx + 1) % testimonials.length), [idx, testimonials.length, goTo])
+
+  // Auto-scroll every 5 seconds
+  useEffect(() => {
+    if (testimonials.length <= 1) return
+    timerRef.current = setInterval(() => {
+      setIdx(i => (i + 1) % testimonials.length)
+    }, 5000)
+    return () => { if (timerRef.current) clearInterval(timerRef.current) }
+  }, [testimonials.length])
+
+  // Reset timer on manual nav
+  const manualNav = (fn: () => void) => {
+    if (timerRef.current) clearInterval(timerRef.current)
+    fn()
+    timerRef.current = setInterval(() => {
+      setIdx(i => (i + 1) % testimonials.length)
+    }, 5000)
+  }
+
+  const t = testimonials[idx]
+  const initials = t.name.split(' ').map(w => w[0]).join('').slice(0, 2).toUpperCase()
+
   return (
-    <div className="f3d-icon" style={{ '--ic': color, '--ib': bg } as React.CSSProperties}>
-      {icon}
+    <div className="tcard reveal sr">
+      {/* Progress bar */}
+      <div className="tcard-progress">
+        {testimonials.map((_, i) => (
+          <div
+            key={i}
+            className={`tcard-prog-seg ${i === idx ? 'active' : i < idx ? 'done' : ''}`}
+            onClick={() => manualNav(() => goTo(i))}
+          />
+        ))}
+      </div>
+
+      <div className={`tcard-inner ${animating ? 'fading' : 'visible'}`}>
+        <div className="tcard-stars">
+          {[...Array(5)].map((_, i) => <RiStarLine key={i} size={14} style={{ color: '#fbbf24', fill: '#fbbf24' }} />)}
+        </div>
+        <div className="tcard-q">"</div>
+        <p className="tcard-txt">"{t.quote}"</p>
+        <div className="tcard-auth">
+          {t.avatar ? (
+            <img
+              src={t.avatar}
+              alt={t.name}
+              className="t-av"
+              onError={e => {
+                const img = e.target as HTMLImageElement
+                img.style.display = 'none'
+                const next = img.nextElementSibling as HTMLElement
+                if (next) next.style.display = 'flex'
+              }}
+            />
+          ) : null}
+          <div className="t-av-fallback" style={{ display: t.avatar ? 'none' : 'flex' }}>{initials}</div>
+          <div>
+            <div className="t-name">{t.name}</div>
+            <div className="t-role">{t.role}</div>
+          </div>
+        </div>
+      </div>
+
+      <div className="tcard-nav">
+        <button className="circ-btn" onClick={() => manualNav(prev)}><RiArrowLeftSLine size={17} /></button>
+        <div style={{ display: 'flex', gap: 5, alignItems: 'center' }}>
+          {testimonials.map((_, i) => (
+            <div
+              key={i}
+              onClick={() => manualNav(() => goTo(i))}
+              style={{
+                width: i === idx ? 18 : 6, height: 6, borderRadius: 4,
+                background: i === idx ? 'var(--green)' : 'rgba(255,255,255,0.15)',
+                cursor: 'pointer', transition: 'all .3s'
+              }}
+            />
+          ))}
+        </div>
+        <button className="circ-btn" onClick={() => manualNav(next)}><RiArrowRightSLine size={17} /></button>
+      </div>
     </div>
   )
 }
@@ -260,7 +339,7 @@ export default function LandingPage() {
   const [eventsLoading, setEventsLoading] = useState(true)
   const [eventsError, setEventsError] = useState('')
   const [stats, setStats] = useState({ events: '18K+', performers: '120K+', tickets: '2M+', satisfaction: '98%' })
-  const [testimonialIdx, setTestimonialIdx] = useState(0)
+  const [testimonials, setTestimonials] = useState<Testimonial[]>(DEFAULT_TESTIMONIALS)
   const [menuOpen, setMenuOpen] = useState(false)
   const [search, setSearch] = useState('')
   const [scrolled, setScrolled] = useState(false)
@@ -277,6 +356,8 @@ export default function LandingPage() {
     document.body.style.overflow = menuOpen ? 'hidden' : ''
     return () => { document.body.style.overflow = '' }
   }, [menuOpen])
+
+  // Fetch events
 
   useEffect(() => {
     let cancelled = false
@@ -308,9 +389,8 @@ export default function LandingPage() {
           eventType: doc.data().eventType ?? 'custom',
           featuredArtists: doc.data().featuredArtists ?? [],
         }))
-        const upcoming = fetched
-          .filter(ev => !isEventPast(ev.date))
-          .sort((a, b) => toDate(a.date).getTime() - toDate(b.date).getTime())
+        // Sort by soonest date first — visitors see what's happening next
+        const upcoming = fetched.filter(ev => !isEventPast(ev.date)).sort((a, b) => toDate(a.date).getTime() - toDate(b.date).getTime())
         setEvents(upcoming)
       } catch (err: any) {
         if (!cancelled) setEventsError('Could not load events — ' + (err?.message ?? 'unknown error'))
@@ -322,6 +402,7 @@ export default function LandingPage() {
     return () => { cancelled = true }
   }, [])
 
+  // Fetch platform stats
   useEffect(() => {
     let cancelled = false
     async function loadStats() {
@@ -335,22 +416,47 @@ export default function LandingPage() {
     }
     loadStats()
     return () => { cancelled = true }
-  }, [])
+  }, []) 
+
+  useEffect(() => {
+  let cancelled = false
+  async function loadTestimonials() {
+    try {
+      let snap
+      try {
+        const q = query(collection(db, 'testimonials'), orderBy('order', 'asc'), limit(10))
+        snap = await getDocs(q)
+      } catch {
+        snap = await getDocs(collection(db, 'testimonials'))
+      }
+      if (!snap.empty && !cancelled) {
+       const fetched: Testimonial[] = snap.docs.map(d => {
+  const data = d.data()
+  return {
+    id: d.id,
+    quote: data.quote || data.description || data.experience || data.text || '',
+    name: data.name ?? 'Anonymous',
+    role: data.role || data.usedFor || '',
+    avatar: data.avatar || data.photoURL || data.photoUrl || '',
+    order: data.order ?? 0,
+  }
+}).filter(t => t.name && t.name !== 'Anonymous')
+        if (fetched.length > 0) setTestimonials(fetched)
+      }
+    } catch {
+      // Stay with defaults silently
+    }
+  }
+  loadTestimonials()
+  return () => { cancelled = true }
+}, [])
 
   const scrollTo = useCallback((id: string) => {
     setMenuOpen(false)
     setTimeout(() => document.getElementById(id)?.scrollIntoView({ behavior: 'smooth', block: 'start' }), menuOpen ? 400 : 0)
   }, [menuOpen])
 
-  const handleGetTickets = useCallback((eventId: string) => {
-    navigate(`/event/${eventId}`)
-  }, [navigate])
-
-  const testimonials = [
-    { quote: "StageCheck removed all the stress from our choir concert. The song clash detection alone is a game changer!", name: "Pastor John D.", role: "Event Organizer", avatar: "https://i.pravatar.cc/80?img=12" },
-    { quote: "We managed 400+ performers across 3 stages with zero scheduling conflicts. Absolutely incredible platform.", name: "Adaeze Okafor", role: "Festival Director", avatar: "https://i.pravatar.cc/80?img=47" },
-    { quote: "From ticket sales to live scoring, everything is in one place. Our events have never run smoother.", name: "Emeka Chukwu", role: "Competition Organizer", avatar: "https://i.pravatar.cc/80?img=33" },
-  ]
+  const handleGetTickets = useCallback((eventId: string) => navigate(`/event/${eventId}`), [navigate])
 
   const navItems = [
     { label: 'How It Works', id: 'how-it-works' },
@@ -380,6 +486,14 @@ export default function LandingPage() {
     { icon: <RiLightbulbLine />, color: '#2dd4bf', title: 'Constantly Evolving', desc: 'New features added every week based on real organizer feedback and needs.' },
   ]
 
+  // Stat cards data
+  const statCards = [
+    { icon: <RiCalendarEventLine />, val: stats.events, lbl: 'Events Managed', color: '#0dc75e', bg: 'rgba(13,199,94,0.08)' },
+    { icon: <RiFlashlightLine />, val: stats.performers, lbl: 'Performers Registered', color: '#a78bfa', bg: 'rgba(139,92,246,0.08)' },
+    { icon: <RiTicketLine />, val: stats.tickets, lbl: 'Tickets Issued', color: '#f87171', bg: 'rgba(239,68,68,0.08)' },
+    { icon: <RiSparklingLine />, val: stats.satisfaction, lbl: 'Customer Satisfaction', color: '#fbbf24', bg: 'rgba(251,191,36,0.08)' },
+  ]
+
   return (
     <>
       <link rel="preconnect" href="https://fonts.googleapis.com" />
@@ -391,8 +505,11 @@ export default function LandingPage() {
         :root {
           --bg: #000612; --bg-card: #060e1c; --bg2: #04091a;
           --green: #0dc75e; --green-dim: rgba(13,199,94,0.12);
-          --border: rgba(255,255,255,0.06); --border-g: rgba(13,199,94,0.2);
-          --text: #f0faf2; --muted: rgba(255,255,255,0.42); --muted2: rgba(255,255,255,0.18);
+          --border: rgba(255,255,255,0.08); --border-g: rgba(13,199,94,0.2);
+          --text: #f0faf2;
+          /* ── FIXED: much more visible muted colors ── */
+          --muted: rgba(255,255,255,0.72);
+          --muted2: rgba(255,255,255,0.45);
           --nav-h: 70px;
           --font-display: 'Syne', sans-serif;
           --font-body: 'DM Sans', sans-serif;
@@ -404,6 +521,9 @@ export default function LandingPage() {
         @keyframes slideUp { from{opacity:0;transform:translateY(16px)} to{opacity:1;transform:translateY(0)} }
         @keyframes beam-in { from{opacity:0;transform:scaleX(0)} to{opacity:1;transform:scaleX(1)} }
         @keyframes menuIn  { from{opacity:0;transform:translateY(-8px)} to{opacity:1;transform:translateY(0)} }
+        @keyframes statPop { from{opacity:0;transform:translateY(20px) scale(.94)} to{opacity:1;transform:none} }
+        @keyframes prog    { from{width:0%} to{width:100%} }
+        @keyframes fadeIn  { from{opacity:0} to{opacity:1} }
 
         .reveal { opacity:0; transition: opacity .75s cubic-bezier(.16,1,.3,1), transform .75s cubic-bezier(.16,1,.3,1); }
         .reveal.fy  { transform: translateY(36px); }
@@ -431,13 +551,8 @@ export default function LandingPage() {
           border-bottom-color: var(--border);
           box-shadow: 0 4px 32px rgba(0,0,0,.5);
         }
-
-        /* LOGO — image-first, text fallback */
         .logo { display:flex; align-items:center; gap:10px; cursor:pointer; flex-shrink:0; text-decoration:none; }
         .logo-img { height:40px; width:auto; object-fit:contain; display:block; }
-        .logo-text-wrap { display:flex; flex-direction:column; gap:1px; }
-        .logo-text { font-weight:700; font-size:16px; font-family:var(--font-display); color:var(--text); line-height:1; }
-        .logo-sub  { font-size:9px; color:var(--muted); line-height:1; }
 
         .nav-center {
           display: flex; align-items: center; gap: 2px;
@@ -453,7 +568,6 @@ export default function LandingPage() {
           transition: color .2s; white-space: nowrap;
         }
         .nav-pill:hover { color: var(--text); }
-        .nav-pill.active { color: var(--text); background: rgba(255,255,255,0.06); }
 
         .nav-r { display:flex; gap:10px; align-items:center; }
         .btn-ghost { display:inline-flex; align-items:center; gap:6px; padding:9px 20px; border-radius:9px; font-size:14px; font-weight:600; cursor:pointer; background:transparent; border:1px solid rgba(255,255,255,0.1); color:var(--text); font-family:var(--font-body); transition:all .2s; flex-shrink:0; }
@@ -469,10 +583,7 @@ export default function LandingPage() {
           flex-direction: column; gap: 5px; padding: 10px; transition: all .2s;
         }
         .mob-trigger:hover { border-color: var(--border-g); }
-        .mob-trigger span {
-          display: block; height: 1.5px; background: var(--text); border-radius: 2px;
-          transition: all .35s cubic-bezier(.16,1,.3,1);
-        }
+        .mob-trigger span { display: block; height: 1.5px; background: var(--text); border-radius: 2px; transition: all .35s cubic-bezier(.16,1,.3,1); }
         .mob-trigger span:nth-child(1) { width: 20px; }
         .mob-trigger span:nth-child(2) { width: 14px; align-self: flex-end; }
         .mob-trigger span:nth-child(3) { width: 18px; }
@@ -527,10 +638,7 @@ export default function LandingPage() {
           content: ''; position: absolute; inset: 0;
           background: linear-gradient(180deg,rgba(0,6,18,.82) 0%,rgba(0,6,18,.55) 40%,rgba(0,6,18,.9) 100%);
         }
-        .hero-orb {
-          position: absolute; border-radius: 50%; pointer-events: none; z-index: 1;
-          animation: glow-b 5s ease-in-out infinite;
-        }
+        .hero-orb { position: absolute; border-radius: 50%; pointer-events: none; z-index: 1; animation: glow-b 5s ease-in-out infinite; }
         .hero-content { position: relative; z-index: 3; width: 100%; max-width: 760px; }
         .hero-badge {
           display: inline-flex; align-items: center; gap: 8px;
@@ -542,20 +650,34 @@ export default function LandingPage() {
         .live-dot { width:6px; height:6px; border-radius:50%; background:var(--green); animation:pulse 1.4s infinite; flex-shrink:0; }
         .hero-h1 {
           font-family: var(--font-display);
-          font-size: clamp(36px, 6.5vw, 76px);
-          font-weight: 800; line-height: 1.0;
-          margin-bottom: 18px; letter-spacing: -1.5px;
+          font-size: clamp(28px, 6.5vw, 76px);
+          font-weight: 800; line-height: 1.05;
+          margin-bottom: 18px; letter-spacing: -1px;
+          /* desktop: never break words */
+          word-break: normal;
+          overflow-wrap: normal;
+          hyphens: none;
+        }
+        /* mobile only: allow word wrap so "Unforgettable" fits */
+        @media (max-width: 480px) {
+          .hero-h1 {
+            font-size: clamp(26px, 8vw, 44px);
+            word-break: break-word;
+            overflow-wrap: break-word;
+            hyphens: auto;
+            letter-spacing: -0.5px;
+          }
         }
         .hero-accent { color: var(--green); }
-        .hero-accent-u { color: var(--green); position: relative; }
+        .hero-accent-u { color: var(--green); position: relative; display:inline-block; }
         .hero-accent-u::after {
           content: ''; position: absolute; bottom: 4px; left: 0; right: 0; height: 3px;
           background: var(--green); border-radius: 2px;
           transform-origin: left; animation: beam-in 1s ease .9s both;
         }
         .hero-p {
-          color: rgba(255,255,255,0.5); font-size: clamp(14px,1.8vw,16px);
-          line-height: 1.7; margin-bottom: 28px;
+          color: rgba(255,255,255,0.75);
+          font-size: clamp(14px,1.8vw,16px); line-height: 1.7; margin-bottom: 28px;
           max-width: 520px; margin-left: auto; margin-right: auto;
         }
         .hero-search {
@@ -576,7 +698,7 @@ export default function LandingPage() {
           flex: 1; background: none; border: none; outline: none;
           color: var(--text); font-size: 14px; font-family: var(--font-body); padding: 9px 0;
         }
-        .hero-search input::placeholder { color: rgba(255,255,255,0.35); }
+        .hero-search input::placeholder { color: rgba(255,255,255,0.45); }
         .search-div { width: 1px; height: 24px; background: var(--border); margin: 0 14px; flex-shrink: 0; }
         .hero-cta-row { display: flex; gap: 12px; flex-wrap: wrap; justify-content: center; margin-bottom: 32px; }
         .btn-cta-p { font-size: 14px !important; padding: 13px 28px !important; border-radius: 11px !important; }
@@ -593,7 +715,7 @@ export default function LandingPage() {
           padding-top: 20px; border-top: 1px solid var(--border);
         }
         .hs-num { font-family:var(--font-display); font-size: clamp(20px,2.5vw,28px); font-weight:800; color:var(--text); }
-        .hs-lbl { font-size:11px; color:var(--muted); }
+        .hs-lbl { font-size:11px; color:rgba(255,255,255,0.65); }
         .hs-div { width:1px; height:32px; background:var(--border); flex-shrink:0; }
 
         /* ── SECTIONS ── */
@@ -601,15 +723,21 @@ export default function LandingPage() {
         .section-sm { padding: clamp(40px,6vw,72px) clamp(16px,5%,80px); }
         .eyebrow { font-size:11px; font-weight:700; color:var(--green); letter-spacing:.12em; text-transform:uppercase; margin-bottom:12px; display:block; }
         .sh2 { font-family:var(--font-display); font-size:clamp(26px,4vw,46px); font-weight:800; line-height:1.08; }
-        .sh2-sub { font-size:14px; color:var(--muted); margin-top:10px; }
+        .sh2-sub { font-size:14px; color:rgba(255,255,255,0.68); margin-top:10px; }
 
         /* ── EVENTS ── */
-        .events-header { display:flex; align-items:flex-end; justify-content:space-between; margin-bottom:32px; gap:16px; flex-wrap:wrap; }
+        .events-header { display:flex; align-items:flex-start; justify-content:space-between; margin-bottom:32px; gap:20px; flex-wrap:wrap; }
+        .events-header-left { flex: 1; min-width: 0; }
+        .events-header-right { display:flex; align-items:center; gap:10px; flex-shrink:0; flex-wrap:wrap; }
+        @media (max-width:600px) {
+          .events-header { flex-direction: column; }
+          .events-header-right { width: 100%; justify-content: space-between; }
+        }
         .events-grid { display:grid; grid-template-columns:repeat(3,1fr); gap:20px; }
         @media (max-width:900px) { .events-grid { grid-template-columns:repeat(2,1fr) !important; } }
         @media (max-width:540px) { .events-grid { grid-template-columns:1fr !important; } }
 
-        /* ── EVENT CARD — AllEvents style ── */
+        /* ── EVENT CARD ── */
         .ev-card {
           border-radius:18px; overflow:hidden;
           background:var(--bg-card); border:1px solid var(--border);
@@ -618,64 +746,24 @@ export default function LandingPage() {
           display:flex; flex-direction:column;
         }
         .ev-card:hover { transform:translateY(-7px) scale(1.01); border-color:rgba(13,199,94,.2); box-shadow:0 24px 52px rgba(0,0,0,.6), 0 0 0 1px rgba(13,199,94,.07); }
-
-        /* Cover area */
-        .ev-cover {
-          height:200px; position:relative; display:flex; flex-direction:column;
-          justify-content:flex-end; padding:14px; background-size:cover; background-position:center;
-        }
-        .ev-cover-photo {
-          position:absolute; inset:0; width:100%; height:100%;
-          object-fit:cover; object-position:center top;
-          transition: opacity 0.4s ease; display:block;
-        }
-        .ev-cover-overlay {
-          position:absolute; inset:0;
-          background:linear-gradient(to top,rgba(0,0,0,.88) 0%,rgba(0,0,0,.1) 55%);
-        }
-
-        /* Type badge — dark backdrop so it's always readable on any image/gradient */
-        .ev-type-badge {
-          position:absolute; top:12px; left:12px; z-index:2;
-          display:inline-flex; align-items:center; gap:5px;
-          padding:4px 10px; border-radius:20px; font-size:10px; font-weight:700;
-          backdrop-filter:blur(12px); letter-spacing:.04em;
-          background:rgba(0,0,0,0.62); border:1px solid rgba(255,255,255,0.18); color:#fff;
-        }
-
-        /* Days-left badge */
-        .ev-days-badge {
-          position:absolute; top:12px; right:12px; z-index:2;
-          padding:3px 8px; border-radius:7px; font-size:9px; font-weight:800;
-          color:#fff; letter-spacing:.06em;
-        }
-
-        .ev-date-chip { position:absolute; bottom:42px; left:14px; z-index:2; font-size:9.5px; font-weight:700; color:rgba(255,255,255,0.6); letter-spacing:.04em; }
+        .ev-cover { height:200px; position:relative; display:flex; flex-direction:column; justify-content:flex-end; padding:14px; background-size:cover; background-position:center; }
+        .ev-cover-photo { position:absolute; inset:0; width:100%; height:100%; object-fit:cover; object-position:center top; display:block; }
+        .ev-cover-overlay { position:absolute; inset:0; background:linear-gradient(to top,rgba(0,0,0,.88) 0%,rgba(0,0,0,.1) 55%); }
+        .ev-type-badge { position:absolute; top:12px; left:12px; z-index:2; display:inline-flex; align-items:center; gap:5px; padding:4px 10px; border-radius:20px; font-size:10px; font-weight:700; backdrop-filter:blur(12px); letter-spacing:.04em; background:rgba(0,0,0,0.62); border:1px solid rgba(255,255,255,0.18); color:#fff; }
+        .ev-days-badge { position:absolute; top:12px; right:12px; z-index:2; padding:3px 8px; border-radius:7px; font-size:9px; font-weight:800; color:#fff; letter-spacing:.06em; }
+        .ev-date-chip { position:absolute; bottom:42px; left:14px; z-index:2; font-size:9.5px; font-weight:700; color:rgba(255,255,255,0.7); letter-spacing:.04em; }
         .ev-name { font-family:var(--font-display); font-weight:800; font-size:18px; color:#fff; line-height:1.15; position:relative; z-index:2; }
-
-        /* Card body */
         .ev-body { padding:14px 16px 16px; display:flex; flex-direction:column; gap:4px; flex:1; }
-        .ev-summary { font-size:12px; color:var(--muted); line-height:1.6; margin-bottom:6px; display:-webkit-box; -webkit-line-clamp:2; -webkit-box-orient:vertical; overflow:hidden; }
-        .ev-meta-row { display:flex; align-items:center; gap:6px; font-size:11.5px; color:rgba(255,255,255,0.5); }
+        .ev-summary { font-size:12px; color:rgba(255,255,255,0.62); line-height:1.6; margin-bottom:6px; display:-webkit-box; -webkit-line-clamp:2; -webkit-box-orient:vertical; overflow:hidden; }
+        .ev-meta-row { display:flex; align-items:center; gap:6px; font-size:11.5px; color:rgba(255,255,255,0.62); }
         .ev-meta-row span { overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
-
-        /* Footer row: avatars + ticket button */
         .ev-footer { display:flex; align-items:center; justify-content:space-between; margin-top:12px; }
         .ev-avatars { display:flex; align-items:center; gap:6px; }
         .ev-av { width:22px; height:22px; border-radius:50%; border:2px solid var(--bg-card); display:inline-block; flex-shrink:0; }
-        .ev-av-count { font-size:11px; color:var(--muted); margin-left:4px; }
-        .ev-btn {
-          display:inline-flex; align-items:center; gap:5px; padding:7px 14px;
-          border-radius:8px; font-size:12px; font-weight:700; cursor:pointer;
-          background:var(--tc); border:none; color:#000; font-family:var(--font-body);
-          transition:all .2s;
-        }
+        .ev-av-count { font-size:11px; color:rgba(255,255,255,0.6); margin-left:4px; }
+        .ev-btn { display:inline-flex; align-items:center; gap:5px; padding:7px 14px; border-radius:8px; font-size:12px; font-weight:700; cursor:pointer; background:var(--tc); border:none; color:#000; font-family:var(--font-body); transition:all .2s; }
         .ev-btn:hover { filter:brightness(1.15); transform:translateY(-1px); box-shadow:0 5px 16px color-mix(in srgb,var(--tc) 35%,transparent); }
-
-        /* Empty state */
-        .ev-empty { grid-column:1/-1; display:flex; flex-direction:column; align-items:center; justify-content:center; gap:12px; padding:60px 0; color:var(--muted); font-size:14px; text-align:center; }
-
-        /* Pagination */
+        .ev-empty { grid-column:1/-1; display:flex; flex-direction:column; align-items:center; justify-content:center; gap:12px; padding:60px 0; color:rgba(255,255,255,0.62); font-size:14px; text-align:center; }
         .ev-pagination { display:flex; align-items:center; gap:10px; }
         .pg-btn { width:36px; height:36px; border-radius:50%; background:rgba(255,255,255,0.04); border:1px solid var(--border); color:var(--text); cursor:pointer; display:flex; align-items:center; justify-content:center; transition:all .2s; }
         .pg-btn:hover:not(:disabled) { border-color:rgba(13,199,94,.4); color:var(--green); }
@@ -688,50 +776,132 @@ export default function LandingPage() {
         .feat-grid { display:grid; grid-template-columns:repeat(3,1fr); gap:20px; }
         @media (max-width:900px) { .feat-grid { grid-template-columns:repeat(2,1fr) !important; } }
         @media (max-width:540px) { .feat-grid { grid-template-columns:1fr !important; } }
-        .feat-card {
-          background:var(--bg-card); border:1px solid var(--border); border-radius:18px; padding:28px;
-          transition:all .3s cubic-bezier(.16,1,.3,1); position:relative; overflow:hidden;
-        }
+        .feat-card { background:var(--bg-card); border:1px solid var(--border); border-radius:18px; padding:28px; transition:all .3s cubic-bezier(.16,1,.3,1); }
         .feat-card:hover { transform:translateY(-5px); border-color:rgba(13,199,94,.2); box-shadow:0 18px 52px rgba(0,0,0,.5); }
-        .f3d-icon {
-          width:60px; height:60px; border-radius:17px;
-          background:var(--ib); border:1px solid color-mix(in srgb, var(--ic) 30%, transparent);
-          display:flex; align-items:center; justify-content:center;
-          color:var(--ic); font-size:26px; margin-bottom:18px;
-          box-shadow:0 8px 28px color-mix(in srgb, var(--ic) 18%, transparent);
-          position:relative; overflow:hidden;
-        }
+        .f3d-icon { width:60px; height:60px; border-radius:17px; background:var(--ib); border:1px solid color-mix(in srgb, var(--ic) 30%, transparent); display:flex; align-items:center; justify-content:center; color:var(--ic); font-size:26px; margin-bottom:18px; box-shadow:0 8px 28px color-mix(in srgb, var(--ic) 18%, transparent); }
         .feat-h4 { font-family:var(--font-display); font-weight:700; font-size:15.5px; margin-bottom:9px; }
-        .feat-p { font-size:13px; color:var(--muted); line-height:1.65; }
+        .feat-p { font-size:13px; color:rgba(255,255,255,0.68); line-height:1.65; }
+
+        /* ── STATS CARDS (new) ── */
+        .stats-cards-grid {
+          display: grid;
+          grid-template-columns: repeat(2, 1fr);
+          gap: 16px;
+        }
+        @media (max-width:480px) { .stats-cards-grid { grid-template-columns: 1fr !important; } }
+
+        .stat-card {
+          background: var(--bg-card);
+          border: 1px solid var(--border);
+          border-radius: 18px;
+          padding: 28px 22px 24px;
+          display: flex;
+          flex-direction: column;
+          align-items: center;
+          text-align: center;
+          gap: 14px;
+          transition: transform .3s cubic-bezier(.16,1,.3,1), border-color .3s, box-shadow .3s;
+          animation: statPop .55s cubic-bezier(.16,1,.3,1) both;
+          position: relative;
+          overflow: hidden;
+        }
+        .stat-card::before {
+          content: '';
+          position: absolute; top: 0; left: 0; right: 0; height: 2px;
+          background: linear-gradient(90deg, transparent, var(--sc), transparent);
+          border-radius: 18px 18px 0 0;
+        }
+        .stat-card:hover {
+          transform: translateY(-5px);
+          border-color: color-mix(in srgb, var(--sc) 30%, transparent);
+          box-shadow: 0 16px 48px rgba(0,0,0,.5),
+                      0 0 0 1px color-mix(in srgb, var(--sc) 12%, transparent);
+        }
+        .stat-card-ic {
+          width: 60px; height: 60px; border-radius: 16px;
+          display: flex; align-items: center; justify-content: center;
+          font-size: 32px;
+          color: var(--sc);
+          background: color-mix(in srgb, var(--sc) 10%, transparent);
+          border: 1px solid color-mix(in srgb, var(--sc) 20%, transparent);
+          flex-shrink: 0;
+        }
+        .stat-card-num {
+          font-family: var(--font-display);
+          font-size: clamp(36px, 4.5vw, 52px);
+          font-weight: 800;
+          line-height: 1;
+          color: var(--text);
+          letter-spacing: -1px;
+        }
+        .stat-card-lbl {
+          font-size: 13px;
+          font-weight: 600;
+          color: rgba(255,255,255,0.62);
+          margin-top: 2px;
+        }
 
         /* ── WHY US ── */
         .why-grid { display:grid; grid-template-columns:repeat(3,1fr); gap:20px; }
         @media (max-width:900px) { .why-grid { grid-template-columns:repeat(2,1fr) !important; } }
         @media (max-width:540px) { .why-grid { grid-template-columns:1fr !important; } }
-        .why-card {
-          background:var(--bg-card); border:1px solid var(--border); border-radius:18px; padding:28px;
-          transition:all .3s;
-        }
+        .why-card { background:var(--bg-card); border:1px solid var(--border); border-radius:18px; padding:28px; transition:all .3s; }
         .why-card:hover { transform:translateY(-4px); border-color:rgba(13,199,94,.18); box-shadow:0 16px 48px rgba(0,0,0,.4); }
         .why-ic { width:48px; height:48px; border-radius:14px; display:flex; align-items:center; justify-content:center; font-size:22px; margin-bottom:16px; }
         .why-h4 { font-family:var(--font-display); font-weight:700; font-size:15px; margin-bottom:8px; }
-        .why-p { font-size:13px; color:var(--muted); line-height:1.6; }
+        .why-p { font-size:13px; color:rgba(255,255,255,0.68); line-height:1.6; }
 
-        /* ── TESTIMONIAL ── */
+        /* ── STATS + TESTIMONIAL layout ── */
         .ts-grid { display:grid; grid-template-columns:1fr 1fr; gap:56px; align-items:center; }
         @media (max-width:820px) { .ts-grid { grid-template-columns:1fr !important; gap:40px !important; } }
-        .stats-grid { display:grid; grid-template-columns:1fr 1fr; gap:36px 28px; }
-        .stat-ic { font-size:24px; color:var(--green); margin-bottom:8px; }
-        .stat-num { font-family:var(--font-display); font-size:clamp(36px,4vw,50px); font-weight:800; line-height:1; }
-        .stat-lbl { font-size:13px; color:var(--muted); margin-top:5px; }
-        .tcard { background:var(--bg-card); border:1px solid var(--border); border-radius:20px; padding:32px; position:relative; overflow:hidden; }
-        .tcard-q { font-size:72px; color:var(--green); position:absolute; top:14px; left:22px; line-height:1; opacity:.1; font-family:Georgia,serif; }
-        .tcard-txt { font-size:16px; line-height:1.75; margin-top:40px; margin-bottom:24px; }
-        .tcard-auth { display:flex; align-items:center; gap:12px; }
-        .t-av { width:44px; height:44px; border-radius:50%; object-fit:cover; border:2px solid rgba(13,199,94,.3); }
+
+        /* ── TESTIMONIAL CARD (auto-scroll) ── */
+        .tcard {
+          background: var(--bg-card); border: 1px solid var(--border);
+          border-radius: 20px; padding: 28px 28px 22px; position: relative; overflow: hidden;
+          display: flex; flex-direction: column; gap: 0;
+        }
+
+        /* Progress bar row */
+        .tcard-progress {
+          display: flex; gap: 5px; margin-bottom: 20px;
+        }
+        .tcard-prog-seg {
+          flex: 1; height: 3px; border-radius: 3px;
+          background: rgba(255,255,255,0.1);
+          cursor: pointer; position: relative; overflow: hidden;
+          transition: background .2s;
+        }
+        .tcard-prog-seg.done { background: rgba(13,199,94,0.4); }
+        .tcard-prog-seg.active { background: rgba(13,199,94,0.15); }
+        .tcard-prog-seg.active::after {
+          content: ''; position: absolute; inset: 0;
+          background: var(--green);
+          animation: prog 5s linear forwards;
+        }
+
+        .tcard-inner {
+          transition: opacity .35s ease, transform .35s ease;
+          flex: 1;
+        }
+        .tcard-inner.fading { opacity: 0; transform: translateY(8px); }
+        .tcard-inner.visible { opacity: 1; transform: none; }
+
+        .tcard-stars { display: flex; gap: 3px; margin-bottom: 14px; }
+        .tcard-q { font-size:64px; color:var(--green); line-height:1; opacity:.12; font-family:Georgia,serif; position:absolute; top:58px; left:22px; }
+        .tcard-txt { font-size:15px; line-height:1.78; margin-bottom:22px; color:rgba(255,255,255,0.88); font-style:italic; }
+        .tcard-auth { display:flex; align-items:center; gap:12px; margin-bottom: 18px; }
+        .t-av { width:48px; height:48px; border-radius:50%; object-fit:cover; border:2px solid rgba(13,199,94,.3); flex-shrink:0; }
+        .t-av-fallback {
+          width:48px; height:48px; border-radius:50%;
+          background: linear-gradient(135deg, var(--green), #0a9444);
+          display: flex; align-items: center; justify-content: center;
+          font-family: var(--font-display); font-weight: 800; font-size: 16px; color: #000;
+          flex-shrink: 0; border: 2px solid rgba(13,199,94,.3);
+        }
         .t-name { font-weight:700; font-size:14px; }
-        .t-role { font-size:12px; color:var(--muted); }
-        .tcard-nav { display:flex; gap:8px; margin-top:22px; justify-content:flex-end; }
+        .t-role { font-size:12px; color:rgba(255,255,255,0.62); }
+        .tcard-nav { display:flex; align-items:center; justify-content:space-between; }
         .circ-btn { width:34px; height:34px; border-radius:50%; background:rgba(255,255,255,0.04); border:1px solid var(--border); color:var(--text); cursor:pointer; display:flex; align-items:center; justify-content:center; transition:all .2s; }
         .circ-btn:hover { border-color:rgba(13,199,94,.4); color:var(--green); }
 
@@ -747,7 +917,7 @@ export default function LandingPage() {
         .step-n { font-family:var(--font-display); font-size:20px; font-weight:800; color:var(--green); }
         .step-ic { font-size:24px; color:var(--green); margin-bottom:12px; }
         .step-h4 { font-family:var(--font-display); font-size:15px; font-weight:700; margin-bottom:8px; }
-        .step-p { font-size:12.5px; color:var(--muted); line-height:1.6; }
+        .step-p { font-size:12.5px; color:rgba(255,255,255,0.65); line-height:1.6; }
 
         /* ── CTA BANNER ── */
         .cta-banner {
@@ -762,23 +932,23 @@ export default function LandingPage() {
         @media (max-width:700px) { .cta-banner { grid-template-columns:1fr !important; padding:36px 24px; } }
         .cta-glow  { position:absolute; top:-80px; right:-60px; width:360px; height:360px; background:radial-gradient(circle,rgba(13,199,94,.1) 0%,transparent 70%); pointer-events:none; }
         .cta-h2 { font-family:var(--font-display); font-size:clamp(24px,3.5vw,42px); font-weight:800; line-height:1.15; margin-bottom:10px; }
-        .cta-p { color:var(--muted); font-size:14px; }
+        .cta-p { color:rgba(255,255,255,0.68); font-size:14px; }
         .cta-r { display:flex; flex-direction:column; align-items:flex-start; gap:12px; flex-shrink:0; }
-        .cta-small { font-size:12px; color:rgba(255,255,255,0.2); }
+        .cta-small { font-size:12px; color:rgba(255,255,255,0.3); }
 
         /* ── FOOTER ── */
         .footer { background:#010814; border-top:1px solid var(--border); padding:clamp(48px,6vw,72px) clamp(16px,5%,80px) 28px; }
         .footer-top { display:grid; grid-template-columns:2fr 1fr 1fr 1fr 1fr 1fr; gap:clamp(16px,2vw,36px); margin-bottom:48px; }
         @media (max-width:900px) { .footer-top { grid-template-columns:1fr 1fr 1fr !important; } }
         @media (max-width:560px) { .footer-top { grid-template-columns:1fr 1fr !important; } }
-        .ft-brand-p { font-size:13px; color:var(--muted); margin:14px 0 18px; max-width:190px; line-height:1.7; }
+        .ft-brand-p { font-size:13px; color:rgba(255,255,255,0.62); margin:14px 0 18px; max-width:190px; line-height:1.7; }
         .soc-row { display:flex; gap:8px; }
-        .soc-ic { width:32px; height:32px; border-radius:8px; background:rgba(255,255,255,0.04); border:1px solid var(--border); display:flex; align-items:center; justify-content:center; font-size:14px; color:var(--muted); cursor:pointer; transition:all .2s; }
+        .soc-ic { width:32px; height:32px; border-radius:8px; background:rgba(255,255,255,0.04); border:1px solid var(--border); display:flex; align-items:center; justify-content:center; font-size:14px; color:rgba(255,255,255,0.55); cursor:pointer; transition:all .2s; }
         .soc-ic:hover { border-color:rgba(13,199,94,.4); color:var(--green); }
         .ft-col-h { font-family:var(--font-display); font-size:13px; font-weight:700; margin-bottom:16px; color:var(--text); }
-        .ft-lnk { display:block; font-size:13px; color:var(--muted); text-decoration:none; margin-bottom:9px; background:none; border:none; cursor:pointer; font-family:var(--font-body); text-align:left; padding:0; transition:color .2s; }
+        .ft-lnk { display:block; font-size:13px; color:rgba(255,255,255,0.58); text-decoration:none; margin-bottom:9px; background:none; border:none; cursor:pointer; font-family:var(--font-body); text-align:left; padding:0; transition:color .2s; }
         .ft-lnk:hover { color:var(--green); }
-        .ft-bottom { border-top:1px solid var(--border); padding-top:22px; display:flex; justify-content:space-between; align-items:center; font-size:12px; color:rgba(255,255,255,0.18); flex-wrap:wrap; gap:12px; }
+        .ft-bottom { border-top:1px solid var(--border); padding-top:22px; display:flex; justify-content:space-between; align-items:center; font-size:12px; color:rgba(255,255,255,0.3); flex-wrap:wrap; gap:12px; }
 
         /* ── SCROLL TOP ── */
         .scroll-top { position:fixed; bottom:28px; right:28px; width:42px; height:42px; border-radius:50%; background:var(--green); border:none; color:#000; cursor:pointer; display:flex; align-items:center; justify-content:center; box-shadow:0 4px 20px rgba(13,199,94,.4); transition:all .3s; z-index:300; transform:scale(0); }
@@ -800,19 +970,13 @@ export default function LandingPage() {
         {/* ── NAV ── */}
         <nav className={`nav ${scrolled ? 'scrolled' : ''}`}>
           <div className="logo" onClick={() => navigate('/')}>
-            <img
-              src="/Stagechecklogo.png"
-              alt="StageCheck"
-              className="logo-img"
-            />
+            <img src="/Stagechecklogo.png" alt="StageCheck" className="logo-img" />
           </div>
-
           <div className="nav-center">
             {navItems.map(l => (
               <button key={l.label} className="nav-pill" onClick={() => scrollTo(l.id)}>{l.label}</button>
             ))}
           </div>
-
           <div className="nav-r">
             <button className="btn-ghost desktop" onClick={() => navigate('/login')}>Log in</button>
             <button className="btn-green desktop" onClick={() => navigate('/signup')}>Get Started Free</button>
@@ -866,7 +1030,7 @@ export default function LandingPage() {
             </p>
 
             <div className="hero-search reveal fy d2">
-              <RiSearchLine size={17} color="rgba(255,255,255,0.35)" style={{ flexShrink: 0 }} />
+              <RiSearchLine size={17} color="rgba(255,255,255,0.45)" style={{ flexShrink: 0 }} />
               <input placeholder="Search events, concerts, competitions..." value={search} onChange={e => setSearch(e.target.value)} />
               <div className="search-div" />
               <button className="btn-green" style={{ padding: '9px 20px', fontSize: 13, borderRadius: 9, flexShrink: 0 }} onClick={() => scrollTo('events')}>
@@ -901,12 +1065,12 @@ export default function LandingPage() {
         {/* ── EVENTS ── */}
         <section id="events" className="section">
           <div className="events-header">
-            <div>
+            <div className="events-header-left">
               <span className="eyebrow reveal fy">Upcoming Events</span>
               <h2 className="sh2 reveal fy d1">Explore Top Events Near You</h2>
               <p className="sh2-sub reveal fy d2">Don't miss out on what's happening around you</p>
             </div>
-            <div style={{ display:'flex', alignItems:'center', gap:10 }} className="reveal sr">
+            <div className="events-header-right reveal sr">
               <button className="btn-ghost" style={{ fontSize:13 }} onClick={() => navigate('/events')}>
                 View All Events <RiArrowRightLine size={13} />
               </button>
@@ -952,7 +1116,7 @@ export default function LandingPage() {
           <div style={{ textAlign:'center' }}>
             <span className="eyebrow reveal fy">How It Works</span>
             <h2 className="sh2 reveal fy d1" style={{ textAlign:'center' }}>From idea to standing ovation</h2>
-            <p className="reveal fy d2" style={{ color:'var(--muted)', fontSize:14, marginTop:10, maxWidth:460, margin:'10px auto 0' }}>Four simple steps to your most successful event yet.</p>
+            <p className="reveal fy d2" style={{ color:'rgba(255,255,255,0.68)', fontSize:14, marginTop:10, maxWidth:460, margin:'10px auto 0' }}>Four simple steps to your most successful event yet.</p>
           </div>
           <div className="steps-grid">
             <div className="step-conn" />
@@ -977,7 +1141,7 @@ export default function LandingPage() {
           <div style={{ textAlign:'center', marginBottom:52 }}>
             <span className="eyebrow reveal fy">Platform Features</span>
             <h2 className="sh2 reveal fy d1" style={{ textAlign:'center' }}>Everything your event needs</h2>
-            <p className="reveal fy d2" style={{ color:'var(--muted)', fontSize:14, marginTop:10, maxWidth:440, margin:'10px auto 0' }}>One platform. Every tool. Zero compromise.</p>
+            <p className="reveal fy d2" style={{ color:'rgba(255,255,255,0.68)', fontSize:14, marginTop:10, maxWidth:440, margin:'10px auto 0' }}>One platform. Every tool. Zero compromise.</p>
           </div>
           <div className="feat-grid">
             {features.map((f, i) => (
@@ -993,38 +1157,26 @@ export default function LandingPage() {
         {/* ── STATS + TESTIMONIAL ── */}
         <section className="section" style={{ background:'linear-gradient(180deg,var(--bg) 0%,#010810 100%)' }}>
           <div className="ts-grid">
+            {/* Left — Stat Cards */}
             <div className="reveal sl">
               <span className="eyebrow">Impact by the numbers</span>
-              <div className="stats-grid" style={{ marginTop:28 }}>
-                {[
-                  { icon:<RiCalendarEventLine size={24} />, val:stats.events, lbl:'Events Managed' },
-                  { icon:<RiFlashlightLine size={24} />, val:stats.performers, lbl:'Performers Registered' },
-                  { icon:<RiTicketLine size={24} />, val:stats.tickets, lbl:'Tickets Issued' },
-                  { icon:<RiSparklingLine size={24} />, val:stats.satisfaction, lbl:'Customer Satisfaction' },
-                ].map((s, i) => (
-                  <div key={i} className={`reveal fy d${i + 1}`}>
-                    <div className="stat-ic">{s.icon}</div>
-                    <div className="stat-num">{s.val}</div>
-                    <div className="stat-lbl">{s.lbl}</div>
+              <div className="stats-cards-grid" style={{ marginTop: 28 }}>
+                {statCards.map((s, i) => (
+                  <div
+                    key={s.lbl}
+                    className={`stat-card reveal fy d${i + 1}`}
+                    style={{ '--sc': s.color } as React.CSSProperties}
+                  >
+                    <div className="stat-card-ic">{s.icon}</div>
+                    <div className="stat-card-num">{s.val}</div>
+                    <div className="stat-card-lbl">{s.lbl}</div>
                   </div>
                 ))}
               </div>
             </div>
-            <div className="tcard reveal sr">
-              <div className="tcard-q">"</div>
-              <p className="tcard-txt">{testimonials[testimonialIdx].quote}</p>
-              <div className="tcard-auth">
-                <img src={testimonials[testimonialIdx].avatar} alt="" className="t-av" />
-                <div>
-                  <div className="t-name">{testimonials[testimonialIdx].name}</div>
-                  <div className="t-role">{testimonials[testimonialIdx].role}</div>
-                </div>
-              </div>
-              <div className="tcard-nav">
-                <button className="circ-btn" onClick={() => setTestimonialIdx(i => (i - 1 + testimonials.length) % testimonials.length)}><RiArrowLeftSLine size={17} /></button>
-                <button className="circ-btn" onClick={() => setTestimonialIdx(i => (i + 1) % testimonials.length)}><RiArrowRightSLine size={17} /></button>
-              </div>
-            </div>
+
+            {/* Right — Auto-scroll testimonial */}
+            <TestimonialCarousel testimonials={testimonials} />
           </div>
         </section>
 
@@ -1042,7 +1194,7 @@ export default function LandingPage() {
               </div>
               <div>
                 <div style={{ fontFamily:'var(--font-display)', fontWeight:700, fontSize:16 }}>Completely Free Right Now</div>
-                <div style={{ fontSize:13, color:'var(--muted)' }}>Full access to all features — no credit card, no limits.</div>
+                <div style={{ fontSize:13, color:'rgba(255,255,255,0.68)' }}>Full access to all features — no credit card, no limits.</div>
               </div>
             </div>
             <button className="btn-green" style={{ fontSize:14, padding:'11px 26px' }} onClick={() => navigate('/signup')}>
@@ -1067,7 +1219,7 @@ export default function LandingPage() {
               { icon:<RiCloseLine size={14} />, label:'Cancel Anytime' },
               { icon:<RiCheckLine size={14} />, label:'GDPR Compliant' },
             ].map(b => (
-              <div key={b.label} style={{ display:'flex', alignItems:'center', gap:8, fontSize:13, color:'var(--muted)' }}>
+              <div key={b.label} style={{ display:'flex', alignItems:'center', gap:8, fontSize:13, color:'rgba(255,255,255,0.65)' }}>
                 <span style={{ color:'var(--green)' }}>{b.icon}</span> {b.label}
               </div>
             ))}
@@ -1095,11 +1247,7 @@ export default function LandingPage() {
           <div className="footer-top">
             <div>
               <div className="logo" onClick={() => navigate('/')} style={{ marginBottom: 0 }}>
-                <img
-                  src="/Stagechecklogo.png"
-                  alt="StageCheck"
-                  className="logo-img"
-                />
+                <img src="/Stagechecklogo.png" alt="StageCheck" className="logo-img" />
               </div>
               <p className="ft-brand-p">The complete event operating system. Plan, manage and run flawless events.</p>
               <div className="soc-row">

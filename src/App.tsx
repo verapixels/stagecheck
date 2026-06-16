@@ -40,6 +40,19 @@ import AnalyticsPage from './pages/event/AnalyticsPage'
 import AIInsightsPage from './pages/event/AIInsightsPage'
 import SubmitPage from './pages/SubmitPage'
 
+// SuperAdmin
+import SuperAdminRoute from './components/superadmin/Superadminroute'
+import SuperAdminLayout from './components/superadmin/Superadminlayout'
+import AdminOverview from './pages/adminOverview'
+import AdminEvents from './pages/adminEvents'
+import AdminUsers from './pages/adminUsers'
+import AdminReports from './pages/adminReports'
+import AdminTestimonials from './pages/adminTestimonials'
+import AdminAnalytics from './pages/adminAnalytics'
+import AdminSettingsPage from './pages/AdminSettingsPage'
+import FeedbackPage from './pages/adminFeedbackPage'
+
+
 function AuthRoute({ children }: { children: React.ReactNode }) {
   const { user, loading } = useAuth()
 
@@ -93,6 +106,7 @@ export default function App() {
           <Route path="/join/:joinCode" element={<JoinPage />} />
           <Route path="/event/:eventId" element={<EventDetailPage />} />
           <Route path="/submit/:eventSlug/:eventId" element={<SubmitPage />} />
+          <Route path="/feedback/:tokenId" element={<FeedbackPage />} />
 
           {/* ── PROTECTED — MAIN ── */}
           <Route path="/onboarding" element={<ProtectedRoute><Onboarding /></ProtectedRoute>} />
@@ -115,6 +129,17 @@ export default function App() {
           <Route path="/dashboard/event/:eventId/media"        element={<EventRoute><MediaPage /></EventRoute>} />
           <Route path="/dashboard/event/:eventId/analytics"    element={<EventRoute><AnalyticsPage /></EventRoute>} />
           <Route path="/dashboard/event/:eventId/ai"           element={<EventRoute><AIInsightsPage /></EventRoute>} />
+
+          {/* ── SUPERADMIN ── */}
+<Route element={<SuperAdminRoute><SuperAdminLayout /></SuperAdminRoute>}>
+  <Route path="/superadmin" element={<AdminOverview />} />
+  <Route path="/superadmin/events" element={<AdminEvents />} />
+  <Route path="/superadmin/users" element={<AdminUsers />} />
+  <Route path="/superadmin/reports" element={<AdminReports />} />
+  <Route path="/superadmin/testimonials" element={<AdminTestimonials />} />
+  <Route path="/superadmin/analytics" element={<AdminAnalytics />} />
+<Route path="/superadmin/settings" element={<AdminSettingsPage />} />
+</Route>
 
           {/* ── CATCH ALL ── */}
           <Route path="*" element={<Navigate to="/" replace />} />
