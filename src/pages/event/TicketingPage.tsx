@@ -182,7 +182,7 @@ function CheckinStation({ eventId, attendees, onBack }: {
         osc.frequency.setValueAtTime(523, ctx.currentTime)        // C5
         osc.frequency.setValueAtTime(659, ctx.currentTime + 0.12) // E5
         osc.frequency.setValueAtTime(784, ctx.currentTime + 0.24) // G5
-        gain.gain.setValueAtTime(0.4, ctx.currentTime)
+        gain.gain.setValueAtTime(1.0, ctx.currentTime)
         gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.6)
         osc.start(ctx.currentTime)
         osc.stop(ctx.currentTime + 0.6)
@@ -190,7 +190,7 @@ function CheckinStation({ eventId, attendees, onBack }: {
         // Warning beep
         osc.frequency.setValueAtTime(440, ctx.currentTime)
         osc.frequency.setValueAtTime(350, ctx.currentTime + 0.15)
-        gain.gain.setValueAtTime(0.3, ctx.currentTime)
+        gain.gain.setValueAtTime(1.0, ctx.currentTime)
         gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.4)
         osc.start(ctx.currentTime)
         osc.stop(ctx.currentTime + 0.4)
@@ -198,7 +198,7 @@ function CheckinStation({ eventId, attendees, onBack }: {
         // Error buzz
         osc.type = 'sawtooth'
         osc.frequency.setValueAtTime(180, ctx.currentTime)
-        gain.gain.setValueAtTime(0.3, ctx.currentTime)
+        gain.gain.setValueAtTime(1.0, ctx.currentTime)
         gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.3)
         osc.start(ctx.currentTime)
         osc.stop(ctx.currentTime + 0.3)
@@ -264,15 +264,15 @@ function CheckinStation({ eventId, attendees, onBack }: {
   /* Scan loop */
   useEffect(() => {
     if (mode !== 'camera' || !cameraReady) return
-    const scan = () => {
+   const scan = () => {
       const video = videoRef.current; const canvas = canvasRef.current
       if (!video || !canvas || video.readyState < 2) { rafRef.current = requestAnimationFrame(scan); return }
-      const ctx = canvas.getContext('2d')!
+      const ctx = canvas.getContext('2d', { willReadFrequently: true })!
       canvas.width = video.videoWidth; canvas.height = video.videoHeight
       ctx.drawImage(video, 0, 0)
       const img  = ctx.getImageData(0, 0, canvas.width, canvas.height)
-      const code = jsQR(img.data, img.width, img.height, { inversionAttempts: 'attemptBoth' })   
-         if (code?.data && code.data !== lastScanned.current && !processing) {
+      const code = jsQR(img.data, img.width, img.height, { inversionAttempts: 'attemptBoth' })
+      if (code?.data && code.data !== lastScanned.current && !processing) {
         lastScanned.current = code.data; processCode(code.data)
       }
       rafRef.current = requestAnimationFrame(scan)
