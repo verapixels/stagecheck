@@ -161,7 +161,7 @@ function CheckinStation({ eventId, attendees, onBack }: {
   // jsQR is imported directly — no CDN loading needed
 
   /* Process ticket code */
-   const processCode = useCallback(async (rawCode: string) => {
+  const processCode = useCallback(async (rawCode: string) => {
     let code = rawCode.trim().toUpperCase()
     try {
       const parsed = JSON.parse(rawCode.trim())
@@ -169,14 +169,51 @@ function CheckinStation({ eventId, attendees, onBack }: {
     } catch { /* not JSON, use raw */ }
     if (!code || processing) return
     setProcessing(true); setResult(null)
+
+    const playSound = (type: 'success' | 'already' | 'invalid') => {
+      const ctx = new AudioContext()
+      const osc = ctx.createOscillator()
+      const gain = ctx.createGain()
+      osc.connect(gain)
+      gain.connect(ctx.destination)
+
+      if (type === 'success') {
+        // Happy ding ding
+        osc.frequency.setValueAtTime(523, ctx.currentTime)        // C5
+        osc.frequency.setValueAtTime(659, ctx.currentTime + 0.12) // E5
+        osc.frequency.setValueAtTime(784, ctx.currentTime + 0.24) // G5
+        gain.gain.setValueAtTime(0.4, ctx.currentTime)
+        gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.6)
+        osc.start(ctx.currentTime)
+        osc.stop(ctx.currentTime + 0.6)
+      } else if (type === 'already') {
+        // Warning beep
+        osc.frequency.setValueAtTime(440, ctx.currentTime)
+        osc.frequency.setValueAtTime(350, ctx.currentTime + 0.15)
+        gain.gain.setValueAtTime(0.3, ctx.currentTime)
+        gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.4)
+        osc.start(ctx.currentTime)
+        osc.stop(ctx.currentTime + 0.4)
+      } else {
+        // Error buzz
+        osc.type = 'sawtooth'
+        osc.frequency.setValueAtTime(180, ctx.currentTime)
+        gain.gain.setValueAtTime(0.3, ctx.currentTime)
+        gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.3)
+        osc.start(ctx.currentTime)
+        osc.stop(ctx.currentTime + 0.3)
+      }
+    }
+
     try {
       const att = attendees.find(a => a.ticketCode?.toUpperCase() === code)
-      if (!att)          { setResult({ status: 'invalid' }); return }
-      if (att.checkedIn) { setResult({ status: 'already', attendee: att }); return }
+      if (!att)          { playSound('invalid'); setResult({ status: 'invalid' }); return }
+      if (att.checkedIn) { playSound('already'); setResult({ status: 'already', attendee: att }); return }
       await updateDoc(doc(db, 'events', eventId, 'attendees', att.id), {
         checkedIn: true, checkedInAt: serverTimestamp(),
       })
       setScanCount(n => n + 1)
+      playSound('success')
       setResult({ status: 'success', attendee: { ...att, checkedIn: true } })
     } finally { setProcessing(false) }
   }, [attendees, eventId, processing])
