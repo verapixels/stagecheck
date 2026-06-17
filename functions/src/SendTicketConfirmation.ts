@@ -74,18 +74,6 @@ function buildTicketEmail(params: {
       </a>
     </td>`).join('')
 
-  // Icon circle helper — uses a hosted checkmark-style dot for each row
-  const iconCircle = (svgPath: string) => `
-    <td style="width:32px;vertical-align:middle;padding-right:10px;">
-      <table cellpadding="0" cellspacing="0" border="0">
-        <tr>
-          <td style="width:32px;height:32px;border-radius:16px;background:rgba(13,199,94,0.12);border:1.5px solid rgba(13,199,94,0.3);text-align:center;vertical-align:middle;">
-            <img src="https://res.cloudinary.com/dr0qtfjjf/image/upload/w_16,h_16,c_fit/${svgPath}" 
-                 width="16" height="16" style="display:inline-block;vertical-align:middle;border:0;"/>
-          </td>
-        </tr>
-      </table>
-    </td>`
 
   // Use simple colored square bullets instead of icon images for the detail rows
   // (most reliable across all email clients)
