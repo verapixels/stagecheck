@@ -161,8 +161,12 @@ function CheckinStation({ eventId, attendees, onBack }: {
   // jsQR is imported directly — no CDN loading needed
 
   /* Process ticket code */
-  const processCode = useCallback(async (rawCode: string) => {
-    const code = rawCode.trim().toUpperCase()
+   const processCode = useCallback(async (rawCode: string) => {
+    let code = rawCode.trim().toUpperCase()
+    try {
+      const parsed = JSON.parse(rawCode.trim())
+      if (parsed.code) code = parsed.code.toUpperCase()
+    } catch { /* not JSON, use raw */ }
     if (!code || processing) return
     setProcessing(true); setResult(null)
     try {
