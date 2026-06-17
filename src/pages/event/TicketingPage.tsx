@@ -230,8 +230,8 @@ function CheckinStation({ eventId, attendees, onBack }: {
       canvas.width = video.videoWidth; canvas.height = video.videoHeight
       ctx.drawImage(video, 0, 0)
       const img  = ctx.getImageData(0, 0, canvas.width, canvas.height)
-      const code = jsQR(img.data, img.width, img.height, { inversionAttempts: 'dontInvert' })
-      if (code?.data && code.data !== lastScanned.current && !processing) {
+      const code = jsQR(img.data, img.width, img.height, { inversionAttempts: 'attemptBoth' })   
+         if (code?.data && code.data !== lastScanned.current && !processing) {
         lastScanned.current = code.data; processCode(code.data)
       }
       rafRef.current = requestAnimationFrame(scan)

@@ -192,8 +192,18 @@ function NavContent({ scrolled, variant, navigate, onScrollTo }: {
     { label: 'Why Us', id: 'why-us' },
   ]
 
+  const eventsNavItems = [
+    { label: 'Home', id: 'home' },
+    { label: 'How It Works', id: 'how-it-works' },
+    { label: 'Why Us', id: 'why-us' },
+  ]
+
+  const navItems = variant === 'landing' ? landingNavItems : eventsNavItems
+
   const handlePill = (id: string) => {
-    if (variant === 'landing' && onScrollTo) {
+    if (id === 'home') {
+      navigate('/')
+    } else if (variant === 'landing' && onScrollTo) {
       onScrollTo(id)
     } else {
       navigate(`/#${id}`)
@@ -222,15 +232,13 @@ function NavContent({ scrolled, variant, navigate, onScrollTo }: {
           </div>
         </div>
 
-        {variant === 'landing' && (
-          <div className="sc-nav-center">
-            {landingNavItems.map(l => (
-              <button key={l.label} className="sc-nav-pill" onClick={() => handlePill(l.id)}>
-                {l.label}
-              </button>
-            ))}
-          </div>
-        )}
+        <div className="sc-nav-center">
+          {navItems.map(l => (
+            <button key={l.label} className="sc-nav-pill" onClick={() => handlePill(l.id)}>
+              {l.label}
+            </button>
+          ))}
+        </div>
 
         <div className="sc-nav-r">
           <button className="sc-btn-ghost desktop-only" onClick={() => navigate('/login')}>Log in</button>
@@ -249,16 +257,11 @@ function NavContent({ scrolled, variant, navigate, onScrollTo }: {
 
       <div className={`sc-mob-overlay ${menuOpen ? 'open' : ''}`}>
         <div className="sc-mob-inner">
-          {variant === 'landing' && landingNavItems.map(l => (
+          {navItems.map(l => (
             <button key={l.label} className="sc-mob-link" onClick={() => handlePill(l.id)}>
               {l.label}
             </button>
           ))}
-          {variant === 'events' && (
-            <button className="sc-mob-link" onClick={() => { navigate('/'); setMenuOpen(false) }}>
-              Home
-            </button>
-          )}
           <div className="sc-mob-divider" />
           <div className="sc-mob-btns">
             <button className="sc-mob-btn-g" onClick={() => { setMenuOpen(false); navigate('/signup') }}>

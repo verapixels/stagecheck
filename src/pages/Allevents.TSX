@@ -406,6 +406,7 @@ export default function AllEvents() {
         @keyframes slideUp { from{opacity:0;transform:translateY(20px)}to{opacity:1;transform:none} }
         @keyframes fadeIn  { from{opacity:0}to{opacity:1} }
         @keyframes scaleIn { from{opacity:0;transform:scale(.94)}to{opacity:1;transform:scale(1)} }
+        @keyframes pageEnter { 0%{opacity:0;transform:scale(.97)} 100%{opacity:1;transform:scale(1)} }
 
         .reveal { opacity:0; transition: opacity .7s cubic-bezier(.16,1,.3,1), transform .7s cubic-bezier(.16,1,.3,1); }
         .reveal.fy  { transform: translateY(32px); }
@@ -417,6 +418,7 @@ export default function AllEvents() {
         .d4{transition-delay:.27s}.d5{transition-delay:.34s}.d6{transition-delay:.41s}
 
         body, .ae-root { background: var(--bg); color: var(--text); font-family: var(--font-body); font-size: 15px; line-height: 1.6; overflow-x: hidden; min-height: 100vh; }
+        .ae-root { animation: pageEnter .6s cubic-bezier(.16,1,.3,1) both; }
 
         /* ── NAV ── */
         .ae-nav {
@@ -506,7 +508,7 @@ export default function AllEvents() {
           background:rgba(2,8,20,.93); border-bottom:1px solid var(--border);
           backdrop-filter:blur(20px); padding:0 clamp(16px,4%,64px);
         }
-        .ae-tabs { display:flex; border-bottom:1px solid var(--border); }
+        .ae-tabs { display:flex; justify-content:center; border-bottom:1px solid var(--border); }
         .ae-tab {
           padding:14px 20px; font-size:13px; font-weight:600; cursor:pointer;
           background:none; border:none; color:var(--muted); font-family:var(--font-body);
@@ -519,27 +521,41 @@ export default function AllEvents() {
         .ae-tab-count { font-size:10px; background:rgba(13,199,94,0.12); border:1px solid rgba(13,199,94,0.2); color:var(--green); padding:1px 6px; border-radius:9px; font-weight:700; }
         .ae-tab-count.grey { background:rgba(255,255,255,0.06); border-color:rgba(255,255,255,0.1); color:var(--muted); }
 
-        .ae-search-row { display:flex; align-items:center; gap:10px; padding:12px 0; flex-wrap:wrap; }
+        .ae-search-row { display:flex; align-items:center; gap:12px; padding:12px 0; flex-wrap:wrap; }
         .ae-search-wrap {
-          flex:1; min-width:200px; display:flex; align-items:center; gap:10px;
-          background:rgba(255,255,255,0.04); border:1px solid rgba(255,255,255,0.09);
-          border-radius:10px; padding:8px 14px; transition:border-color .2s, box-shadow .2s;
+          flex:0 1 380px; max-width:380px; min-width:200px; display:flex; align-items:center; gap:9px;
+          background:rgba(255,255,255,0.045);
+          border:1px solid rgba(255,255,255,0.10);
+          border-radius:999px; padding:10px 16px;
+          transition:border-color .25s, box-shadow .25s, background .25s;
         }
-        .ae-search-wrap:focus-within { border-color:rgba(13,199,94,.3); box-shadow:0 0 0 1px rgba(13,199,94,.1); }
-        .ae-search-wrap input { flex:1; background:none; border:none; outline:none; color:var(--text); font-size:13px; font-family:var(--font-body); }
-        .ae-search-wrap input::placeholder { color:var(--muted); }
+        .ae-search-wrap:hover { border-color:rgba(255,255,255,0.18); background:rgba(255,255,255,0.06); }
+        .ae-search-wrap:focus-within {
+          border-color:rgba(13,199,94,.5);
+          background:rgba(13,199,94,0.06);
+          box-shadow:0 0 0 3px rgba(13,199,94,.12);
+        }
+        .ae-search-wrap .search-ic { color:var(--muted); transition:color .25s; flex-shrink:0; }
+        .ae-search-wrap:focus-within .search-ic { color:var(--green); }
+        .ae-search-wrap input { flex:1; min-width:0; background:none; border:none; outline:none; color:var(--text); font-size:13.5px; font-weight:500; font-family:var(--font-body); }
+        .ae-search-wrap input::placeholder { color:var(--muted); font-weight:400; }
+        .ae-search-clear {
+          background:rgba(255,255,255,0.07); border:none; cursor:pointer; color:var(--muted);
+          width:20px; height:20px; border-radius:50%; flex-shrink:0;
+          display:flex; align-items:center; justify-content:center; transition:all .2s;
+        }
+        .ae-search-clear:hover { background:rgba(255,255,255,0.14); color:#fff; }
 
-        .ae-view-toggle { display:flex; background:rgba(255,255,255,0.04); border:1px solid var(--border); border-radius:9px; overflow:hidden; flex-shrink:0; }
+        .ae-view-toggle { display:flex; margin-left:auto; background:rgba(255,255,255,0.04); border:1px solid var(--border); border-radius:9px; overflow:hidden; flex-shrink:0; }
         .ae-view-btn { padding:8px 12px; background:none; border:none; color:var(--muted); cursor:pointer; transition:all .2s; display:flex; align-items:center; }
         .ae-view-btn.active { background:rgba(13,199,94,.12); color:var(--green); }
         .ae-view-btn:hover:not(.active) { color:var(--text); }
 
         /* ── CATEGORY PILLS (upgraded) ── */
         .ae-cats {
-          display: flex; gap: 8px; overflow-x: auto; scrollbar-width: none;
+          display: flex; gap: 8px; flex-wrap: wrap; justify-content: center;
           padding: 14px 0; border-top: 1px solid var(--border);
         }
-        .ae-cats::-webkit-scrollbar { display: none; }
         .ae-cat-pill {
           flex-shrink: 0; padding: 8px 16px; font-size: 12px; font-weight: 700;
           color: var(--muted);
@@ -770,15 +786,15 @@ export default function AllEvents() {
 
           <div className="ae-search-row">
             <div className="ae-search-wrap">
-              <RiSearchLine size={15} color="var(--muted)" style={{ flexShrink: 0 }} />
+              <RiSearchLine size={16} className="search-ic" style={{ flexShrink: 0 }} />
               <input
                 placeholder="Search events, venues…"
                 value={search}
                 onChange={e => setSearch(e.target.value)}
               />
               {search && (
-                <button onClick={() => setSearch('')} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--muted)', display: 'flex', alignItems: 'center' }}>
-                  <RiCloseCircleLine size={15} />
+                <button className="ae-search-clear" onClick={() => setSearch('')}>
+                  <RiCloseCircleLine size={13} />
                 </button>
               )}
             </div>
