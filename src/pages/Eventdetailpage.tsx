@@ -166,6 +166,9 @@ export default function EventDetailPage() {
   const [scrolled, setScrolled] = useState(false)
   const [ticketDrawerOpen, setTicketDrawerOpen] = useState(false)
 
+  // ── DOUBLE-CLICK FIX: this ref blocks any second call to handlePaymentSuccess ──
+  const paymentInProgress = useRef(false)
+
   const PAYSTACK_KEY = import.meta.env.VITE_PAYSTACK_PUBLIC_KEY || 'pk_test_xxxxxxxxx'
 
   useEffect(() => {
@@ -227,13 +230,14 @@ export default function EventDetailPage() {
 
   const handleCardPayment = useCallback(async () => {
     if (!validateAttendee()) return
+    if (paymentInProgress.current) return  // block double click
     setProcessing(true)
     try {
       await loadPaystack()
       const handler = window.PaystackPop.setup({
         key: PAYSTACK_KEY, email: attendee.email, amount: totalAmount * 100, currency: 'NGN',
         callback: async (response: any) => { await handlePaymentSuccess(response.reference) },
-        onClose: () => setProcessing(false),
+        onClose: () => { setProcessing(false) },
       })
       handler.openIframe()
     } catch { setProcessing(false) }
@@ -241,6 +245,7 @@ export default function EventDetailPage() {
 
   const handleBankTransfer = async () => {
     if (!validateAttendee()) return
+    if (paymentInProgress.current) return  // block double click
     setProcessing(true)
     setTransferDetails({
       accountNumber: '0' + Math.floor(100000000 + Math.random() * 900000000).toString(),
@@ -251,9 +256,19 @@ export default function EventDetailPage() {
   }
 
   const handlePaymentSuccess = async (reference: string) => {
-    if (!eventId || !selectedTicket || !event) return
+    // ── GUARD: if already running, do nothing — prevents multiple emails ──
+    if (paymentInProgress.current) return
+    paymentInProgress.current = true
+
+    if (!eventId || !selectedTicket || !event) {
+      paymentInProgress.current = false
+      return
+    }
+
+    setProcessing(true)
     const code = generateTicketCode()
     setTicketCode(code)
+
     try {
       await addDoc(collection(db, 'events', eventId, 'attendees'), {
         name: attendee.name, email: attendee.email, phone: attendee.phone,
@@ -273,12 +288,39 @@ export default function EventDetailPage() {
       )
       setQrDataUrl(qr)
       setStep('success')
-    } catch (e) { console.error(e) }
+
+      // Send ticket confirmation email (fire and forget — don't block success screen)
+      fetch('https://us-central1-stagecheck-699c7.cloudfunctions.net/sendTicketConfirmation', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          attendeeName: attendee.name,
+          attendeeEmail: attendee.email,
+          phone: attendee.phone,
+          ticketCode: code,
+          ticketType: selectedTicket.name,
+          ticketQty: qty,
+          eventName: event.name,
+          eventDate: formatDate(event.date),
+          eventTime: event.startTime ? formatTime(event.startTime) : '',
+          venueName: event.venue || '',
+          venueAddress: event.address || '',
+          organizerEmail: event.organizerEmail || event.organizer?.email || '',
+        }),
+      }).catch(e => console.error('Ticket email failed:', e))
+
+    } catch (e) {
+      console.error(e)
+      // If something failed, release the lock so they can retry
+      paymentInProgress.current = false
+    }
+
     setProcessing(false)
   }
 
   const handleVerifyTransfer = async () => {
     if (!transferDetails) return
+    if (paymentInProgress.current) return  // block double click
     setVerifying(true)
     await new Promise(r => setTimeout(r, 2000))
     await handlePaymentSuccess(transferDetails.reference)
@@ -336,7 +378,6 @@ export default function EventDetailPage() {
     outline: 'none', boxSizing: 'border-box' as const, transition: 'border-color 0.2s',
   })
 
-  // ── Google Maps embed URL ─────────────────────────────────────
   const mapsEmbedUrl = event?.address
     ? `https://maps.google.com/maps?q=${encodeURIComponent(event.address)}&output=embed&z=15&hl=en`
     : event?.venue
@@ -485,9 +526,15 @@ export default function EventDetailPage() {
         </div>
       </div>
       {totalAmount === 0 ? (
-        <button onClick={() => handlePaymentSuccess('free_' + Date.now())} disabled={processing} style={{ width: '100%', padding: '14px', background: '#0dc75e', border: 'none', color: '#000', borderRadius: 11, fontWeight: 800, fontSize: 14, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8 }}>
-          {processing ? <RiLoader4Line size={16} style={{ animation: 'spin 0.8s linear infinite' }} /> : <RiCheckboxCircleLine size={16} />}
-          Claim Free Ticket
+        // ── FREE TICKET BUTTON — disabled + spinner while processing ──
+        <button
+          onClick={() => { if (!processing && !paymentInProgress.current) handlePaymentSuccess('free_' + Date.now()) }}
+          disabled={processing}
+          style={{ width: '100%', padding: '14px', background: processing ? 'rgba(13,199,94,0.5)' : '#0dc75e', border: 'none', color: '#000', borderRadius: 11, fontWeight: 800, fontSize: 14, cursor: processing ? 'not-allowed' : 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8, opacity: processing ? 0.8 : 1, transition: 'all 0.2s' }}>
+          {processing
+            ? <><RiLoader4Line size={16} style={{ animation: 'spin 0.8s linear infinite' }} /> Processing…</>
+            : <><RiCheckboxCircleLine size={16} /> Claim Free Ticket</>
+          }
         </button>
       ) : (
         <>
@@ -504,15 +551,31 @@ export default function EventDetailPage() {
               </button>
             ))}
           </div>
+
+          {/* ── CARD PAYMENT BUTTON — disabled + spinner while processing ── */}
           {payMethod === 'card' && (
-            <button onClick={handleCardPayment} disabled={processing} style={{ width: '100%', padding: '14px', background: '#0dc75e', border: 'none', color: '#000', borderRadius: 11, fontWeight: 800, fontSize: 14, cursor: processing ? 'not-allowed' : 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8, opacity: processing ? 0.7 : 1 }}>
-              {processing ? <><RiLoader4Line size={16} style={{ animation: 'spin 0.8s linear infinite' }} /> Processing…</> : <><RiLockLine size={15} /> Pay ₦{totalAmount.toLocaleString()} Securely</>}
+            <button
+              onClick={() => { if (!processing && !paymentInProgress.current) handleCardPayment() }}
+              disabled={processing}
+              style={{ width: '100%', padding: '14px', background: processing ? 'rgba(13,199,94,0.5)' : '#0dc75e', border: 'none', color: '#000', borderRadius: 11, fontWeight: 800, fontSize: 14, cursor: processing ? 'not-allowed' : 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8, opacity: processing ? 0.8 : 1, transition: 'all 0.2s' }}>
+              {processing
+                ? <><RiLoader4Line size={16} style={{ animation: 'spin 0.8s linear infinite' }} /> Processing…</>
+                : <><RiLockLine size={15} /> Pay ₦{totalAmount.toLocaleString()} Securely</>
+              }
             </button>
           )}
+
           {payMethod === 'transfer' && (
             !transferDetails ? (
-              <button onClick={handleBankTransfer} disabled={processing} style={{ width: '100%', padding: '14px', background: '#0dc75e', border: 'none', color: '#000', borderRadius: 11, fontWeight: 800, fontSize: 14, cursor: processing ? 'not-allowed' : 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8, opacity: processing ? 0.7 : 1 }}>
-                {processing ? <><RiLoader4Line size={16} style={{ animation: 'spin 0.8s linear infinite' }} /> Generating…</> : <><RiBankLine size={15} /> Generate Bank Account</>}
+              // ── GENERATE ACCOUNT BUTTON — disabled + spinner while processing ──
+              <button
+                onClick={() => { if (!processing && !paymentInProgress.current) handleBankTransfer() }}
+                disabled={processing}
+                style={{ width: '100%', padding: '14px', background: processing ? 'rgba(13,199,94,0.5)' : '#0dc75e', border: 'none', color: '#000', borderRadius: 11, fontWeight: 800, fontSize: 14, cursor: processing ? 'not-allowed' : 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8, opacity: processing ? 0.8 : 1, transition: 'all 0.2s' }}>
+                {processing
+                  ? <><RiLoader4Line size={16} style={{ animation: 'spin 0.8s linear infinite' }} /> Generating…</>
+                  : <><RiBankLine size={15} /> Generate Bank Account</>
+                }
               </button>
             ) : transferExpired ? (
               <div style={{ textAlign: 'center', padding: '20px 0' }}>
@@ -546,8 +609,15 @@ export default function EventDetailPage() {
                     <div style={{ fontSize: 18, fontWeight: 700, color: '#fff' }}>₦{totalAmount.toLocaleString()}</div>
                   </div>
                 </div>
-                <button onClick={handleVerifyTransfer} disabled={verifying} style={{ width: '100%', padding: '13px', background: '#0dc75e', border: 'none', color: '#000', borderRadius: 11, fontWeight: 800, fontSize: 14, cursor: verifying ? 'not-allowed' : 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8, opacity: verifying ? 0.7 : 1 }}>
-                  {verifying ? <><RiLoader4Line size={16} style={{ animation: 'spin 0.8s linear infinite' }} /> Verifying…</> : <><RiCheckLine size={15} /> I've Made the Transfer</>}
+                {/* ── VERIFY TRANSFER BUTTON — disabled + spinner while verifying ── */}
+                <button
+                  onClick={() => { if (!verifying && !paymentInProgress.current) handleVerifyTransfer() }}
+                  disabled={verifying}
+                  style={{ width: '100%', padding: '13px', background: verifying ? 'rgba(13,199,94,0.5)' : '#0dc75e', border: 'none', color: '#000', borderRadius: 11, fontWeight: 800, fontSize: 14, cursor: verifying ? 'not-allowed' : 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8, opacity: verifying ? 0.8 : 1, transition: 'all 0.2s' }}>
+                  {verifying
+                    ? <><RiLoader4Line size={16} style={{ animation: 'spin 0.8s linear infinite' }} /> Verifying…</>
+                    : <><RiCheckLine size={15} /> I've Made the Transfer</>
+                  }
                 </button>
               </div>
             )
@@ -692,7 +762,6 @@ export default function EventDetailPage() {
           {/* LEFT CONTENT */}
           <div style={{ flex: 1, minWidth: 0 }}>
 
-            {/* ── DATE & TIME CARD ── */}
             <div className="sc" style={{ display: 'flex', flexWrap: 'wrap', gap: 20 }}>
               <div style={{ display: 'flex', alignItems: 'flex-start', gap: 12, flex: 1, minWidth: 180 }}>
                 <div style={{ width: 40, height: 40, borderRadius: 10, background: 'rgba(13,199,94,0.1)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
@@ -751,7 +820,6 @@ export default function EventDetailPage() {
               )}
             </div>
 
-            {/* ── EVENT OVERVIEW ── */}
             {(event.summary || event.description) && (
               <div className="sc">
                 <div style={{ fontSize: 11, fontWeight: 700, color: 'var(--green)', letterSpacing: '0.1em', textTransform: 'uppercase', marginBottom: 14, display: 'flex', alignItems: 'center', gap: 7 }}>
@@ -762,14 +830,7 @@ export default function EventDetailPage() {
                 )}
                 {event.description && (
                   <>
-                    <div style={{
-                      fontSize: 14, color: 'rgba(255,255,255,0.6)', lineHeight: 1.85,
-                      maxHeight: descExpanded ? 'none' : '140px',
-                      overflow: descExpanded ? 'visible' : 'hidden',
-                      maskImage: descExpanded ? 'none' : 'linear-gradient(to bottom, black 60%, transparent 100%)',
-                      WebkitMaskImage: descExpanded ? 'none' : 'linear-gradient(to bottom, black 60%, transparent 100%)',
-                      whiteSpace: 'pre-line',
-                    }}>
+                    <div style={{ fontSize: 14, color: 'rgba(255,255,255,0.6)', lineHeight: 1.85, maxHeight: descExpanded ? 'none' : '140px', overflow: descExpanded ? 'visible' : 'hidden', maskImage: descExpanded ? 'none' : 'linear-gradient(to bottom, black 60%, transparent 100%)', WebkitMaskImage: descExpanded ? 'none' : 'linear-gradient(to bottom, black 60%, transparent 100%)', whiteSpace: 'pre-line' }}>
                       {event.description}
                     </div>
                     {event.description.length > 200 && (
@@ -782,7 +843,6 @@ export default function EventDetailPage() {
               </div>
             )}
 
-            {/* ── GOOD TO KNOW ── */}
             {hasGTK && (
               <div className="sc">
                 <div style={{ fontSize: 11, fontWeight: 700, color: 'var(--green)', letterSpacing: '0.1em', textTransform: 'uppercase', marginBottom: 16, display: 'flex', alignItems: 'center', gap: 7 }}>
@@ -792,42 +852,29 @@ export default function EventDetailPage() {
                   {event.goodToKnow!.doorTime && (
                     <div style={{ display: 'flex', alignItems: 'center', gap: 10, background: 'rgba(255,255,255,0.04)', borderRadius: 12, padding: '12px 16px', flex: '1 1 160px' }}>
                       <RiAlarmLine size={16} color="var(--green)" />
-                      <div>
-                        <div style={{ fontSize: 10, color: 'rgba(255,255,255,0.35)', marginBottom: 2, fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.05em' }}>Door Time</div>
-                        <div style={{ fontSize: 13, fontWeight: 600, color: '#fff' }}>{event.goodToKnow!.doorTime}</div>
-                      </div>
+                      <div><div style={{ fontSize: 10, color: 'rgba(255,255,255,0.35)', marginBottom: 2, fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.05em' }}>Door Time</div><div style={{ fontSize: 13, fontWeight: 600, color: '#fff' }}>{event.goodToKnow!.doorTime}</div></div>
                     </div>
                   )}
                   {event.goodToKnow!.ageInfo && (
                     <div style={{ display: 'flex', alignItems: 'center', gap: 10, background: 'rgba(255,255,255,0.04)', borderRadius: 12, padding: '12px 16px', flex: '1 1 160px' }}>
                       <RiGroupLine size={16} color="#fbbf24" />
-                      <div>
-                        <div style={{ fontSize: 10, color: 'rgba(255,255,255,0.35)', marginBottom: 2, fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.05em' }}>Age Restriction</div>
-                        <div style={{ fontSize: 13, fontWeight: 600, color: '#fff' }}>{event.goodToKnow!.ageInfo}</div>
-                      </div>
+                      <div><div style={{ fontSize: 10, color: 'rgba(255,255,255,0.35)', marginBottom: 2, fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.05em' }}>Age Restriction</div><div style={{ fontSize: 13, fontWeight: 600, color: '#fff' }}>{event.goodToKnow!.ageInfo}</div></div>
                     </div>
                   )}
                   {event.goodToKnow!.parkingInfo && (
                     <div style={{ display: 'flex', alignItems: 'center', gap: 10, background: 'rgba(255,255,255,0.04)', borderRadius: 12, padding: '12px 16px', flex: '1 1 160px' }}>
                       <RiParkingLine size={16} color="#60a5fa" />
-                      <div>
-                        <div style={{ fontSize: 10, color: 'rgba(255,255,255,0.35)', marginBottom: 2, fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.05em' }}>Parking</div>
-                        <div style={{ fontSize: 13, fontWeight: 600, color: '#fff' }}>{event.goodToKnow!.parkingInfo}</div>
-                      </div>
+                      <div><div style={{ fontSize: 10, color: 'rgba(255,255,255,0.35)', marginBottom: 2, fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.05em' }}>Parking</div><div style={{ fontSize: 13, fontWeight: 600, color: '#fff' }}>{event.goodToKnow!.parkingInfo}</div></div>
                     </div>
                   )}
                   <div style={{ display: 'flex', alignItems: 'center', gap: 10, background: 'rgba(255,255,255,0.04)', borderRadius: 12, padding: '12px 16px', flex: '1 1 160px' }}>
                     <RiBuilding2Line size={16} color="#a78bfa" />
-                    <div>
-                      <div style={{ fontSize: 10, color: 'rgba(255,255,255,0.35)', marginBottom: 2, fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.05em' }}>Format</div>
-                      <div style={{ fontSize: 13, fontWeight: 600, color: '#fff' }}>{event.locationType === 'online' ? 'Online' : 'In Person'}</div>
-                    </div>
+                    <div><div style={{ fontSize: 10, color: 'rgba(255,255,255,0.35)', marginBottom: 2, fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.05em' }}>Format</div><div style={{ fontSize: 13, fontWeight: 600, color: '#fff' }}>{event.locationType === 'online' ? 'Online' : 'In Person'}</div></div>
                   </div>
                 </div>
               </div>
             )}
 
-            {/* ── GALLERY ── */}
             {allImages.length > 1 && (
               <div className="sc">
                 <div style={{ fontSize: 11, fontWeight: 700, color: 'var(--green)', letterSpacing: '0.1em', textTransform: 'uppercase', marginBottom: 14 }}>Gallery</div>
@@ -844,7 +891,6 @@ export default function EventDetailPage() {
               </div>
             )}
 
-            {/* ── LINEUP ── */}
             {hasFeatured && (
               <div className="sc">
                 <div style={{ fontSize: 11, fontWeight: 700, color: 'var(--green)', letterSpacing: '0.1em', textTransform: 'uppercase', marginBottom: 16, display: 'flex', alignItems: 'center', gap: 7 }}>
@@ -859,12 +905,9 @@ export default function EventDetailPage() {
                         {a.image && !a.image.includes('2a96cbd8b46e442fc41c2b86b821562f') ? (
                           <img src={a.image} alt={a.name} style={{ width: '100%', height: '100%', objectFit: 'cover' }}
                             onError={e => {
-                              // Try Wikipedia fallback
-                              const img = e.currentTarget
-                              img.onerror = null
+                              const img = e.currentTarget; img.onerror = null
                               fetch(`https://en.wikipedia.org/api/rest_v1/page/summary/${encodeURIComponent(a.name)}`, { headers: { Accept: 'application/json' } })
-                                .then(r => r.json())
-                                .then(d => { if (d?.thumbnail?.source) img.src = d.thumbnail.source })
+                                .then(r => r.json()).then(d => { if (d?.thumbnail?.source) img.src = d.thumbnail.source })
                                 .catch(() => { img.style.display = 'none' })
                             }}
                           />
@@ -887,7 +930,6 @@ export default function EventDetailPage() {
               </div>
             )}
 
-            {/* ── SCHEDULE / AGENDA ── */}
             {hasAgenda && (
               <div className="sc">
                 <div style={{ fontSize: 11, fontWeight: 700, color: 'var(--green)', letterSpacing: '0.1em', textTransform: 'uppercase', marginBottom: 16, display: 'flex', alignItems: 'center', gap: 7 }}>
@@ -909,7 +951,6 @@ export default function EventDetailPage() {
               </div>
             )}
 
-            {/* ── LOCATION / LIVE MAP ── */}
             {event.venue && event.locationType !== 'online' && (
               <div className="sc">
                 <div style={{ fontSize: 11, fontWeight: 700, color: 'var(--green)', letterSpacing: '0.1em', textTransform: 'uppercase', marginBottom: 16, display: 'flex', alignItems: 'center', gap: 7 }}>
@@ -933,27 +974,16 @@ export default function EventDetailPage() {
                       </a>
                     ))}
                   </div>
-
-                  {/* ── Live Google Map Embed ── */}
                   <div style={{ flex: 1, minWidth: 220, borderRadius: 14, overflow: 'hidden', height: 220, background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(13,199,94,0.2)', position: 'relative' }}>
                     {mapsEmbedUrl ? (
-                      <iframe
-                        className="maps-iframe"
-                        src={mapsEmbedUrl}
-                        title={`Map of ${event.venue}`}
-                        allowFullScreen
-                        loading="lazy"
-                        referrerPolicy="no-referrer-when-downgrade"
-                      />
+                      <iframe className="maps-iframe" src={mapsEmbedUrl} title={`Map of ${event.venue}`} allowFullScreen loading="lazy" referrerPolicy="no-referrer-when-downgrade" />
                     ) : (
                       <div style={{ height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', flexDirection: 'column', gap: 10 }}>
                         <RiMapPin2Line size={28} color="rgba(13,199,94,0.4)" />
                         <div style={{ fontSize: 12, color: 'rgba(255,255,255,0.3)', textAlign: 'center', padding: '0 20px' }}>{event.venue}</div>
                       </div>
                     )}
-                    <a
-                      href={`https://maps.google.com?q=${encodeURIComponent(event.address || event.venue || '')}`}
-                      target="_blank" rel="noopener noreferrer"
+                    <a href={`https://maps.google.com?q=${encodeURIComponent(event.address || event.venue || '')}`} target="_blank" rel="noopener noreferrer"
                       style={{ position: 'absolute', bottom: 10, right: 10, background: 'rgba(13,199,94,0.9)', color: '#000', fontSize: 11, fontWeight: 700, padding: '6px 12px', borderRadius: 8, textDecoration: 'none', display: 'flex', alignItems: 'center', gap: 5, backdropFilter: 'blur(8px)' }}>
                       <RiExternalLinkLine size={11} /> Open Maps
                     </a>
@@ -962,7 +992,6 @@ export default function EventDetailPage() {
               </div>
             )}
 
-            {/* ── FAQ ── */}
             {hasFAQ && (
               <div className="sc">
                 <div style={{ fontSize: 11, fontWeight: 700, color: 'var(--green)', letterSpacing: '0.1em', textTransform: 'uppercase', marginBottom: 16 }}>Frequently Asked</div>
@@ -983,7 +1012,6 @@ export default function EventDetailPage() {
               </div>
             )}
 
-            {/* ── POWERED BY / SUPPORT ── */}
             <div className="sc" style={{ background: 'rgba(13,199,94,0.03)', border: '1px solid rgba(13,199,94,0.1)' }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: 16, flexWrap: 'wrap' }}>
                 <div style={{ width: 48, height: 48, borderRadius: '50%', background: 'rgba(13,199,94,0.1)', border: '2px solid rgba(13,199,94,0.2)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
@@ -993,47 +1021,27 @@ export default function EventDetailPage() {
                   <div style={{ fontSize: 15, fontWeight: 700, color: '#fff', fontFamily: 'Syne, sans-serif', marginBottom: 4 }}>
                     Powered by <a href="https://www.verapixels.com" target="_blank" rel="noopener noreferrer" style={{ color: 'var(--green)', textDecoration: 'none' }}>Verapixels</a>
                   </div>
-                  <div style={{ fontSize: 13, color: 'rgba(255,255,255,0.5)', marginBottom: 8 }}>
-                    Questions about this event? Our support team is here to help.
-                  </div>
+                  <div style={{ fontSize: 13, color: 'rgba(255,255,255,0.5)', marginBottom: 8 }}>Questions about this event? Our support team is here to help.</div>
                   <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px 16px' }}>
-                    <a href="mailto:info.verapixels@gmail.com" style={{ display: 'flex', alignItems: 'center', gap: 5, fontSize: 13, color: 'rgba(255,255,255,0.5)', textDecoration: 'none', transition: 'color 0.2s' }}
-                      onMouseEnter={e => (e.currentTarget as HTMLAnchorElement).style.color = 'var(--green)'}
-                      onMouseLeave={e => (e.currentTarget as HTMLAnchorElement).style.color = 'rgba(255,255,255,0.5)'}>
-                      <RiMailLine size={13} /> info.verapixels@gmail.com
-                    </a>
-                    <a href="tel:+2349058187851" style={{ display: 'flex', alignItems: 'center', gap: 5, fontSize: 13, color: 'rgba(255,255,255,0.5)', textDecoration: 'none', transition: 'color 0.2s' }}
-                      onMouseEnter={e => (e.currentTarget as HTMLAnchorElement).style.color = 'var(--green)'}
-                      onMouseLeave={e => (e.currentTarget as HTMLAnchorElement).style.color = 'rgba(255,255,255,0.5)'}>
-                      <RiPhoneLine size={13} /> +234 905 818 7851
-                    </a>
-                    <a href="https://www.verapixels.com" target="_blank" rel="noopener noreferrer" style={{ display: 'flex', alignItems: 'center', gap: 5, fontSize: 13, color: 'rgba(255,255,255,0.5)', textDecoration: 'none', transition: 'color 0.2s' }}
-                      onMouseEnter={e => (e.currentTarget as HTMLAnchorElement).style.color = 'var(--green)'}
-                      onMouseLeave={e => (e.currentTarget as HTMLAnchorElement).style.color = 'rgba(255,255,255,0.5)'}>
-                      <RiGlobalLine size={13} /> verapixels.com
-                    </a>
+                    <a href="mailto:info.verapixels@gmail.com" style={{ display: 'flex', alignItems: 'center', gap: 5, fontSize: 13, color: 'rgba(255,255,255,0.5)', textDecoration: 'none', transition: 'color 0.2s' }} onMouseEnter={e => (e.currentTarget as HTMLAnchorElement).style.color = 'var(--green)'} onMouseLeave={e => (e.currentTarget as HTMLAnchorElement).style.color = 'rgba(255,255,255,0.5)'}><RiMailLine size={13} /> info.verapixels@gmail.com</a>
+                    <a href="tel:+2349058187851" style={{ display: 'flex', alignItems: 'center', gap: 5, fontSize: 13, color: 'rgba(255,255,255,0.5)', textDecoration: 'none', transition: 'color 0.2s' }} onMouseEnter={e => (e.currentTarget as HTMLAnchorElement).style.color = 'var(--green)'} onMouseLeave={e => (e.currentTarget as HTMLAnchorElement).style.color = 'rgba(255,255,255,0.5)'}><RiPhoneLine size={13} /> +234 905 818 7851</a>
+                    <a href="https://www.verapixels.com" target="_blank" rel="noopener noreferrer" style={{ display: 'flex', alignItems: 'center', gap: 5, fontSize: 13, color: 'rgba(255,255,255,0.5)', textDecoration: 'none', transition: 'color 0.2s' }} onMouseEnter={e => (e.currentTarget as HTMLAnchorElement).style.color = 'var(--green)'} onMouseLeave={e => (e.currentTarget as HTMLAnchorElement).style.color = 'rgba(255,255,255,0.5)'}><RiGlobalLine size={13} /> verapixels.com</a>
                   </div>
                 </div>
                 <div style={{ display: 'flex', gap: 8, flexShrink: 0 }}>
-                  <a href="mailto:info.verapixels@gmail.com" style={{ padding: '8px 16px', background: 'rgba(13,199,94,0.1)', border: '1px solid rgba(13,199,94,0.3)', borderRadius: 9, color: 'var(--green)', fontSize: 13, fontWeight: 600, textDecoration: 'none', transition: 'all 0.2s', display: 'flex', alignItems: 'center', gap: 6 }}
-                    onMouseEnter={e => { (e.currentTarget as HTMLAnchorElement).style.background = 'rgba(13,199,94,0.15)' }}
-                    onMouseLeave={e => { (e.currentTarget as HTMLAnchorElement).style.background = 'rgba(13,199,94,0.1)' }}>
+                  <a href="mailto:info.verapixels@gmail.com" style={{ padding: '8px 16px', background: 'rgba(13,199,94,0.1)', border: '1px solid rgba(13,199,94,0.3)', borderRadius: 9, color: 'var(--green)', fontSize: 13, fontWeight: 600, textDecoration: 'none', transition: 'all 0.2s', display: 'flex', alignItems: 'center', gap: 6 }} onMouseEnter={e => { (e.currentTarget as HTMLAnchorElement).style.background = 'rgba(13,199,94,0.15)' }} onMouseLeave={e => { (e.currentTarget as HTMLAnchorElement).style.background = 'rgba(13,199,94,0.1)' }}>
                     <RiMailLine size={13} /> Contact Support
                   </a>
                 </div>
               </div>
             </div>
 
-            {/* ── REPORT ── */}
             <div style={{ textAlign: 'center', padding: '10px 0 20px' }}>
-              <button style={{ background: 'none', border: 'none', color: 'rgba(255,255,255,0.25)', fontSize: 12, cursor: 'pointer', display: 'inline-flex', alignItems: 'center', gap: 5, transition: 'color 0.2s' }}
-                onMouseEnter={e => (e.currentTarget as HTMLButtonElement).style.color = 'rgba(255,255,255,0.5)'}
-                onMouseLeave={e => (e.currentTarget as HTMLButtonElement).style.color = 'rgba(255,255,255,0.25)'}>
+              <button style={{ background: 'none', border: 'none', color: 'rgba(255,255,255,0.25)', fontSize: 12, cursor: 'pointer', display: 'inline-flex', alignItems: 'center', gap: 5, transition: 'color 0.2s' }} onMouseEnter={e => (e.currentTarget as HTMLButtonElement).style.color = 'rgba(255,255,255,0.5)'} onMouseLeave={e => (e.currentTarget as HTMLButtonElement).style.color = 'rgba(255,255,255,0.25)'}>
                 <RiFlag2Line size={13} /> Report this event
               </button>
             </div>
 
-            {/* ── YOU MIGHT ALSO LIKE ── */}
             {relatedEvents.length > 0 && (
               <div>
                 <div style={{ fontSize: 18, fontWeight: 800, color: '#fff', fontFamily: 'Syne, sans-serif', marginBottom: 4 }}>You might also like…</div>
@@ -1045,16 +1053,11 @@ export default function EventDetailPage() {
                       onMouseEnter={e => { (e.currentTarget as HTMLDivElement).style.borderColor = 'rgba(13,199,94,0.25)'; (e.currentTarget as HTMLDivElement).style.transform = 'translateY(-2px)' }}
                       onMouseLeave={e => { (e.currentTarget as HTMLDivElement).style.borderColor = 'var(--border)'; (e.currentTarget as HTMLDivElement).style.transform = 'none' }}>
                       <div style={{ width: 100, flexShrink: 0, background: ev.coverImage ? 'transparent' : 'linear-gradient(135deg, #1a0a2e, #3b1d7a)', overflow: 'hidden' }}>
-                        {ev.coverImage
-                          ? <img src={ev.coverImage} alt={ev.name} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
-                          : <div style={{ height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center' }}><RiCalendarEventLine size={24} color="rgba(255,255,255,0.2)" /></div>
-                        }
+                        {ev.coverImage ? <img src={ev.coverImage} alt={ev.name} style={{ width: '100%', height: '100%', objectFit: 'cover' }} /> : <div style={{ height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center' }}><RiCalendarEventLine size={24} color="rgba(255,255,255,0.2)" /></div>}
                       </div>
                       <div style={{ padding: '14px 14px 14px 0', flex: 1, minWidth: 0 }}>
                         <div style={{ fontSize: 14, fontWeight: 700, color: '#fff', fontFamily: 'Syne, sans-serif', marginBottom: 5, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{ev.name}</div>
-                        <div style={{ fontSize: 12, color: 'rgba(255,255,255,0.5)', marginBottom: 4, display: 'flex', alignItems: 'center', gap: 5 }}>
-                          <RiCalendarEventLine size={11} /> {formatDateShort(ev.date)}
-                        </div>
+                        <div style={{ fontSize: 12, color: 'rgba(255,255,255,0.5)', marginBottom: 4, display: 'flex', alignItems: 'center', gap: 5 }}><RiCalendarEventLine size={11} /> {formatDateShort(ev.date)}</div>
                         {ev.venue && <div style={{ fontSize: 12, color: 'rgba(255,255,255,0.4)', display: 'flex', alignItems: 'center', gap: 5 }}><RiMapPinLine size={11} /> {ev.venue}</div>}
                       </div>
                     </div>
@@ -1062,13 +1065,10 @@ export default function EventDetailPage() {
                 </div>
               </div>
             )}
-
           </div>
 
           {/* RIGHT SIDEBAR */}
           <div className="detail-sidebar" style={{ width: 320, flexShrink: 0, position: 'sticky', top: 88 }}>
-
-            {/* TICKET CTA */}
             <div style={{ background: 'var(--bg-card)', border: '1px solid rgba(13,199,94,0.2)', borderRadius: 20, overflow: 'hidden', marginBottom: 14 }}>
               <div style={{ height: 3, background: 'linear-gradient(90deg, var(--green), rgba(13,199,94,0.3))' }} />
               <div style={{ padding: '22px 22px 20px' }}>
@@ -1076,23 +1076,15 @@ export default function EventDetailPage() {
                   {tickets.length === 0 ? (
                     <div style={{ fontSize: 13, color: 'rgba(255,255,255,0.4)', marginBottom: 4 }}>No tickets available yet.</div>
                   ) : isFree ? (
-                    <div>
-                      <div style={{ fontSize: 22, fontWeight: 800, color: 'var(--green)', fontFamily: 'Syne, sans-serif' }}>Free</div>
-                      <div style={{ fontSize: 12, color: 'rgba(255,255,255,0.4)', marginTop: 2 }}>This event is free to attend</div>
-                    </div>
+                    <div><div style={{ fontSize: 22, fontWeight: 800, color: 'var(--green)', fontFamily: 'Syne, sans-serif' }}>Free</div><div style={{ fontSize: 12, color: 'rgba(255,255,255,0.4)', marginTop: 2 }}>This event is free to attend</div></div>
                   ) : (
-                    <div>
-                      <div style={{ fontSize: 13, color: 'rgba(255,255,255,0.4)', marginBottom: 2 }}>From</div>
-                      <div style={{ fontSize: 26, fontWeight: 800, color: '#fff', fontFamily: 'Syne, sans-serif' }}>₦{minPrice.toLocaleString()}</div>
-                    </div>
+                    <div><div style={{ fontSize: 13, color: 'rgba(255,255,255,0.4)', marginBottom: 2 }}>From</div><div style={{ fontSize: 26, fontWeight: 800, color: '#fff', fontFamily: 'Syne, sans-serif' }}>₦{minPrice.toLocaleString()}</div></div>
                   )}
                 </div>
-
                 {tickets.length > 0 && (
                   <div style={{ marginBottom: 16, borderTop: '1px solid rgba(255,255,255,0.06)', paddingTop: 14 }}>
                     {tickets.slice(0, 4).map(t => {
-                      const rem = t.quantity - t.sold
-                      const soldOut = rem <= 0
+                      const rem = t.quantity - t.sold; const soldOut = rem <= 0
                       return (
                         <div key={t.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '8px 0', borderBottom: '1px solid rgba(255,255,255,0.04)' }}>
                           <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
@@ -1108,87 +1100,48 @@ export default function EventDetailPage() {
                     {tickets.length > 4 && <div style={{ fontSize: 11, color: 'rgba(255,255,255,0.3)', marginTop: 8 }}>+{tickets.length - 4} more ticket types</div>}
                   </div>
                 )}
-
                 <button onClick={() => { setStep('select-ticket'); setTicketDrawerOpen(true) }} className="btn-main" style={{ width: '100%', justifyContent: 'center', padding: '14px', borderRadius: 11, fontSize: 14 }}>
                   <RiTicketLine size={16} /> {tickets.length === 0 ? 'Register Interest' : isFree ? 'Register Free' : 'Get Tickets'}
                 </button>
-                {tickets.length > 0 && !isFree && (
-                  <div style={{ fontSize: 11, color: 'rgba(255,255,255,0.3)', textAlign: 'center', marginTop: 10 }}>
-                    No booking fees · Secure checkout
-                  </div>
-                )}
+                {tickets.length > 0 && !isFree && <div style={{ fontSize: 11, color: 'rgba(255,255,255,0.3)', textAlign: 'center', marginTop: 10 }}>No booking fees · Secure checkout</div>}
               </div>
             </div>
 
-            {/* EVENT INFO */}
             <div style={{ background: 'var(--bg-card)', border: '1px solid var(--border)', borderRadius: 20, padding: '20px 22px', marginBottom: 14 }}>
               <div style={{ fontSize: 11, color: 'var(--green)', fontWeight: 700, letterSpacing: '0.1em', textTransform: 'uppercase', marginBottom: 14 }}>Event Info</div>
               <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
                 {event.date && (
                   <div style={{ display: 'flex', alignItems: 'flex-start', gap: 11 }}>
-                    <div style={{ width: 32, height: 32, borderRadius: 9, background: 'rgba(13,199,94,0.1)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
-                      <RiCalendarEventLine size={15} color="var(--green)" />
-                    </div>
-                    <div>
-                      <div style={{ fontSize: 11, color: 'rgba(255,255,255,0.35)', marginBottom: 2 }}>Date</div>
-                      <div style={{ fontSize: 13, fontWeight: 600, color: '#fff' }}>{formatDate(event.date)}</div>
-                      {event.endDate && event.endDate !== event.date && (
-                        <div style={{ fontSize: 11, color: 'rgba(255,255,255,0.4)', marginTop: 2 }}>Until {formatDateShort(event.endDate + 'T00:00:00')}</div>
-                      )}
-                    </div>
+                    <div style={{ width: 32, height: 32, borderRadius: 9, background: 'rgba(13,199,94,0.1)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}><RiCalendarEventLine size={15} color="var(--green)" /></div>
+                    <div><div style={{ fontSize: 11, color: 'rgba(255,255,255,0.35)', marginBottom: 2 }}>Date</div><div style={{ fontSize: 13, fontWeight: 600, color: '#fff' }}>{formatDate(event.date)}</div>{event.endDate && event.endDate !== event.date && <div style={{ fontSize: 11, color: 'rgba(255,255,255,0.4)', marginTop: 2 }}>Until {formatDateShort(event.endDate + 'T00:00:00')}</div>}</div>
                   </div>
                 )}
                 {event.startTime && (
                   <div style={{ display: 'flex', alignItems: 'flex-start', gap: 11 }}>
-                    <div style={{ width: 32, height: 32, borderRadius: 9, background: 'rgba(13,199,94,0.1)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
-                      <RiTimeLine size={15} color="var(--green)" />
-                    </div>
-                    <div>
-                      <div style={{ fontSize: 11, color: 'rgba(255,255,255,0.35)', marginBottom: 2 }}>Time</div>
-                      <div style={{ fontSize: 13, fontWeight: 600, color: '#fff' }}>{formatTime(event.startTime)}{event.endTime ? ` – ${formatTime(event.endTime)}` : ''}</div>
-                    </div>
+                    <div style={{ width: 32, height: 32, borderRadius: 9, background: 'rgba(13,199,94,0.1)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}><RiTimeLine size={15} color="var(--green)" /></div>
+                    <div><div style={{ fontSize: 11, color: 'rgba(255,255,255,0.35)', marginBottom: 2 }}>Time</div><div style={{ fontSize: 13, fontWeight: 600, color: '#fff' }}>{formatTime(event.startTime)}{event.endTime ? ` – ${formatTime(event.endTime)}` : ''}</div></div>
                   </div>
                 )}
                 {event.venue && (
                   <div style={{ display: 'flex', alignItems: 'flex-start', gap: 11 }}>
-                    <div style={{ width: 32, height: 32, borderRadius: 9, background: 'rgba(13,199,94,0.1)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
-                      <RiMapPinLine size={15} color="var(--green)" />
-                    </div>
-                    <div>
-                      <div style={{ fontSize: 11, color: 'rgba(255,255,255,0.35)', marginBottom: 2 }}>Venue</div>
-                      <div style={{ fontSize: 13, fontWeight: 600, color: '#fff' }}>{event.venue}</div>
-                      {event.address && <div style={{ fontSize: 11, color: 'rgba(255,255,255,0.45)', marginTop: 2, lineHeight: 1.5 }}>{event.address}</div>}
-                      {event.address && (
-                        <a href={`https://maps.google.com?q=${encodeURIComponent(event.address)}`} target="_blank" rel="noopener noreferrer" style={{ fontSize: 11, color: 'var(--green)', marginTop: 5, display: 'inline-flex', alignItems: 'center', gap: 4, textDecoration: 'none', fontWeight: 600 }}>
-                          <RiExternalLinkLine size={10} /> Open in Maps
-                        </a>
-                      )}
-                    </div>
+                    <div style={{ width: 32, height: 32, borderRadius: 9, background: 'rgba(13,199,94,0.1)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}><RiMapPinLine size={15} color="var(--green)" /></div>
+                    <div><div style={{ fontSize: 11, color: 'rgba(255,255,255,0.35)', marginBottom: 2 }}>Venue</div><div style={{ fontSize: 13, fontWeight: 600, color: '#fff' }}>{event.venue}</div>{event.address && <div style={{ fontSize: 11, color: 'rgba(255,255,255,0.45)', marginTop: 2, lineHeight: 1.5 }}>{event.address}</div>}{event.address && <a href={`https://maps.google.com?q=${encodeURIComponent(event.address)}`} target="_blank" rel="noopener noreferrer" style={{ fontSize: 11, color: 'var(--green)', marginTop: 5, display: 'inline-flex', alignItems: 'center', gap: 4, textDecoration: 'none', fontWeight: 600 }}><RiExternalLinkLine size={10} /> Open in Maps</a>}</div>
                   </div>
                 )}
-                {/* Event type pill */}
                 {event.eventType && (
                   <div style={{ display: 'flex', alignItems: 'flex-start', gap: 11 }}>
-                    <div style={{ width: 32, height: 32, borderRadius: 9, background: 'rgba(13,199,94,0.1)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
-                      <RiStarLine size={15} color="var(--green)" />
-                    </div>
-                    <div>
-                      <div style={{ fontSize: 11, color: 'rgba(255,255,255,0.35)', marginBottom: 2 }}>Event Type</div>
-                      <div style={{ fontSize: 13, fontWeight: 600, color: '#fff' }}>{getEventTypeLabel(event.eventType)}</div>
-                    </div>
+                    <div style={{ width: 32, height: 32, borderRadius: 9, background: 'rgba(13,199,94,0.1)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}><RiStarLine size={15} color="var(--green)" /></div>
+                    <div><div style={{ fontSize: 11, color: 'rgba(255,255,255,0.35)', marginBottom: 2 }}>Event Type</div><div style={{ fontSize: 13, fontWeight: 600, color: '#fff' }}>{getEventTypeLabel(event.eventType)}</div></div>
                   </div>
                 )}
-                {/* Repeating badge */}
                 {event.isRepeating && (
                   <div style={{ display: 'flex', alignItems: 'center', gap: 8, background: 'rgba(251,191,36,0.08)', border: '1px solid rgba(251,191,36,0.2)', borderRadius: 10, padding: '10px 12px' }}>
-                    <RiRepeatLine size={14} color="#fbbf24" />
-                    <span style={{ fontSize: 12, color: '#fbbf24', fontWeight: 600 }}>Repeating Event</span>
+                    <RiRepeatLine size={14} color="#fbbf24" /><span style={{ fontSize: 12, color: '#fbbf24', fontWeight: 600 }}>Repeating Event</span>
                   </div>
                 )}
               </div>
             </div>
 
-            {/* SHARE */}
             <div style={{ background: 'var(--bg-card)', border: '1px solid var(--border)', borderRadius: 16, padding: '16px 18px', marginBottom: 14 }}>
               <div style={{ fontSize: 12, color: 'rgba(255,255,255,0.5)', fontWeight: 600, marginBottom: 12 }}>Share this event</div>
               <button onClick={handleShare} style={{ width: '100%', padding: '9px', background: copied ? 'rgba(13,199,94,0.1)' : 'rgba(255,255,255,0.04)', border: `1px solid ${copied ? 'rgba(13,199,94,0.3)' : 'var(--border)'}`, borderRadius: 9, color: copied ? 'var(--green)' : 'rgba(255,255,255,0.6)', fontSize: 12, fontWeight: 600, cursor: 'pointer', transition: 'all 0.2s', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6 }}>
@@ -1196,12 +1149,9 @@ export default function EventDetailPage() {
               </button>
             </div>
 
-            {/* POWERED BY */}
             <div style={{ padding: '12px 16px', background: 'rgba(255,255,255,0.02)', border: '1px solid rgba(255,255,255,0.05)', borderRadius: 12, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6 }}>
               <RiShieldCheckLine size={12} color="var(--green)" />
-              <span style={{ fontSize: 11, color: 'rgba(255,255,255,0.3)' }}>
-                StageCheck by <a href="https://www.verapixels.com" target="_blank" rel="noopener noreferrer" style={{ color: 'var(--green)', textDecoration: 'none', fontWeight: 600 }}>Verapixels</a>
-              </span>
+              <span style={{ fontSize: 11, color: 'rgba(255,255,255,0.3)' }}>StageCheck by <a href="https://www.verapixels.com" target="_blank" rel="noopener noreferrer" style={{ color: 'var(--green)', textDecoration: 'none', fontWeight: 600 }}>Verapixels</a></span>
             </div>
           </div>
         </div>
@@ -1210,9 +1160,7 @@ export default function EventDetailPage() {
         <div style={{ position: 'fixed', bottom: 0, left: 0, right: 0, zIndex: 300, padding: '12px 16px', background: 'rgba(2,8,20,0.97)', backdropFilter: 'blur(20px)', borderTop: '1px solid rgba(255,255,255,0.07)', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, transform: scrolled ? 'translateY(0)' : 'translateY(100%)', transition: 'transform 0.3s cubic-bezier(.16,1,.3,1)' }}>
           <div>
             <div style={{ fontSize: 13, fontWeight: 700, color: '#fff', fontFamily: 'Syne, sans-serif', marginBottom: 2 }}>{event.name}</div>
-            <div style={{ fontSize: 11, color: 'rgba(255,255,255,0.4)' }}>
-              {tickets.length === 0 ? 'Free registration' : isFree ? 'Free' : `From ₦${minPrice.toLocaleString()}`}
-            </div>
+            <div style={{ fontSize: 11, color: 'rgba(255,255,255,0.4)' }}>{tickets.length === 0 ? 'Free registration' : isFree ? 'Free' : `From ₦${minPrice.toLocaleString()}`}</div>
           </div>
           <button onClick={() => { setStep('select-ticket'); setTicketDrawerOpen(true) }} className="btn-main" style={{ padding: '12px 22px', fontSize: 14 }}>
             <RiTicketLine size={15} /> {isFree ? 'Register' : 'Get Tickets'}

@@ -391,7 +391,9 @@ export default function LandingPage() {
         }))
         // Sort by soonest date first — visitors see what's happening next
         const upcoming = fetched.filter(ev => !isEventPast(ev.date)).sort((a, b) => toDate(a.date).getTime() - toDate(b.date).getTime())
-        setEvents(upcoming)
+        // Shuffle so order changes on every page load
+          const shuffled = [...upcoming].sort(() => Math.random() - 0.5)
+         setEvents(shuffled)
       } catch (err: any) {
         if (!cancelled) setEventsError('Could not load events — ' + (err?.message ?? 'unknown error'))
       } finally {
@@ -418,10 +420,11 @@ export default function LandingPage() {
     return () => { cancelled = true }
   }, []) 
 
-  useEffect(() => {
+   useEffect(() => {
   let cancelled = false
   async function loadTestimonials() {
     try {
+      // Try ordered first, fall back to unordered — either way don't silently bail
       let snap
       try {
         const q = query(collection(db, 'testimonials'), orderBy('order', 'asc'), limit(10))
@@ -429,22 +432,31 @@ export default function LandingPage() {
       } catch {
         snap = await getDocs(collection(db, 'testimonials'))
       }
-      if (!snap.empty && !cancelled) {
-       const fetched: Testimonial[] = snap.docs.map(d => {
-  const data = d.data()
-  return {
-    id: d.id,
-    quote: data.quote || data.description || data.experience || data.text || '',
-    name: data.name ?? 'Anonymous',
-    role: data.role || data.usedFor || '',
-    avatar: data.avatar || data.photoURL || data.photoUrl || '',
-    order: data.order ?? 0,
-  }
-}).filter(t => t.name && t.name !== 'Anonymous')
+      if (cancelled) return
+      if (!snap.empty) {
+        const fetched: Testimonial[] = snap.docs
+          .map(d => {
+            const data = d.data()
+            return {
+              id: d.id,
+              // read every possible field name
+              quote: data.quote || data.experience || data.description || data.text || '',
+              name: data.name || 'Anonymous',
+              role: data.role || data.usedFor || '',
+              // read every possible photo field name
+              avatar: data.avatar || data.photoURL || data.photoUrl || '',
+              order: data.order ?? 0,
+            }
+          })
+          // only filter out entries with no quote — don't filter by name
+          .filter(t => t.quote.trim().length > 0)
+          .sort((a, b) => (a.order ?? 0) - (b.order ?? 0))
+
         if (fetched.length > 0) setTestimonials(fetched)
       }
-    } catch {
-      // Stay with defaults silently
+    } catch (e) {
+      console.error('loadTestimonials error:', e)
+      // silently stay with defaults
     }
   }
   loadTestimonials()

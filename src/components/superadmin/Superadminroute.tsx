@@ -1,8 +1,9 @@
 import { useEffect, useState } from 'react'
 import { Navigate } from 'react-router-dom'
 import { useAuth } from '../../context/Authcontext'
+import { doc, getDoc } from 'firebase/firestore'
+import { db } from '../../lib/firebase'
 import { RiLoader4Line, RiShieldLine } from 'react-icons/ri'
-
 
 export default function SuperAdminRoute({ children }: { children: React.ReactNode }) {
   const { user, loading } = useAuth()
@@ -13,10 +14,12 @@ export default function SuperAdminRoute({ children }: { children: React.ReactNod
     if (loading) return
     if (!user) { setChecking(false); return }
 
-    user.getIdTokenResult().then(result => {
-      setIsSuperAdmin(result.claims.role === 'superadmin')
+    // Check Firestore role instead of token claims
+    getDoc(doc(db, 'users', user.uid)).then(snap => {
+      setIsSuperAdmin(snap.exists() && snap.data()?.role === 'superadmin')
       setChecking(false)
     }).catch(() => setChecking(false))
+
   }, [user, loading])
 
   if (loading || checking) {

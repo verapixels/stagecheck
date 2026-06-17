@@ -1,9 +1,13 @@
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom'
+import { useEffect, useState } from 'react'
+import { useLocation } from 'react-router-dom'
 import './index.css'
 import { AuthProvider } from './context/Authcontext'
 import ProtectedRoute from './components/Protectedroute'
 import { useAuth } from './context/Authcontext'
 import { EventProvider } from './context/Eventcontext'
+import { doc, getDoc } from 'firebase/firestore'
+import { db } from './lib/firebase'
 
 // Landing
 import LandingPage from './pages/Landing'
@@ -52,11 +56,35 @@ import AdminAnalytics from './pages/adminAnalytics'
 import AdminSettingsPage from './pages/AdminSettingsPage'
 import FeedbackPage from './pages/adminFeedbackPage'
 
+function ScrollRestorer() {
+  const { pathname } = useLocation()
+  useEffect(() => { window.scrollTo(0, 0) }, [pathname])
+  return null
+}
 
 function AuthRoute({ children }: { children: React.ReactNode }) {
   const { user, loading } = useAuth()
+  const [checking, setChecking] = useState(false)
+  const [role, setRole] = useState<string | null>(null)
+  const [roleFetched, setRoleFetched] = useState(false)
 
-  if (loading) {
+  useEffect(() => {
+    if (!user) { setRoleFetched(false); return }
+    setChecking(true)
+    getDoc(doc(db, 'users', user.uid))
+      .then(snap => {
+        setRole(snap.exists() ? (snap.data()?.role ?? 'user') : 'user')
+        setRoleFetched(true)
+        setChecking(false)
+      })
+      .catch(() => {
+        setRole('user')
+        setRoleFetched(true)
+        setChecking(false)
+      })
+  }, [user])
+
+  if (loading || checking || (user && !roleFetched)) {
     return (
       <div style={{
         minHeight: '100vh', background: '#0B1020',
@@ -78,7 +106,11 @@ function AuthRoute({ children }: { children: React.ReactNode }) {
     )
   }
 
-  if (user) return <Navigate to="/dashboard" replace />
+  if (user && roleFetched) {
+    if (role === 'superadmin') return <Navigate to="/superadmin" replace />
+    return <Navigate to="/dashboard" replace />
+  }
+
   return <>{children}</>
 }
 
@@ -96,6 +128,7 @@ export default function App() {
   return (
     <BrowserRouter>
       <AuthProvider>
+        <ScrollRestorer />
         <Routes>
 
           {/* ── PUBLIC ── */}
@@ -131,15 +164,15 @@ export default function App() {
           <Route path="/dashboard/event/:eventId/ai"           element={<EventRoute><AIInsightsPage /></EventRoute>} />
 
           {/* ── SUPERADMIN ── */}
-<Route element={<SuperAdminRoute><SuperAdminLayout /></SuperAdminRoute>}>
-  <Route path="/superadmin" element={<AdminOverview />} />
-  <Route path="/superadmin/events" element={<AdminEvents />} />
-  <Route path="/superadmin/users" element={<AdminUsers />} />
-  <Route path="/superadmin/reports" element={<AdminReports />} />
-  <Route path="/superadmin/testimonials" element={<AdminTestimonials />} />
-  <Route path="/superadmin/analytics" element={<AdminAnalytics />} />
-<Route path="/superadmin/settings" element={<AdminSettingsPage />} />
-</Route>
+          <Route element={<SuperAdminRoute><SuperAdminLayout /></SuperAdminRoute>}>
+            <Route path="/superadmin" element={<AdminOverview />} />
+            <Route path="/superadmin/events" element={<AdminEvents />} />
+            <Route path="/superadmin/users" element={<AdminUsers />} />
+            <Route path="/superadmin/reports" element={<AdminReports />} />
+            <Route path="/superadmin/testimonials" element={<AdminTestimonials />} />
+            <Route path="/superadmin/analytics" element={<AdminAnalytics />} />
+            <Route path="/superadmin/settings" element={<AdminSettingsPage />} />
+          </Route>
 
           {/* ── CATCH ALL ── */}
           <Route path="*" element={<Navigate to="/" replace />} />

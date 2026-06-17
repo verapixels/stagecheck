@@ -15,6 +15,7 @@ import {
   RiSlideshowLine, RiGraduationCapLine, RiSparklingLine,
   RiGridLine, RiListCheck,
 } from 'react-icons/ri'
+import Navbar from '../components/Navbar'
 
 interface FirebaseEvent {
   id: string
@@ -695,34 +696,8 @@ export default function AllEvents() {
 
       <div className="ae-root">
 
-        {/* ── NAV ── */}
-        <nav className={`ae-nav ${scrolled ? 'scrolled' : ''}`}>
-          <div className="ae-nav-logo" onClick={() => navigate('/')}>
-            <img
-              src="/Stagechecklogo.png"
-              alt="StageCheck"
-              className="ae-logo-img"
-              onError={e => {
-                const img = e.target as HTMLImageElement
-                img.style.display = 'none'
-                const fallback = img.nextSibling as HTMLElement
-                if (fallback) fallback.style.display = 'flex'
-              }}
-            />
-            <div className="ae-logo-fallback" style={{ display: 'none' }}>
-              <div className="ae-logo-icon">S</div>
-              <div className="ae-logo-wordmark">
-                <span className="ae-logo-name">Stage<span>Check</span></span>
-                <span className="ae-logo-tagline">Event Platform</span>
-              </div>
-            </div>
-          </div>
-          <div className="ae-nav-r">
-            <button className="ae-btn-ghost" onClick={() => navigate('/login')}>Log in</button>
-            <button className="ae-btn-green" onClick={() => navigate('/signup')}>Create Event</button>
-          </div>
-        </nav>
-
+        <Navbar variant="events" />
+        
         {/* ── HERO ── */}
         <section className="ae-hero">
           <div className="ae-hero-orb" style={{ width: 500, height: 500, background: 'radial-gradient(circle,rgba(13,199,94,0.12) 0%,transparent 70%)', top: '-10%', left: '0%' }} />

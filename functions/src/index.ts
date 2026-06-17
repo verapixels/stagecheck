@@ -3,6 +3,7 @@ import fetch from "node-fetch";
 
 export { sendEventMessage } from './Sendeventmessage'
 export { sendSubmissionEmails } from './Sendsubmissionemails'
+export { sendTicketConfirmation } from './SendTicketConfirmation'
 
 export const searchDeezerArtists = onRequest(async (req, res) => {
   res.set("Access-Control-Allow-Origin", "*");

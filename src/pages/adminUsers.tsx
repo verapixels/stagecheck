@@ -53,31 +53,25 @@ export default function UsersAdmin() {
   useEffect(() => { loadUsers() }, [])
 
   async function loadUsers() {
-    setLoading(true)
-    try {
-      let snap
-      try {
-        const q = query(collection(db, 'users'), orderBy('createdAt', 'desc'))
-        snap = await getDocs(q)
-      } catch {
-        snap = await getDocs(collection(db, 'users'))
-      }
-      const list: User[] = snap.docs.map(d => ({
-        id: d.id,
-        displayName: d.data().displayName ?? d.data().name ?? 'Unknown',
-        email: d.data().email ?? '',
-        role: d.data().role ?? 'user',
-        suspended: d.data().suspended ?? false,
-        createdAt: d.data().createdAt,
-        photoURL: d.data().photoURL ?? '',
-        eventsCreated: d.data().eventsCreated ?? 0,
-        lastLogin: d.data().lastLogin,
-        phone: d.data().phone ?? '',
-      }))
-      setUsers(list)
-    } catch (e) { console.error(e) }
-    finally { setLoading(false) }
-  }
+  setLoading(true)
+  try {
+    const snap = await getDocs(collection(db, 'users'))
+    const list: User[] = snap.docs.map(d => ({
+      id: d.id,
+      displayName: d.data().displayName ?? d.data().name ?? 'Unknown',
+      email: d.data().email ?? '',
+      role: d.data().role ?? 'user',
+      suspended: d.data().suspended ?? false,
+      createdAt: d.data().createdAt,
+      photoURL: d.data().photoURL ?? '',
+      eventsCreated: d.data().eventsCreated ?? 0,
+      lastLogin: d.data().lastLogin,
+      phone: d.data().phone ?? '',
+    }))
+    setUsers(list)
+  } catch (e) { console.error(e) }
+  finally { setLoading(false) }
+}
 
   useEffect(() => {
     let list = [...users]

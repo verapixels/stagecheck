@@ -358,20 +358,20 @@ export default function TestimonialsAdmin() {
         catch { sSnap = null }
       }
       const sList: FeedbackSubmission[] = sSnap?.docs.map(d => ({
-        id: d.id,
-        name: d.data().name ?? 'Anonymous',
-        usedFor: d.data().usedFor ?? '',
-        // Read all possible field names for the text
-        description: d.data().description || d.data().experience || '',
-        experience: d.data().experience || d.data().description || '',
-        rating: d.data().rating ?? 0,
-        // Read both photo field names
-        photoURL: d.data().photoURL || d.data().photoUrl || '',
-        photoUrl: d.data().photoUrl || d.data().photoURL || '',
-        showPhoto: d.data().showPhoto ?? false,
-        submittedAt: d.data().submittedAt,
-        converted: d.data().converted ?? false,
-      })) ?? []
+  id: d.id,
+  name: d.data().name ?? 'Anonymous',
+  usedFor: d.data().usedFor ?? '',
+  // experience is what the form actually saves — read it first
+  description: d.data().experience || d.data().description || '',
+  experience: d.data().experience || d.data().description || '',
+  rating: d.data().rating ?? 0,
+  // photoUrl is what the form saves (lowercase u) — read it first
+  photoURL: d.data().photoUrl || d.data().photoURL || '',
+  photoUrl: d.data().photoUrl || d.data().photoURL || '',
+  showPhoto: d.data().showPhoto ?? false,
+  submittedAt: d.data().submittedAt,
+  converted: d.data().converted ?? false,
+})) ?? []
 
       setTestimonials(tList)
       setSubmissions(sList)
@@ -465,41 +465,58 @@ export default function TestimonialsAdmin() {
   }
 
   async function convertToTestimonial(s: FeedbackSubmission) {
-    setActionLoading('conv' + s.id)
-    try {
-      const photo = s.photoURL || s.photoUrl || ''
-      const text = s.description || s.experience || ''
-      const maxOrder = testimonials.length > 0 ? Math.max(...testimonials.map(t => t.order)) + 1 : 1
-       const ref = await addDoc(collection(db, 'testimonials'), {
-  name: s.name,
-  role: s.usedFor,
-  usedFor: s.usedFor,
-  quote: text,
-  description: text,
-  experience: text,
-  avatar: photo,
-  photoURL: photo,
-  photoUrl: photo,
-  showPhoto: s.showPhoto,
-  rating: s.rating,
-  order: maxOrder,
-  approved: true,
-  source: 'feedback_form',
-  createdAt: serverTimestamp(),
-})
-      await updateDoc(doc(db, 'feedbackSubmissions', s.id), { converted: true })
-      const newTestimonial: Testimonial = {
-        id: ref.id, name: s.name, role: s.usedFor, quote: text,
-        avatar: photo, showPhoto: s.showPhoto, rating: s.rating,
-        order: maxOrder, approved: true, source: 'feedback_form',
-      }
-      setTestimonials(prev => [...prev, newTestimonial])
-      setSubmissions(prev => prev.map(x => x.id === s.id ? { ...x, converted: true } : x))
-      setDetailS(null)
-      showToast('Converted to testimonial ✓')
-    } catch (e: any) { showToast('Error: ' + e.message) }
-    finally { setActionLoading('') }
-  }
+  setActionLoading('conv' + s.id)
+  try {
+    // Read photo from ALL possible field names on the raw submission
+    const photo = s.photoURL || s.photoUrl || ''
+    // Read text from ALL possible field names
+    const text = s.experience || s.description || ''
+
+    if (!text) {
+      showToast('Warning: no quote text found on this submission')
+    }
+
+    const maxOrder = testimonials.length > 0 ? Math.max(...testimonials.map(t => t.order)) + 1 : 1
+    const ref = await addDoc(collection(db, 'testimonials'), {
+      name: s.name,
+      role: s.usedFor || '',
+      usedFor: s.usedFor || '',
+      // write quote under every field name so both admin and landing page find it
+      quote: text,
+      description: text,
+      experience: text,
+      // write photo under every field name
+      avatar: photo,
+      photoURL: photo,
+      photoUrl: photo,
+      showPhoto: s.showPhoto,
+      rating: s.rating,
+      order: maxOrder,
+      approved: true,
+      source: 'feedback_form',
+      createdAt: serverTimestamp(),
+    })
+    await updateDoc(doc(db, 'feedbackSubmissions', s.id), { converted: true })
+
+    const newTestimonial: Testimonial = {
+      id: ref.id,
+      name: s.name,
+      role: s.usedFor || '',
+      quote: text,
+      avatar: photo,
+      showPhoto: s.showPhoto,
+      rating: s.rating,
+      order: maxOrder,
+      approved: true,
+      source: 'feedback_form',
+    }
+    setTestimonials(prev => [...prev, newTestimonial])
+    setSubmissions(prev => prev.map(x => x.id === s.id ? { ...x, converted: true } : x))
+    setDetailS(null)
+    showToast('Converted to testimonial')
+  } catch (e: any) { showToast('Error: ' + e.message) }
+  finally { setActionLoading('') }
+}
 
   const filteredT = testimonials
     .filter(t => !search || t.name.toLowerCase().includes(search.toLowerCase()) || t.quote.toLowerCase().includes(search.toLowerCase()))
