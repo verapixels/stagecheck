@@ -28,8 +28,9 @@ const ICON_YOUTUBE   = 'https://cdn.simpleicons.org/youtube/0dc75e'
 const ICON_TIKTOK    = 'https://cdn.simpleicons.org/tiktok/0dc75e'
 
 function qrImageUrl(data: string, size = 200): string {
-  return `https://api.qrserver.com/v1/create-qr-code/?size=${size}x${size}&data=${encodeURIComponent(data)}&color=0dc75e&bgcolor=060e1c&qzone=2&format=png`
+  return `https://api.qrserver.com/v1/create-qr-code/?size=${size}x${size}&data=${encodeURIComponent(data)}&color=000000&bgcolor=ffffff&qzone=2&format=png`
 }
+
 
 function buildTicketEmail(params: {
   attendeeName: string
