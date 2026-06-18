@@ -2,6 +2,7 @@ import { useEffect, useState, useRef, useCallback, Fragment } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { collection, getDocs, query, orderBy, limit, Timestamp } from 'firebase/firestore'
 import { db } from '../lib/firebase'
+import PublicFooter from '../components/Publicfooter'
 
 import {
   RiMusicLine, RiCalendarEventLine, RiTrophyLine, RiTicketLine,
@@ -1255,40 +1256,7 @@ export default function LandingPage() {
         </div>
 
         {/* ── FOOTER ── */}
-        <footer className="footer">
-          <div className="footer-top">
-            <div>
-              <div className="logo" onClick={() => navigate('/')} style={{ marginBottom: 0 }}>
-                <img src="/Stagechecklogo.png" alt="StageCheck" className="logo-img" />
-              </div>
-              <p className="ft-brand-p">The complete event operating system. Plan, manage and run flawless events.</p>
-              <div className="soc-row">
-                {[<RiFacebookCircleLine />, <RiInstagramLine />, <RiTwitterXLine />, <RiYoutubeLine />].map((ic, i) => (
-                  <div key={i} className="soc-ic">{ic}</div>
-                ))}
-              </div>
-            </div>
-            {[
-              { h:'Product', links:['How It Works', 'Pricing', 'Updates'] },
-              { h:'Solutions', links:['For Churches', 'For Schools', 'For Conferences', 'For Competitions'] },
-              { h:'Company', links:['About Us', 'Blog', 'Careers', 'Contact Us'] },
-              { h:'Resources', links:['Help Center', 'Guides', 'Case Studies', 'Community'] },
-              { h:'Legal', links:['Privacy Policy', 'Terms of Service', 'Refund Policy'] },
-            ].map(col => (
-              <div key={col.h}>
-                <h5 className="ft-col-h">{col.h}</h5>
-                {col.links.map(l => <button key={l} className="ft-lnk">{l}</button>)}
-              </div>
-            ))}
-          </div>
-          <div className="ft-bottom">
-            <span>© 2025 StageCheck by Verapixels Technologies. All rights reserved.</span>
-            <div style={{ display:'flex', gap:16 }}>
-              <button className="ft-lnk" style={{ margin:0 }}>Privacy</button>
-              <button className="ft-lnk" style={{ margin:0 }}>Terms</button>
-            </div>
-          </div>
-        </footer>
+        <PublicFooter />
 
         <button className={`scroll-top ${scrolled ? 'show' : ''}`} onClick={() => window.scrollTo({ top:0, behavior:'smooth' })}>
           <RiArrowUpLine size={18} />

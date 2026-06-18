@@ -5,7 +5,7 @@ export default function PrivacyPage() {
     <LegalLayout
       title="Privacy Policy"
       subtitle="We take your privacy seriously. This policy explains what data StageCheck collects, how we use it, and the choices you have."
-      lastUpdated="17 June 2025"
+      lastUpdated="17 June 2026"
     >
 
       <div className="legal-section">
@@ -105,7 +105,7 @@ export default function PrivacyPage() {
         </ul>
         <p className="legal-p">
           To exercise any of these rights, contact us at{' '}
-          <a href="mailto:hello@stagecheck.app" className="legal-link">hello@stagecheck.app</a>. We will respond within 30 days.
+          <a href="mailto:hello@stagecheck.com" className="legal-link">hello@stagecheck.com</a>. We will respond within 30 days.
         </p>
       </div>
 
@@ -116,7 +116,7 @@ export default function PrivacyPage() {
         </p>
         <p className="legal-p">
           While we take security seriously, no system is perfectly secure. If you become aware of any security vulnerability affecting the platform, please notify us immediately at{' '}
-          <a href="mailto:hello@stagecheck.app" className="legal-link">hello@stagecheck.app</a>.
+          <a href="mailto:hello@stagecheck.com" className="legal-link">hello@stagecheck.com</a>.
         </p>
       </div>
 
@@ -148,7 +148,7 @@ export default function PrivacyPage() {
         <h2 className="legal-h2">13. Contact Us</h2>
         <p className="legal-p">
           For any privacy-related questions, requests, or concerns, contact us at:{' '}
-          <a href="mailto:hello@stagecheck.app" className="legal-link">hello@stagecheck.app</a>
+          <a href="mailto:hello@stagecheck.com" className="legal-link">hello@stagecheck.com</a>
         </p>
       </div>
 

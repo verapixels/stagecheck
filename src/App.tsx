@@ -30,6 +30,11 @@ import EventDetailPage from './pages/Eventdetailpage'
 // Public — all events
 import AllEvents from './pages/AllEvents'
 
+// Public — legal pages
+import PrivacyPage from './pages/Privacypage'
+import TermsPage from './pages/Termspage'
+import RefundPage from './pages/Refundpage'
+
 // Protected — event specific
 import SubmissionsPage from './pages/event/SubmissionsPage'
 import SongsPage from './pages/event/SongsPage'
@@ -55,6 +60,9 @@ import AdminTestimonials from './pages/adminTestimonials'
 import AdminAnalytics from './pages/adminAnalytics'
 import AdminSettingsPage from './pages/AdminSettingsPage'
 import FeedbackPage from './pages/adminFeedbackPage'
+
+// Cookie consent banner
+import CookieBanner from './components/Cookiebanner'
 
 function ScrollRestorer() {
   const { pathname } = useLocation()
@@ -134,6 +142,9 @@ export default function App() {
           {/* ── PUBLIC ── */}
           <Route path="/" element={<LandingPage />} />
           <Route path="/events" element={<AllEvents />} />
+          <Route path="/privacy" element={<PrivacyPage />} />
+          <Route path="/terms" element={<TermsPage />} />
+          <Route path="/refund" element={<RefundPage />} />
           <Route path="/signup" element={<AuthRoute><SignUp /></AuthRoute>} />
           <Route path="/login" element={<AuthRoute><Login /></AuthRoute>} />
           <Route path="/join/:joinCode" element={<JoinPage />} />
@@ -178,6 +189,11 @@ export default function App() {
           <Route path="*" element={<Navigate to="/" replace />} />
 
         </Routes>
+
+        {/* Cookie banner — outside Routes so it persists across navigation.
+            It reads localStorage on mount; shows once, never again after consent. */}
+        <CookieBanner />
+
       </AuthProvider>
     </BrowserRouter>
   )

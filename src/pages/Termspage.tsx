@@ -5,14 +5,14 @@ export default function TermsPage() {
     <LegalLayout
       title="Terms of Service"
       subtitle="Please read these terms carefully before using StageCheck. By accessing or using our platform, you agree to be bound by these terms."
-      lastUpdated="17 June 2025"
+      lastUpdated="17 June 2026"
     >
 
       <div className="legal-section">
         <div className="legal-highlight">
           <p className="legal-p" style={{ marginBottom: 0 }}>
             These Terms of Service govern your use of StageCheck, an event management platform operated globally. By creating an account or using StageCheck in any way, you accept these terms in full.
-          </p>
+          </p>  
         </div>
       </div>
 
@@ -155,7 +155,7 @@ export default function TermsPage() {
         <h2 className="legal-h2">15. Contact</h2>
         <p className="legal-p">
           If you have any questions about these Terms of Service, you can reach us at:{' '}
-          <a href="mailto:hello@stagecheck.app" className="legal-link">hello@stagecheck.app</a>
+          <a href="mailto:hello@stagecheck.com" className="legal-link">hello@stagecheck.com</a>
         </p>
       </div>
 

@@ -5,7 +5,7 @@ export default function RefundPage() {
     <LegalLayout
       title="Refund Policy"
       subtitle="StageCheck is currently free to use. Here's everything you need to know about our refund policy, now and as we grow."
-      lastUpdated="17 June 2025"
+      lastUpdated="17 June 2026"
     >
 
       <div className="legal-section">
@@ -69,7 +69,7 @@ export default function RefundPage() {
         <h2 className="legal-h2">6. Contact Us</h2>
         <p className="legal-p">
           If you have any questions about this Refund Policy, or if you believe a charge has been made in error, please reach out to us at:{' '}
-          <a href="mailto:hello@stagecheck.app" className="legal-link">hello@stagecheck.app</a>
+          <a href="mailto:hello@stagecheck.com" className="legal-link">hello@stagecheck.com</a>
         </p>
         <p className="legal-p">
           We aim to respond to all billing-related queries within 2 business days.
