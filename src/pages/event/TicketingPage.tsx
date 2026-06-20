@@ -238,7 +238,7 @@ function CheckinStation({ eventId, attendees, onBack }: {
     setCameraError(null); setCameraReady(false)
     try {
       const stream = await navigator.mediaDevices.getUserMedia({
-        video: { facingMode: 'environment', width: { ideal: 1280 }, height: { ideal: 720 } }
+      video: { facingMode: 'environment', width: { ideal: 640 }, height: { ideal: 480 } }
       })
       streamRef.current = stream
       if (videoRef.current) {
@@ -263,23 +263,39 @@ function CheckinStation({ eventId, attendees, onBack }: {
 
   /* Scan loop */
   useEffect(() => {
-    if (mode !== 'camera' || !cameraReady) return
-   const scan = () => {
-      const video = videoRef.current; const canvas = canvasRef.current
-      if (!video || !canvas || video.readyState < 2) { rafRef.current = requestAnimationFrame(scan); return }
-      const ctx = canvas.getContext('2d', { willReadFrequently: true })!
-      canvas.width = video.videoWidth; canvas.height = video.videoHeight
-      ctx.drawImage(video, 0, 0)
-      const img  = ctx.getImageData(0, 0, canvas.width, canvas.height)
-      const code = jsQR(img.data, img.width, img.height, { inversionAttempts: 'attemptBoth' })
-      if (code?.data && code.data !== lastScanned.current && !processing) {
-        lastScanned.current = code.data; processCode(code.data)
-      }
-      rafRef.current = requestAnimationFrame(scan)
-    }
+  if (mode !== 'camera' || !cameraReady) return
+  let lastTime = 0
+  const THROTTLE_MS = 150  // decode at most ~6fps — plenty for QR
+
+  const scan = (timestamp: number) => {
     rafRef.current = requestAnimationFrame(scan)
-    return () => cancelAnimationFrame(rafRef.current)
-  }, [mode, cameraReady, processing, processCode])
+    if (timestamp - lastTime < THROTTLE_MS) return
+    lastTime = timestamp
+
+    const video = videoRef.current
+    const canvas = canvasRef.current
+    if (!video || !canvas || video.readyState < 2) return
+
+    // Downscale to max 400px wide before passing to jsQR
+    const scale = Math.min(1, 400 / video.videoWidth)
+    canvas.width  = Math.round(video.videoWidth  * scale)
+    canvas.height = Math.round(video.videoHeight * scale)
+
+    const ctx = canvas.getContext('2d', { willReadFrequently: true })!
+    ctx.drawImage(video, 0, 0, canvas.width, canvas.height)
+
+    const img  = ctx.getImageData(0, 0, canvas.width, canvas.height)
+    const code = jsQR(img.data, img.width, img.height, { inversionAttempts: 'dontInvert' })
+    if (code?.data && code.data !== lastScanned.current && !processing) {
+      lastScanned.current = code.data
+      processCode(code.data)
+    }
+  }
+
+  rafRef.current = requestAnimationFrame(scan)
+  return () => cancelAnimationFrame(rafRef.current)
+}, [mode, cameraReady, processing, processCode])
+
 
   useEffect(() => {
     if (mode === 'camera') startCamera()

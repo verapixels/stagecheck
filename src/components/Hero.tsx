@@ -1,245 +1,360 @@
-import { ArrowRight, Play, CheckCircle2, Shield, Zap, BarChart3 } from 'lucide-react'
+// src/components/Hero.tsx
+//
+// Public landing page hero. Receives its event data and stats as props
+// from LandingPage.tsx — it does not fetch anything itself. Styling uses
+// plain CSS scoped to "hero-*" classes and reads the design tokens
+// (--green, --bg, --font-display, etc.) defined globally in LandingPage's
+// <style> block, with safe fallbacks so this still renders correctly if
+// used on its own.
 
-function DashboardMockup() {
-  const rows = [
-    { name: 'Choir A — Opening Set', status: 'Confirmed', slot: '4:00 PM', num: '#SC001' },
-    { name: 'Drama Team', status: 'Verified', slot: '4:20 PM', num: '#SC002' },
-    { name: 'Speaker — Keynote', status: 'Confirmed', slot: '4:45 PM', num: '#SC003' },
-    { name: 'Choir B — Finals', status: 'Pending', slot: '5:10 PM', num: '#SC004' },
-    { name: 'Closing Dance', status: 'Verified', slot: '5:35 PM', num: '#SC005' },
-  ]
+import { useEffect, useState } from 'react'
+import { useNavigate } from 'react-router-dom'
+import type { IconType } from 'react-icons'
+import {
+  FiArrowLeft,
+  FiArrowRight,
+  FiArrowUpRight,
+  FiCalendar,
+  FiClock,
+  FiMapPin,
+  FiChevronDown,
+  FiStar,
+} from 'react-icons/fi'
+import { FaTicket, FaShieldHalved, FaHeadset } from 'react-icons/fa6'
 
-  const statusColor: Record<string, string> = {
-    Confirmed: '#22C55E',
-    Verified: '#3B82F6',
-    Pending: '#F59E0B',
+export interface HeroEvent {
+  slug: string
+  title: string
+  bannerImage: string
+  categoryLabel: string
+  dateMonth: string
+  dateDay: string
+  dateWeekday: string
+  dateFull: string
+  time: string
+  location: string
+  attendees: number
+  attendeeAvatars: string[]
+}
+
+interface HeroStat {
+  icon: IconType
+  value: string
+  label: string
+  sub: string
+}
+
+export const DEFAULT_HERO_STATS: HeroStat[] = [
+  { icon: FaTicket, value: '10,000+', label: 'Tickets Sold', sub: 'On StageCheck' },
+  { icon: FiCalendar, value: '500+', label: 'Events Hosted', sub: 'Across Nigeria' },
+  { icon: FaShieldHalved, value: '99.9%', label: 'Platform Uptime', sub: 'Always Reliable' },
+  { icon: FaHeadset, value: '24/7', label: 'Support', sub: "We're Here" },
+]
+
+interface HeroSectionProps {
+  events: HeroEvent[]
+  stats?: HeroStat[]
+}
+
+export default function HeroSection({ events, stats = DEFAULT_HERO_STATS }: HeroSectionProps) {
+  const navigate = useNavigate()
+  const [currentIndex, setCurrentIndex] = useState(0)
+  const [isPaused, setIsPaused] = useState(false)
+  const total = events.length
+
+  const goPrev = () => total && setCurrentIndex((i) => (i - 1 + total) % total)
+  const goNext = () => total && setCurrentIndex((i) => (i + 1) % total)
+
+  // auto-advance every 5s — pauses on hover, restarts whenever the
+  // index changes so a manual click doesn't get immediately overridden
+  useEffect(() => {
+    if (total <= 1 || isPaused) return
+    const id = setInterval(() => {
+      setCurrentIndex((i) => (i + 1) % total)
+    }, 5000)
+    return () => clearInterval(id)
+  }, [total, isPaused, currentIndex])
+
+  // shortest signed distance from currentIndex on a circular track
+  const getOffset = (index: number) => {
+    if (!total) return 0
+    let diff = index - currentIndex
+    if (diff > total / 2) diff -= total
+    if (diff < -total / 2) diff += total
+    return diff
   }
 
   return (
-    <div style={{
-      background: 'rgba(13,20,38,0.9)',
-      border: '1px solid rgba(255,255,255,0.1)',
-      borderRadius: 16,
-      overflow: 'hidden',
-      backdropFilter: 'blur(20px)',
-      boxShadow: '0 40px 80px rgba(0,0,0,0.6), 0 0 0 1px rgba(34,197,94,0.1)',
-      width: '100%', maxWidth: 580,
-    }}>
-      <div style={{
-        display: 'flex', alignItems: 'center', gap: 8,
-        padding: '12px 16px', borderBottom: '1px solid rgba(255,255,255,0.06)',
-        background: 'rgba(255,255,255,0.03)',
-      }}>
-        <div style={{ display: 'flex', gap: 6 }}>
-          {['#FF5F57','#FFBD2E','#28C840'].map(c => (
-            <div key={c} style={{ width: 10, height: 10, borderRadius: '50%', background: c }} />
-          ))}
-        </div>
-        <div style={{ flex: 1, textAlign: 'center' }}>
-          <span style={{ fontSize: 11, color: 'rgba(255,255,255,0.4)', fontFamily: 'var(--font-body)' }}>stagecheck.com — Live Control Panel</span>
-        </div>
-        <div style={{ width: 6, height: 6, borderRadius: '50%', background: '#22C55E', animation: 'pulse 2s infinite' }} />
-      </div>
-
-      <div style={{ display: 'flex', height: 360 }}>
-        <div style={{ width: 130, borderRight: '1px solid rgba(255,255,255,0.06)', padding: '16px 0', flexShrink: 0 }}>
-          <div style={{ padding: '0 12px 14px', display: 'flex', alignItems: 'center', gap: 8 }}>
-            <div style={{ width: 20, height: 20, background: 'var(--green)', borderRadius: 4, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-              <CheckCircle2 size={12} color="#0B1020" />
-            </div>
-            <span style={{ fontSize: 12, fontWeight: 700, fontFamily: 'var(--font-display)', color: '#fff' }}>StageCheck</span>
-          </div>
-          {['Dashboard','Events','Schedule','Performers','Resources','Judging','Analytics','Messages','Settings'].map((item, i) => (
-            <div key={item} style={{
-              padding: '7px 12px', fontSize: 10,
-              color: i === 2 ? '#22C55E' : 'rgba(255,255,255,0.4)',
-              background: i === 2 ? 'rgba(34,197,94,0.08)' : 'transparent',
-              borderLeft: i === 2 ? '2px solid #22C55E' : '2px solid transparent',
-              cursor: 'pointer', fontFamily: 'var(--font-body)',
-            }}>{item}</div>
-          ))}
-        </div>
-
-        <div style={{ flex: 1, padding: '14px', overflow: 'hidden' }}>
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10 }}>
-            <span style={{ fontSize: 13, fontWeight: 600, fontFamily: 'var(--font-display)', color: '#fff' }}>Live Stage Schedule</span>
-            <div style={{ display: 'flex', gap: 6 }}>
-              <div style={{ background: 'rgba(34,197,94,0.15)', color: '#22C55E', fontSize: 9, fontWeight: 700, padding: '3px 8px', borderRadius: 4, border: '1px solid rgba(34,197,94,0.25)' }}>● LIVE</div>
-              <div style={{ background: '#22C55E', color: '#0B1020', fontSize: 9, fontWeight: 700, padding: '3px 8px', borderRadius: 4 }}>+ Add Slot</div>
-            </div>
-          </div>
-
-          {/* Stats row */}
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3,1fr)', gap: 6, marginBottom: 10 }}>
-            {[
-              { label: 'Performers', val: '24' },
-              { label: 'Conflicts', val: '0', green: true },
-              { label: 'Next Up', val: '4:20 PM' },
-            ].map(s => (
-              <div key={s.label} style={{
-                background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.06)',
-                borderRadius: 6, padding: '6px 8px',
-              }}>
-                <div style={{ fontSize: 14, fontWeight: 700, color: s.green ? '#22C55E' : '#fff', fontFamily: 'var(--font-display)' }}>{s.val}</div>
-                <div style={{ fontSize: 9, color: 'rgba(255,255,255,0.35)' }}>{s.label}</div>
-              </div>
-            ))}
-          </div>
-
-          <div style={{ background: 'rgba(255,255,255,0.03)', borderRadius: 8, border: '1px solid rgba(255,255,255,0.06)', overflow: 'hidden' }}>
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 70px 65px 60px', padding: '6px 10px', borderBottom: '1px solid rgba(255,255,255,0.06)' }}>
-              {['Performer / Act', 'Status', 'Time Slot', 'ID'].map(h => (
-                <span key={h} style={{ fontSize: 9, color: 'rgba(255,255,255,0.3)', fontFamily: 'var(--font-body)' }}>{h}</span>
-              ))}
-            </div>
-            {rows.map((r, i) => (
-              <div key={i} style={{
-                display: 'grid', gridTemplateColumns: '1fr 70px 65px 60px',
-                padding: '6px 10px',
-                borderBottom: i < rows.length - 1 ? '1px solid rgba(255,255,255,0.04)' : 'none',
-                alignItems: 'center',
-                background: i === 0 ? 'rgba(34,197,94,0.05)' : 'transparent',
-              }}>
-                <span style={{ fontSize: 10, color: i === 0 ? '#fff' : 'rgba(255,255,255,0.65)', fontFamily: 'var(--font-body)', fontWeight: i === 0 ? 600 : 400 }}>{r.name}</span>
-                <div style={{
-                  display: 'inline-flex', alignItems: 'center', gap: 3,
-                  background: `${statusColor[r.status]}20`,
-                  color: statusColor[r.status],
-                  fontSize: 8, padding: '2px 5px', borderRadius: 3, fontFamily: 'var(--font-body)',
-                }}>
-                  <CheckCircle2 size={7} /> {r.status}
-                </div>
-                <span style={{ fontSize: 10, color: '#22C55E', fontFamily: 'var(--font-body)', fontWeight: 600 }}>{r.slot}</span>
-                <span style={{ fontSize: 9, color: 'rgba(255,255,255,0.35)', fontFamily: 'var(--font-body)' }}>{r.num}</span>
-              </div>
-            ))}
-          </div>
-
-          <div style={{ marginTop: 10, padding: '8px 10px', background: 'rgba(34,197,94,0.08)', border: '1px solid rgba(34,197,94,0.2)', borderRadius: 8, display: 'flex', alignItems: 'center', gap: 8 }}>
-            <Shield size={11} color="#22C55E" />
-            <span style={{ fontSize: 10, color: '#22C55E', fontFamily: 'var(--font-body)' }}>No conflicts detected across all 24 performers</span>
-          </div>
-        </div>
-      </div>
-    </div>
-  )
-}
-
-export default function Hero() {
-  const stats = [
-    { icon: <Shield size={14} />, label: 'Zero-conflict events', value: '18k+' },
-    { icon: <Zap size={14} />, label: 'Performers managed', value: '120k+' },
-    { icon: <BarChart3 size={14} />, label: 'Event categories', value: '12' },
-  ]
-
-  return (
-    <section style={{
-      minHeight: '100vh', position: 'relative',
-      display: 'flex', flexDirection: 'column', justifyContent: 'center',
-      overflow: 'hidden', paddingTop: 72,
-    }}>
-      <div style={{
-        position: 'absolute', inset: 0, pointerEvents: 'none',
-        background: `
-          radial-gradient(ellipse 60% 50% at 10% 80%, rgba(34,197,94,0.08) 0%, transparent 70%),
-          radial-gradient(ellipse 50% 60% at 90% 20%, rgba(59,130,246,0.06) 0%, transparent 70%),
-          radial-gradient(ellipse 80% 40% at 50% 100%, rgba(34,197,94,0.05) 0%, transparent 70%)
-        `,
-      }} />
-      <div style={{
-        position: 'absolute', inset: 0, pointerEvents: 'none',
-        backgroundImage: `linear-gradient(rgba(255,255,255,0.02) 1px, transparent 1px), linear-gradient(90deg, rgba(255,255,255,0.02) 1px, transparent 1px)`,
-        backgroundSize: '60px 60px',
-        maskImage: 'radial-gradient(ellipse 80% 80% at 50% 0%, black 0%, transparent 100%)',
-      }} />
-
-      <div style={{
-        maxWidth: 1200, margin: '0 auto', padding: '4rem 2rem',
-        display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '4rem',
-        alignItems: 'center', position: 'relative', zIndex: 1,
-      }} className="hero-grid">
-        <div>
-          <div style={{
-            display: 'inline-flex', alignItems: 'center', gap: 8,
-            background: 'rgba(34,197,94,0.1)', border: '1px solid rgba(34,197,94,0.25)',
-            padding: '6px 14px', borderRadius: 100, marginBottom: 28,
-          }}>
-            <div style={{ width: 6, height: 6, borderRadius: '50%', background: '#22C55E', animation: 'pulse 2s infinite' }} />
-            <span style={{ fontSize: 13, color: '#22C55E', fontWeight: 500, fontFamily: 'var(--font-body)' }}>
-              The Event Operating System
-            </span>
-          </div>
-
-          <h1 style={{
-            fontFamily: 'var(--font-display)', fontWeight: 800,
-            fontSize: 'clamp(2.4rem, 5vw, 3.6rem)', lineHeight: 1.1,
-            letterSpacing: '-1.5px', marginBottom: 24,
-          }}>
-            Everything that happens{' '}
-            <span style={{ color: '#22C55E' }}>on your stage,</span>
-            <br />
-            <span style={{
-              WebkitTextStroke: '1px rgba(255,255,255,0.6)',
-              color: 'transparent',
-            }}>under control.</span>
-          </h1>
-
-          <p style={{
-            fontSize: 17, color: 'rgba(255,255,255,0.6)', lineHeight: 1.7,
-            marginBottom: 36, maxWidth: 460, fontWeight: 300,
-          }}>
-            StageCheck is not just a song checker. It's a full event operating system —
-            scheduling, registration, conflict detection, live control, judging, ticketing,
-            and analytics. All in one platform.
-          </p>
-
-          <div style={{ display: 'flex', gap: 14, flexWrap: 'wrap', marginBottom: 48 }}>
-            <button style={{
-              background: '#22C55E', border: 'none', color: '#0B1020',
-              padding: '14px 28px', borderRadius: 10, cursor: 'pointer',
-              fontSize: 15, fontWeight: 700, fontFamily: 'var(--font-body)',
-              display: 'flex', alignItems: 'center', gap: 8, transition: 'all 0.2s',
-            }}
-              onMouseEnter={e => { e.currentTarget.style.background = '#1da34a'; e.currentTarget.style.transform = 'translateY(-1px)' }}
-              onMouseLeave={e => { e.currentTarget.style.background = '#22C55E'; e.currentTarget.style.transform = 'translateY(0)' }}
-            >
-              Start for Free <ArrowRight size={16} />
-            </button>
-            <button style={{
-              background: 'transparent', border: '1px solid rgba(255,255,255,0.18)',
-              color: '#fff', padding: '14px 24px', borderRadius: 10, cursor: 'pointer',
-              fontSize: 15, fontWeight: 500, fontFamily: 'var(--font-body)',
-              display: 'flex', alignItems: 'center', gap: 8, transition: 'all 0.2s',
-            }}
-              onMouseEnter={e => { e.currentTarget.style.borderColor = 'rgba(255,255,255,0.35)'; e.currentTarget.style.background = 'rgba(255,255,255,0.04)' }}
-              onMouseLeave={e => { e.currentTarget.style.borderColor = 'rgba(255,255,255,0.18)'; e.currentTarget.style.background = 'transparent' }}
-            >
-              <Play size={14} fill="currentColor" /> Watch Demo
-            </button>
-          </div>
-
-          <div style={{ display: 'flex', gap: 28, flexWrap: 'wrap' }}>
-            {stats.map(s => (
-              <div key={s.label} style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: 6, color: '#22C55E' }}>
-                  {s.icon}
-                  <span style={{ fontSize: 22, fontWeight: 700, fontFamily: 'var(--font-display)', color: '#fff' }}>{s.value}</span>
-                </div>
-                <span style={{ fontSize: 12, color: 'rgba(255,255,255,0.45)' }}>{s.label}</span>
-              </div>
-            ))}
-          </div>
-        </div>
-
-        <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center' }}>
-          <DashboardMockup />
-        </div>
-      </div>
-
+    <section className="hero">
       <style>{`
-        @keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.4; } }
-        @media (max-width: 900px) { .hero-grid { grid-template-columns: 1fr !important; gap: 3rem !important; } }
+        .hero { position: relative; width: 100%; overflow: hidden; background: var(--bg, #000612); padding: 88px 24px 96px; }
+        .hero-glow { pointer-events: none; position: absolute; left: 50%; top: 300px; width: 900px; height: 420px; transform: translateX(-50%); border-radius: 999px; background: var(--green-dim, rgba(13,199,94,0.12)); filter: blur(120px); }
+        .hero-inner { position: relative; max-width: 1180px; margin: 0 auto; }
+
+        .hero-eyebrow-row { display: flex; justify-content: center; }
+        .hero-eyebrow { display: inline-flex; align-items: center; gap: 8px; padding: 7px 18px; border-radius: 999px; border: 1px solid var(--border-g, rgba(13,199,94,0.3)); background: var(--green-dim, rgba(13,199,94,0.1)); color: var(--green, #0dc75e); font-family: var(--font-body, 'Inter', sans-serif); font-size: 12px; font-weight: 600; letter-spacing: .03em; cursor: pointer; }
+        .hero-eyebrow-dot { width: 6px; height: 6px; border-radius: 50%; background: var(--green, #0dc75e); }
+
+        .hero-title { margin-top: 32px; text-align: center; font-family: var(--font-display, 'Fraunces', serif); font-weight: 600; font-size: 56px; line-height: 1.1; color: var(--text, #f0faf2); }
+        .hero-title-accent { font-style: italic; color: var(--green, #0dc75e); }
+
+        .hero-subtitle { max-width: 560px; margin: 24px auto 0; text-align: center; font-family: var(--font-body, 'Inter', sans-serif); font-size: 15px; line-height: 1.6; color: var(--muted, rgba(255,255,255,0.72)); }
+
+        .hero-carousel { position: relative; margin-top: 64px; height: 420px; }
+        .hero-nav { position: absolute; top: 50%; z-index: 30; width: 44px; height: 44px; transform: translateY(-50%); display: flex; align-items: center; justify-content: center; border-radius: 50%; border: 1px solid var(--border-g, rgba(13,199,94,0.3)); background: transparent; color: var(--green, #0dc75e); cursor: pointer; transition: background .2s ease; }
+        .hero-nav:hover { background: var(--green-dim, rgba(13,199,94,0.1)); }
+        .hero-nav-left { left: 0; }
+        .hero-nav-right { right: 0; }
+
+        .hero-track { position: relative; margin: 0 auto; max-width: 760px; height: 100%; }
+        .hero-empty { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; }
+        .hero-empty-text { font-family: var(--font-body, 'Inter', sans-serif); font-size: 14px; color: var(--muted2, rgba(255,255,255,0.45)); }
+
+        .hero-card-wrap { position: absolute; left: 50%; top: 50%; width: 300px; transition: transform .5s ease, opacity .5s ease; }
+        .hero-card { position: relative; width: 100%; height: 380px; overflow: hidden; border-radius: 24px; border: 1px solid var(--border-g, rgba(13,199,94,0.2)); background: var(--bg-card, #060e1c); }
+        .hero-card-center { box-shadow: 0 0 70px rgba(13,199,94,0.18); }
+        .hero-card-img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; }
+        .hero-card-fade { position: absolute; inset: 0; background: linear-gradient(to top, #000 0%, rgba(0,0,0,.4) 55%, rgba(0,0,0,.1) 100%); }
+
+        .hero-badge-featured { position: absolute; left: 16px; top: 16px; z-index: 2; display: inline-flex; align-items: center; gap: 6px; padding: 5px 12px; border-radius: 999px; background: rgba(13,199,94,0.18); color: var(--green, #0dc75e); font-family: var(--font-body, 'Inter', sans-serif); font-size: 11px; font-weight: 700; letter-spacing: .03em; backdrop-filter: blur(6px); }
+        .hero-date-chip { position: absolute; right: 16px; top: 16px; z-index: 2; width: 56px; padding: 8px 0; display: flex; flex-direction: column; align-items: center; border-radius: 14px; background: rgba(0,0,0,0.6); backdrop-filter: blur(6px); }
+        .hero-date-month { font-family: var(--font-body, 'Inter', sans-serif); font-size: 10px; font-weight: 700; color: var(--green, #0dc75e); }
+        .hero-date-day { font-family: var(--font-body, 'Inter', sans-serif); font-size: 20px; font-weight: 700; color: var(--text, #f0faf2); }
+        .hero-date-weekday { font-family: var(--font-body, 'Inter', sans-serif); font-size: 10px; color: var(--muted2, rgba(255,255,255,.45)); }
+
+        .hero-card-body { position: absolute; left: 0; right: 0; bottom: 0; padding: 20px; z-index: 2; }
+        .hero-card-category { font-family: var(--font-body, 'Inter', sans-serif); font-size: 11px; font-weight: 700; letter-spacing: .04em; color: var(--green, #0dc75e); }
+        .hero-card-title { margin-top: 4px; font-family: var(--font-display, 'Fraunces', serif); color: var(--text, #f0faf2); font-size: 16px; font-weight: 500; }
+        .hero-card-center .hero-card-title { font-size: 24px; font-weight: 600; }
+
+        .hero-card-meta { margin-top: 12px; display: flex; flex-wrap: wrap; gap: 16px; }
+        .hero-card-meta-item { display: inline-flex; align-items: center; gap: 6px; font-family: var(--font-body, 'Inter', sans-serif); font-size: 12px; color: var(--muted, rgba(255,255,255,.72)); }
+        .hero-card-meta-item svg { color: var(--green, #0dc75e); flex-shrink: 0; }
+
+        .hero-card-footer { margin-top: 16px; display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+        .hero-attendees { display: flex; align-items: center; gap: 8px; }
+        .hero-avatars { display: flex; }
+        .hero-avatar { width: 28px; height: 28px; border-radius: 50%; object-fit: cover; border: 2px solid var(--bg-card, #060e1c); margin-left: -8px; }
+        .hero-avatar:first-child { margin-left: 0; }
+        .hero-attendees-count { font-family: var(--font-body, 'Inter', sans-serif); font-size: 12px; color: var(--muted2, rgba(255,255,255,.45)); }
+
+        .hero-card-date-small { margin-top: 4px; display: inline-flex; align-items: center; gap: 5px; font-family: var(--font-body, 'Inter', sans-serif); font-size: 11px; color: var(--muted2, rgba(255,255,255,.45)); }
+
+        .hero-pill { display: inline-flex; align-items: center; gap: 10px; padding: 6px 6px 6px 18px; border-radius: 999px; border: 1px solid var(--border, rgba(255,255,255,.18)); background: transparent; color: var(--text, #f0faf2); font-family: var(--font-body, 'Inter', sans-serif); font-size: 13px; font-weight: 600; cursor: pointer; transition: border-color .25s, background .25s; white-space: nowrap; }
+        .hero-pill-solid { background: var(--green, #0dc75e); border-color: var(--green, #0dc75e); color: #000; }
+        .hero-pill-arrow { width: 26px; height: 26px; border-radius: 50%; display: flex; align-items: center; justify-content: center; background: #000; color: var(--green, #0dc75e); flex-shrink: 0; transition: transform .25s; }
+        .hero-pill-solid:hover .hero-pill-arrow { transform: rotate(45deg); }
+
+        .hero-dots { margin-top: 32px; display: flex; align-items: center; justify-content: center; gap: 8px; }
+        .hero-dot { height: 6px; width: 6px; border-radius: 999px; background: var(--muted2, rgba(255,255,255,.3)); border: none; cursor: pointer; transition: all .25s; padding: 0; }
+        .hero-dot.is-active { width: 20px; background: var(--green, #0dc75e); }
+
+        .hero-stats { margin: 56px auto 0; max-width: 1024px; display: grid; grid-template-columns: repeat(4, 1fr); border-radius: 18px; border: 1px solid var(--border, rgba(255,255,255,.08)); background: rgba(255,255,255,.02); overflow: hidden; }
+        .hero-stat { display: flex; align-items: center; gap: 14px; padding: 24px; border-right: 1px solid var(--border, rgba(255,255,255,.08)); }
+        .hero-stat:last-child { border-right: none; }
+        .hero-stat-icon { flex-shrink: 0; width: 48px; height: 48px; border-radius: 50%; display: flex; align-items: center; justify-content: center; background: var(--green-dim, rgba(13,199,94,.1)); color: var(--green, #0dc75e); }
+        .hero-stat-value { font-family: var(--font-display, 'Fraunces', serif); font-size: 22px; font-weight: 700; color: var(--green, #0dc75e); }
+        .hero-stat-label { font-family: var(--font-body, 'Inter', sans-serif); font-size: 14px; font-weight: 600; color: var(--text, #f0faf2); }
+        .hero-stat-sub { font-family: var(--font-body, 'Inter', sans-serif); font-size: 12px; color: var(--muted2, rgba(255,255,255,.45)); }
+
+        @media (max-width: 720px) {
+          .hero { padding: 64px 16px 64px; }
+          .hero-title { font-size: 36px; }
+          .hero-carousel { height: 340px; }
+          .hero-card-wrap { width: 240px; }
+          .hero-card { height: 300px; }
+          .hero-nav { display: none; }
+          .hero-stats { grid-template-columns: repeat(2, 1fr); }
+          .hero-stat { border-right: 1px solid var(--border, rgba(255,255,255,.08)); border-bottom: 1px solid var(--border, rgba(255,255,255,.08)); }
+          .hero-stat:nth-child(2n) { border-right: none; }
+          .hero-stat:nth-child(n+3) { border-bottom: none; }
+        }
       `}</style>
+
+      <div className="hero-glow" />
+
+      <div className="hero-inner">
+        <div className="hero-eyebrow-row">
+          <button type="button" className="hero-eyebrow">
+            <span className="hero-eyebrow-dot" />
+            FIND IT. RUN IT. REMEMBER IT.
+            <FiChevronDown size={14} />
+          </button>
+        </div>
+
+        <h1 className="hero-title">
+          Discover &amp; run events
+          <br />
+          that feel <span className="hero-title-accent">unforgettable.</span>
+        </h1>
+
+        <p className="hero-subtitle">
+          From concerts to conferences, worship to workshops.
+          <br />
+          Everything you need to discover, create and manage amazing events.
+        </p>
+
+        <div
+          className="hero-carousel"
+          onMouseEnter={() => setIsPaused(true)}
+          onMouseLeave={() => setIsPaused(false)}
+        >
+          {total > 1 && (
+            <>
+              <button type="button" aria-label="Previous event" className="hero-nav hero-nav-left" onClick={goPrev}>
+                <FiArrowLeft size={16} />
+              </button>
+              <button type="button" aria-label="Next event" className="hero-nav hero-nav-right" onClick={goNext}>
+                <FiArrowRight size={16} />
+              </button>
+            </>
+          )}
+
+          <div className="hero-track">
+            {total === 0 && (
+              <div className="hero-empty">
+                <span className="hero-empty-text">No events to show yet</span>
+              </div>
+            )}
+
+            {events.map((event, index) => {
+              const offset = getOffset(index)
+              if (Math.abs(offset) > 2) return null
+
+              const isCenter = offset === 0
+              const distance = Math.abs(offset)
+              const scale = isCenter ? 1 : distance === 1 ? 0.8 : 0.64
+              const x = offset * 235
+              const opacity = isCenter ? 1 : distance === 1 ? 0.55 : 0.22
+              const zIndex = 20 - distance
+
+              return (
+                <div
+                  key={event.slug}
+                  className="hero-card-wrap"
+                  style={{
+                    transform: `translate(-50%, -50%) translateX(${x}px) scale(${scale})`,
+                    opacity,
+                    zIndex,
+                  }}
+                >
+                  <div className={`hero-card${isCenter ? ' hero-card-center' : ''}`}>
+                    {event.bannerImage && (
+                      <img src={event.bannerImage} alt={event.title} className="hero-card-img" />
+                    )}
+                    <div className="hero-card-fade" />
+
+                    {isCenter && (
+                      <>
+                        <div className="hero-badge-featured">
+                          <FiStar size={11} />
+                          FEATURED EVENT
+                        </div>
+                        {event.dateDay && (
+                          <div className="hero-date-chip">
+                            <span className="hero-date-month">{event.dateMonth}</span>
+                            <span className="hero-date-day">{event.dateDay}</span>
+                            <span className="hero-date-weekday">{event.dateWeekday}</span>
+                          </div>
+                        )}
+                      </>
+                    )}
+
+                    <div className="hero-card-body">
+                      <span className="hero-card-category">{event.categoryLabel}</span>
+                      <h3 className="hero-card-title">{event.title}</h3>
+
+                      {isCenter ? (
+                        <>
+                          <div className="hero-card-meta">
+                            {event.dateFull && (
+                              <span className="hero-card-meta-item">
+                                <FiCalendar size={14} /> {event.dateFull}
+                              </span>
+                            )}
+                            {event.time && (
+                              <span className="hero-card-meta-item">
+                                <FiClock size={14} /> {event.time}
+                              </span>
+                            )}
+                            {event.location && (
+                              <span className="hero-card-meta-item">
+                                <FiMapPin size={14} /> {event.location}
+                              </span>
+                            )}
+                          </div>
+
+                          <div className="hero-card-footer">
+                            <div className="hero-attendees">
+                              {event.attendeeAvatars.length > 0 && (
+                                <div className="hero-avatars">
+                                  {event.attendeeAvatars.slice(0, 4).map((src, i) => (
+                                    <img key={i} src={src} alt="" className="hero-avatar" />
+                                  ))}
+                                </div>
+                              )}
+                              {event.attendees > 0 && (
+                                <span className="hero-attendees-count">
+                                  {event.attendees.toLocaleString()}+ attending
+                                </span>
+                              )}
+                            </div>
+                            <button
+                              type="button"
+                              className="hero-pill hero-pill-solid"
+                              onClick={() => navigate(`/event/${event.slug}`)}
+                            >
+                              View Event
+                              <span className="hero-pill-arrow">
+                                <FiArrowUpRight size={14} />
+                              </span>
+                            </button>
+                          </div>
+                        </>
+                      ) : (
+                        event.dateFull && (
+                          <div className="hero-card-date-small">
+                            <FiCalendar size={11} /> {event.dateFull}
+                          </div>
+                        )
+                      )}
+                    </div>
+                  </div>
+                </div>
+              )
+            })}
+          </div>
+        </div>
+
+        {total > 1 && (
+          <div className="hero-dots">
+            {events.map((event, index) => (
+              <button
+                key={event.slug}
+                type="button"
+                aria-label={`Go to ${event.title}`}
+                className={`hero-dot${index === currentIndex ? ' is-active' : ''}`}
+                onClick={() => setCurrentIndex(index)}
+              />
+            ))}
+          </div>
+        )}
+
+        <div className="hero-stats">
+          {stats.map((s) => (
+            <div key={s.label} className="hero-stat">
+              <div className="hero-stat-icon">
+                <s.icon size={20} />
+              </div>
+              <div>
+                <p className="hero-stat-value">{s.value}</p>
+                <p className="hero-stat-label">{s.label}</p>
+                <p className="hero-stat-sub">{s.sub}</p>
+              </div>
+            </div>
+          ))}
+        </div>
+      </div>
     </section>
   )
 }

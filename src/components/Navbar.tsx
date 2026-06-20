@@ -1,15 +1,48 @@
-// src/components/Navbar.tsx
-import { useState, useEffect } from 'react'
-import { useNavigate } from 'react-router-dom'
+// src/components/landing/SiteNavbar.tsx
+//
+// Search + location now live permanently in the navbar (per latest design ref),
+// not just after scrolling past the hero. Tabs route to real pages. "Resources"
+// is a dropdown for secondary links (Privacy/Terms/Refund etc).
 
-interface NavbarProps {
-  variant?: 'landing' | 'events'
-  onScrollTo?: (id: string) => void
+import { useState, useEffect, useRef } from 'react'
+import { useNavigate, useLocation } from 'react-router-dom'
+import {
+  RiSearchLine, RiMapPin2Line, RiCrosshairLine, RiArrowRightUpLine, RiArrowDownSLine,
+} from 'react-icons/ri'
+
+interface SiteNavbarProps {
+  searchValue?: string
+  onSearchChange?: (v: string) => void
+  onSearchSubmit?: () => void
+  locationLabel?: string
+  onLocationChange?: (label: string) => void
 }
 
-export default function Navbar({ variant = 'landing', onScrollTo }: NavbarProps) {
+const PAGE_TABS = [
+  { label: 'How It Works', to: '/how-it-works' },
+  { label: 'Events', to: '/events' },
+  { label: 'Why StageCheck', to: '/why-us' },
+]
+
+const RESOURCE_LINKS = [
+  { label: 'Privacy Policy', to: '/privacy' },
+  { label: 'Terms of Service', to: '/terms' },
+  { label: 'Refund Policy', to: '/refund' },
+]
+
+export default function SiteNavbar({
+  searchValue = '', onSearchChange, onSearchSubmit,
+  locationLabel = 'Anywhere', onLocationChange,
+}: SiteNavbarProps) {
   const navigate = useNavigate()
+  const { pathname } = useLocation()
   const [scrolled, setScrolled] = useState(false)
+  const [locOpen, setLocOpen] = useState(false)
+  const [resOpen, setResOpen] = useState(false)
+  const [cityInput, setCityInput] = useState('')
+  const [locating, setLocating] = useState(false)
+  const locRef = useRef<HTMLDivElement>(null)
+  const resRef = useRef<HTMLDivElement>(null)
 
   useEffect(() => {
     const fn = () => setScrolled(window.scrollY > 10)
@@ -18,261 +51,221 @@ export default function Navbar({ variant = 'landing', onScrollTo }: NavbarProps)
     return () => window.removeEventListener('scroll', fn)
   }, [])
 
-  return (
-    <>
-      <style>{`
-        .sc-nav {
-          position: fixed; top: 0; left: 0; right: 0; z-index: 500;
-          height: 70px;
-          display: flex; align-items: center; justify-content: space-between;
-          padding: 0 clamp(16px, 4%, 64px);
-          transition: background .3s ease, box-shadow .3s ease, border-color .3s ease;
-          border-bottom: 1px solid transparent;
-        }
-        .sc-nav.scrolled {
-          background: rgba(0,4,14,.96);
-          backdrop-filter: blur(24px); -webkit-backdrop-filter: blur(24px);
-          border-bottom-color: rgba(255,255,255,0.08);
-          box-shadow: 0 4px 32px rgba(0,0,0,.5);
-        }
-        .sc-nav-logo {
-          display: flex; align-items: center; gap: 10px;
-          cursor: pointer; flex-shrink: 0; text-decoration: none;
-        }
-        .sc-logo-img {
-          height: 40px; width: auto; object-fit: contain; display: block;
-          filter: brightness(1.15) drop-shadow(0 0 8px rgba(13,199,94,0.35));
-          transition: filter .25s, transform .25s;
-        }
-        .sc-nav-logo:hover .sc-logo-img {
-          filter: brightness(1.3) drop-shadow(0 0 14px rgba(13,199,94,0.55));
-          transform: scale(1.04);
-        }
-        .sc-logo-fallback { display: none; align-items: center; gap: 10px; }
-        .sc-logo-icon {
-          width: 38px; height: 38px; border-radius: 10px;
-          background: #0dc75e; display: flex; align-items: center; justify-content: center;
-          font-family: 'Syne', sans-serif; font-weight: 900; font-size: 18px;
-          color: #000; box-shadow: 0 0 18px rgba(13,199,94,0.45); flex-shrink: 0;
-        }
-        .sc-logo-name {
-          font-family: 'Syne', sans-serif; font-weight: 800; font-size: 17px;
-          color: #f0faf2; letter-spacing: -0.5px;
-        }
-        .sc-logo-name span { color: #0dc75e; }
-
-        .sc-nav-center {
-          display: flex; align-items: center; gap: 2px;
-          background: rgba(255,255,255,0.03);
-          border: 1px solid rgba(255,255,255,0.08);
-          border-radius: 40px; padding: 4px;
-          position: absolute; left: 50%; transform: translateX(-50%);
-        }
-        .sc-nav-pill {
-          padding: 7px 18px; border-radius: 36px;
-          font-size: 13.5px; font-weight: 500; color: rgba(255,255,255,0.6);
-          cursor: pointer; background: none; border: none;
-          font-family: 'DM Sans', sans-serif;
-          transition: color .2s; white-space: nowrap;
-        }
-        .sc-nav-pill:hover { color: #f0faf2; }
-
-        .sc-nav-r { display: flex; gap: 10px; align-items: center; }
-        .sc-btn-ghost {
-          display: inline-flex; align-items: center; gap: 6px;
-          padding: 9px 20px; border-radius: 9px; font-size: 14px; font-weight: 600;
-          cursor: pointer; background: transparent;
-          border: 1px solid rgba(255,255,255,0.1); color: #f0faf2;
-          font-family: 'DM Sans', sans-serif; transition: all .2s; flex-shrink: 0;
-        }
-        .sc-btn-ghost:hover { border-color: rgba(13,199,94,0.2); color: #0dc75e; }
-        .sc-btn-green {
-          display: inline-flex; align-items: center; gap: 7px;
-          padding: 9px 22px; border-radius: 9px; font-size: 14px; font-weight: 700;
-          cursor: pointer; background: #0dc75e; border: none; color: #000;
-          font-family: 'DM Sans', sans-serif; transition: all .2s;
-          box-shadow: 0 0 20px rgba(13,199,94,.25); flex-shrink: 0;
-        }
-        .sc-btn-green:hover {
-          background: #2fe070; box-shadow: 0 0 32px rgba(13,199,94,.45);
-          transform: translateY(-1px);
-        }
-
-        .sc-mob-trigger {
-          display: none; width: 40px; height: 40px;
-          background: rgba(255,255,255,.04); border: 1px solid rgba(255,255,255,0.08);
-          border-radius: 10px; cursor: pointer; align-items: center; justify-content: center;
-          flex-direction: column; gap: 5px; padding: 10px; transition: all .2s;
-        }
-        .sc-mob-trigger:hover { border-color: rgba(13,199,94,0.2); }
-        .sc-mob-trigger span {
-          display: block; height: 1.5px; background: #f0faf2;
-          border-radius: 2px; transition: all .35s cubic-bezier(.16,1,.3,1);
-        }
-        .sc-mob-trigger span:nth-child(1) { width: 20px; }
-        .sc-mob-trigger span:nth-child(2) { width: 14px; align-self: flex-end; }
-        .sc-mob-trigger span:nth-child(3) { width: 18px; }
-        .sc-mob-trigger.open span:nth-child(1) { transform: translateY(6.5px) rotate(45deg); width: 20px; }
-        .sc-mob-trigger.open span:nth-child(2) { opacity: 0; transform: scaleX(0); }
-        .sc-mob-trigger.open span:nth-child(3) { transform: translateY(-6.5px) rotate(-45deg); width: 20px; }
-
-        .sc-mob-overlay {
-          position: fixed; inset: 0; z-index: 400;
-          background: rgba(0,4,14,.98); backdrop-filter: blur(32px);
-          display: flex; flex-direction: column;
-          padding: 70px 0 0;
-          pointer-events: none; opacity: 0;
-          transition: opacity .35s cubic-bezier(.16,1,.3,1);
-        }
-        .sc-mob-overlay.open { pointer-events: all; opacity: 1; }
-        .sc-mob-inner {
-          flex: 1; display: flex; flex-direction: column;
-          align-items: center; justify-content: center;
-          gap: 8px; padding: 32px 24px;
-        }
-        .sc-mob-link {
-          width: 100%; max-width: 340px; text-align: center;
-          font-family: 'Syne', sans-serif; font-size: clamp(22px,6vw,32px); font-weight: 700;
-          color: rgba(255,255,255,0.6); background: none; border: none; cursor: pointer;
-          padding: 14px 24px; border-radius: 14px;
-          transition: all .25s; border: 1px solid transparent;
-        }
-        .sc-mob-link:hover { color: #f0faf2; background: rgba(255,255,255,.03); border-color: rgba(255,255,255,0.08); }
-        .sc-mob-divider { width: 60px; height: 1px; background: rgba(255,255,255,0.08); margin: 12px 0; }
-        .sc-mob-btns { display: flex; flex-direction: column; gap: 10px; width: 100%; max-width: 340px; margin-top: 8px; }
-        .sc-mob-btn-g {
-          display: block; width: 100%; padding: 14px; border-radius: 12px;
-          font-weight: 700; font-size: 15px; cursor: pointer;
-          background: #0dc75e; border: none; color: #000;
-          font-family: 'DM Sans', sans-serif; text-align: center;
-        }
-        .sc-mob-btn-o {
-          display: block; width: 100%; padding: 14px; border-radius: 12px;
-          font-weight: 600; font-size: 15px; cursor: pointer;
-          background: transparent; border: 1px solid rgba(255,255,255,0.08);
-          color: #f0faf2; font-family: 'DM Sans', sans-serif; text-align: center;
-        }
-
-        @media (max-width: 900px) {
-          .sc-nav-center { display: none !important; }
-          .sc-btn-ghost.desktop-only { display: none !important; }
-          .sc-mob-trigger { display: flex !important; }
-        }
-        @media (max-width: 480px) {
-          .sc-btn-green.desktop-only { display: none !important; }
-        }
-      `}</style>
-
-      <NavContent
-        scrolled={scrolled}
-        variant={variant}
-        navigate={navigate}
-        onScrollTo={onScrollTo}
-      />
-    </>
-  )
-}
-
-function NavContent({ scrolled, variant, navigate, onScrollTo }: {
-  scrolled: boolean
-  variant: 'landing' | 'events'
-  navigate: ReturnType<typeof useNavigate>
-  onScrollTo?: (id: string) => void
-}) {
-  const [menuOpen, setMenuOpen] = useState(false)
-
   useEffect(() => {
-    document.body.style.overflow = menuOpen ? 'hidden' : ''
-    return () => { document.body.style.overflow = '' }
-  }, [menuOpen])
-
-  const landingNavItems = [
-    { label: 'How It Works', id: 'how-it-works' },
-    { label: 'Events', id: 'events' },
-    { label: 'Why Us', id: 'why-us' },
-  ]
-
-  const eventsNavItems = [
-    { label: 'Home', id: 'home' },
-    { label: 'How It Works', id: 'how-it-works' },
-    { label: 'Why Us', id: 'why-us' },
-  ]
-
-  const navItems = variant === 'landing' ? landingNavItems : eventsNavItems
-
-  const handlePill = (id: string) => {
-    if (id === 'home') {
-      navigate('/')
-    } else if (variant === 'landing' && onScrollTo) {
-      onScrollTo(id)
-    } else {
-      navigate(`/#${id}`)
+    const onClick = (e: MouseEvent) => {
+      if (locRef.current && !locRef.current.contains(e.target as Node)) setLocOpen(false)
+      if (resRef.current && !resRef.current.contains(e.target as Node)) setResOpen(false)
     }
-    setMenuOpen(false)
+    document.addEventListener('mousedown', onClick)
+    return () => document.removeEventListener('mousedown', onClick)
+  }, [])
+
+  const useMyLocation = () => {
+    setLocating(true)
+    if (!navigator.geolocation) {
+      onLocationChange?.('Location unavailable'); setLocating(false); setLocOpen(false)
+      return
+    }
+    navigator.geolocation.getCurrentPosition(
+      async (pos) => {
+        try {
+          const { latitude, longitude } = pos.coords
+          const res = await fetch(`https://nominatim.openstreetmap.org/reverse?format=json&lat=${latitude}&lon=${longitude}`)
+          const data = await res.json()
+          onLocationChange?.(data?.address?.city || data?.address?.town || data?.address?.state || 'Current location')
+        } catch {
+          onLocationChange?.('Current location')
+        }
+        setLocating(false); setLocOpen(false)
+      },
+      () => { onLocationChange?.('Location unavailable'); setLocating(false); setLocOpen(false) },
+      { timeout: 8000 }
+    )
+  }
+
+  const submitCity = () => {
+    if (cityInput.trim()) onLocationChange?.(cityInput.trim())
+    setLocOpen(false)
   }
 
   return (
     <>
-      <nav className={`sc-nav ${scrolled ? 'scrolled' : ''}`}>
-        <div className="sc-nav-logo" onClick={() => navigate('/')}>
-          <img
-            src="/Stagechecklogo.png"
-            alt="StageCheck"
-            className="sc-logo-img"
-            onError={e => {
-              const img = e.target as HTMLImageElement
-              img.style.display = 'none'
-              const fb = img.nextSibling as HTMLElement
-              if (fb) fb.style.display = 'flex'
-            }}
-          />
-          <div className="sc-logo-fallback">
-            <div className="sc-logo-icon">S</div>
-            <span className="sc-logo-name">Stage<span>Check</span></span>
+      <style>{`
+        .stg-nav {
+          position: fixed; top: 0; left: 0; right: 0; z-index: 500;
+          height: var(--nav-h);
+          display: flex; align-items: center; justify-content: space-between;
+          padding: 0 clamp(16px, 4%, 56px); gap: 14px;
+          transition: background .35s ease, box-shadow .35s ease, border-color .35s ease;
+          border-bottom: 1px solid transparent;
+        }
+        .stg-nav.scrolled {
+          background: rgba(0,4,14,.96);
+          backdrop-filter: blur(24px); -webkit-backdrop-filter: blur(24px);
+          border-bottom-color: var(--border);
+          box-shadow: 0 4px 32px rgba(0,0,0,.5);
+        }
+        .stg-logo { display:flex; align-items:center; gap:10px; cursor:pointer; flex-shrink:0; }
+        .stg-logo-img { height:32px; width:auto; object-fit:contain; display:block; }
+        .stg-logo-text { font-family: var(--font-body); font-weight: 800; font-size: 17px; color: var(--text); }
+
+        .stg-tabs { display: flex; align-items: center; gap: 2px; flex-shrink: 0; }
+        .stg-tab {
+          position: relative; padding: 9px 14px; border-radius: 10px;
+          font-size: 13.5px; font-weight: 500; color: var(--muted);
+          cursor: pointer; background: none; border: none;
+          font-family: var(--font-body); transition: color .2s;
+          display: flex; align-items: center; gap: 4px;
+        }
+        .stg-tab:hover { color: var(--text); }
+        .stg-tab.active { color: var(--text); }
+        .stg-tab.active::after {
+          content: ''; position: absolute; bottom: -2px; left: 14%; right: 14%; height: 2px;
+          background: var(--green); border-radius: 2px;
+          box-shadow: 0 0 14px 2px rgba(13,199,94,.65);
+        }
+        .stg-res-pop {
+          position: absolute; top: calc(100% + 8px); left: 0; min-width: 180px;
+          background: var(--bg-card); border: 1px solid var(--border); border-radius: 12px;
+          padding: 6px; box-shadow: 0 20px 50px rgba(0,0,0,.6); z-index: 50;
+        }
+        .stg-res-item {
+          display: block; width: 100%; text-align: left; padding: 9px 12px; border-radius: 8px;
+          background: none; border: none; color: var(--muted); font-size: 13px;
+          font-family: var(--font-body); cursor: pointer; transition: background .15s, color .15s;
+        }
+        .stg-res-item:hover { background: rgba(255,255,255,0.05); color: var(--text); }
+
+        .stg-search {
+          flex: 1; max-width: 360px;
+          display: flex; align-items: center; gap: 8px;
+          background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.1);
+          border-radius: 999px; padding: 7px 7px 7px 16px;
+        }
+        .stg-search input {
+          flex: 1; background: none; border: none; outline: none;
+          color: var(--text); font-size: 13.5px; font-family: var(--font-body); min-width: 0;
+        }
+        .stg-search input::placeholder { color: rgba(255,255,255,0.4); }
+        .stg-search-btn {
+          width: 30px; height: 30px; border-radius: 50%; flex-shrink: 0;
+          background: var(--green); border: none; color: #000;
+          display: flex; align-items: center; justify-content: center; cursor: pointer;
+        }
+
+        .stg-loc-wrap { position: relative; flex-shrink: 0; }
+        .stg-loc-pill {
+          display: flex; align-items: center; gap: 6px;
+          background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.1);
+          border-radius: 999px; padding: 9px 14px;
+          font-size: 12.5px; color: var(--muted); cursor: pointer;
+          font-family: var(--font-body); white-space: nowrap; transition: border-color .2s, color .2s;
+        }
+        .stg-loc-pill:hover { border-color: var(--border-g); color: var(--text); }
+        .stg-loc-pop {
+          position: absolute; top: calc(100% + 10px); right: 0; width: 240px;
+          background: var(--bg-card); border: 1px solid var(--border); border-radius: 14px;
+          padding: 14px; box-shadow: 0 20px 50px rgba(0,0,0,.6);
+          display: flex; flex-direction: column; gap: 10px; z-index: 50;
+        }
+        .stg-loc-opt {
+          display: flex; align-items: center; gap: 10px; padding: 10px 12px; border-radius: 10px;
+          cursor: pointer; font-size: 13px; color: var(--text); font-family: var(--font-body);
+          background: rgba(255,255,255,0.03); border: 1px solid var(--border); transition: border-color .2s;
+        }
+        .stg-loc-opt:hover { border-color: var(--border-g); }
+        .stg-loc-divider { display:flex; align-items:center; gap:8px; font-size:11px; color:var(--muted2); }
+        .stg-loc-divider::before, .stg-loc-divider::after { content:''; flex:1; height:1px; background:var(--border); }
+        .stg-loc-input-row { display: flex; gap: 6px; }
+        .stg-loc-input-row input {
+          flex: 1; background: rgba(255,255,255,0.04); border: 1px solid var(--border); border-radius: 8px;
+          padding: 8px 10px; color: var(--text); font-size: 13px; font-family: var(--font-body); outline: none;
+        }
+        .stg-loc-go { background: var(--green); border: none; border-radius: 8px; padding: 0 12px; color: #000; cursor: pointer; display:flex; align-items:center; justify-content:center; }
+
+        .stg-nav-r { display: flex; gap: 10px; align-items: center; flex-shrink: 0; }
+        .stg-btn-ghost {
+          padding: 9px 18px; border-radius: 999px; font-size: 13.5px; font-weight: 600;
+          background: transparent; border: 1px solid rgba(255,255,255,0.18); color: var(--text);
+          font-family: var(--font-body); cursor: pointer; transition: border-color .2s;
+        }
+        .stg-btn-ghost:hover { border-color: var(--border-g); }
+        .stg-btn-solid {
+          display: inline-flex; align-items: center; gap: 6px;
+          padding: 9px 18px; border-radius: 999px; font-size: 13.5px; font-weight: 700;
+          background: var(--green); border: none; color: #000;
+          font-family: var(--font-body); cursor: pointer; transition: filter .2s;
+        }
+        .stg-btn-solid:hover { filter: brightness(1.1); }
+
+        @media (max-width: 1180px) { .stg-tabs { display: none !important; } }
+        @media (max-width: 900px) { .stg-search { display: none !important; } }
+        @media (max-width: 560px) { .stg-loc-pill span { display: none; } }
+      `}</style>
+
+      <nav className={`stg-nav ${scrolled ? 'scrolled' : ''}`}>
+        <div className="stg-logo" onClick={() => navigate('/')}>
+          <img src="/Stagechecklogo.png" alt="StageCheck" className="stg-logo-img" />
+          <span className="stg-logo-text">StageCheck</span>
+        </div>
+
+        <div className="stg-tabs">
+          {PAGE_TABS.map(t => (
+            <button key={t.to} className={`stg-tab ${pathname === t.to ? 'active' : ''}`} onClick={() => navigate(t.to)}>
+              {t.label}
+            </button>
+          ))}
+          <div ref={resRef} style={{ position: 'relative' }}>
+            <button className="stg-tab" onClick={() => setResOpen(v => !v)}>
+              Resources <RiArrowDownSLine size={14} />
+            </button>
+            {resOpen && (
+              <div className="stg-res-pop">
+                {RESOURCE_LINKS.map(r => (
+                  <button key={r.to} className="stg-res-item" onClick={() => { navigate(r.to); setResOpen(false) }}>{r.label}</button>
+                ))}
+              </div>
+            )}
           </div>
         </div>
 
-        <div className="sc-nav-center">
-          {navItems.map(l => (
-            <button key={l.label} className="sc-nav-pill" onClick={() => handlePill(l.id)}>
-              {l.label}
-            </button>
-          ))}
+        <div className="stg-search">
+          <RiSearchLine size={14} color="rgba(255,255,255,0.45)" />
+          <input
+            placeholder="Search events, venues..."
+            value={searchValue}
+            onChange={e => onSearchChange?.(e.target.value)}
+            onKeyDown={e => e.key === 'Enter' && onSearchSubmit?.()}
+          />
+          <button className="stg-search-btn" onClick={onSearchSubmit}><RiSearchLine size={13} /></button>
         </div>
 
-        <div className="sc-nav-r">
-          <button className="sc-btn-ghost desktop-only" onClick={() => navigate('/login')}>Log in</button>
-          <button className="sc-btn-green desktop-only" onClick={() => navigate('/signup')}>
-            {variant === 'events' ? 'Create Event' : 'Get Started Free'}
+        <div className="stg-loc-wrap" ref={locRef}>
+          <button className="stg-loc-pill" onClick={() => setLocOpen(v => !v)}>
+            <RiMapPin2Line size={14} /> <span>{locationLabel}</span>
           </button>
-          <button
-            className={`sc-mob-trigger ${menuOpen ? 'open' : ''}`}
-            onClick={() => setMenuOpen(v => !v)}
-            aria-label="Menu"
-          >
-            <span /><span /><span />
+          {locOpen && (
+            <div className="stg-loc-pop">
+              <button className="stg-loc-opt" onClick={useMyLocation}>
+                <RiCrosshairLine size={16} color="var(--green)" />
+                {locating ? 'Finding you…' : 'Use current location'}
+              </button>
+              <div className="stg-loc-divider">or</div>
+              <div className="stg-loc-input-row">
+                <input placeholder="Type a city…" value={cityInput} onChange={e => setCityInput(e.target.value)} onKeyDown={e => e.key === 'Enter' && submitCity()} />
+                <button className="stg-loc-go" onClick={submitCity}><RiArrowRightUpLine size={15} /></button>
+              </div>
+            </div>
+          )}
+        </div>
+
+        <div className="stg-nav-r">
+          <button className="stg-btn-ghost" onClick={() => navigate('/login')}>Log in</button>
+          <button className="stg-btn-solid" onClick={() => navigate('/signup')}>
+            Create Event <RiArrowRightUpLine size={13} />
           </button>
         </div>
       </nav>
-
-      <div className={`sc-mob-overlay ${menuOpen ? 'open' : ''}`}>
-        <div className="sc-mob-inner">
-          {navItems.map(l => (
-            <button key={l.label} className="sc-mob-link" onClick={() => handlePill(l.id)}>
-              {l.label}
-            </button>
-          ))}
-          <div className="sc-mob-divider" />
-          <div className="sc-mob-btns">
-            <button className="sc-mob-btn-g" onClick={() => { setMenuOpen(false); navigate('/signup') }}>
-              {variant === 'events' ? 'Create Event' : 'Get Started Free'}
-            </button>
-            <button className="sc-mob-btn-o" onClick={() => { setMenuOpen(false); navigate('/login') }}>
-              Log in
-            </button>
-          </div>
-        </div>
-      </div>
     </>
   )
 }

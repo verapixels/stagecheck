@@ -18,6 +18,8 @@ import { db, storage } from '../lib/firebase'
 import DashboardLayout from '../components/DashboardLayout'
 import { useAuth } from '../context/Authcontext'
 import { generateLocalSummary, generateLocalDescription } from '../lib/Eventcontentlibrary'
+import VenueSearch from '../components/Venuesearch'
+import type { VenueResult } from '../components/Venuesearch'
 
 // ─── Types ────────────────────────────────────────────────────────
 type FeaturedArtist = {
@@ -637,7 +639,13 @@ export default function Onboarding() {
     const file = e.target.files?.[0]; if (!file || videoCount >= 2) return
     setMediaItems(prev => [...prev, { id: Date.now().toString(), file, preview: URL.createObjectURL(file), type: 'video' }]); e.target.value = ''
   }
+  
+  
   const removeMedia = (id: string) => setMediaItems(prev => prev.filter(m => m.id !== id))
+
+const handleVenueChange = (result: VenueResult) => {
+  setForm(f => ({ ...f, venue: result.venue, address: result.address }))
+}
 
   const handleArtistSearch = useCallback((q: string) => {
     setArtistQuery(q); setArtistError(''); setArtistResults([])
@@ -1148,26 +1156,14 @@ export default function Onboarding() {
                         </button>
                       ))}
                     </div>
-                    {form.locationType === 'venue' && (
-                      <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-                        <div style={{ position: 'relative' }}>
-                          <div style={{ position: 'absolute', left: 13, top: '50%', transform: 'translateY(-50%)', pointerEvents: 'none' }}><MapPin size={15} color="rgba(255,255,255,0.7)" /></div>
-                          <input style={{ ...inputStyle(errors.venue), paddingLeft: 40 }} placeholder="Search venue e.g. Tafawa Balewa Square, Lagos" value={form.venue}
-                            onChange={e => setForm({ ...form, venue: e.target.value })}
-                            onFocus={e => e.currentTarget.style.borderColor = 'rgba(34,197,94,0.5)'}
-                            onBlur={e => e.currentTarget.style.borderColor = errors.venue ? 'rgba(239,68,68,0.5)' : 'rgba(255,255,255,0.1)'} />
-                        </div>
-                        {errors.venue && <span style={{ fontSize: 12, color: '#F87171' }}>{errors.venue}</span>}
-                        <input style={inputStyle(errors.address)} placeholder="Full Address e.g. Race Course Rd, Lagos Island" value={form.address}
-                          onChange={e => setForm({ ...form, address: e.target.value })}
-                          onFocus={e => e.currentTarget.style.borderColor = 'rgba(34,197,94,0.5)'}
-                          onBlur={e => e.currentTarget.style.borderColor = errors.address ? 'rgba(239,68,68,0.5)' : 'rgba(255,255,255,0.1)'} />
-                        {errors.address && <span style={{ fontSize: 12, color: '#F87171' }}>{errors.address}</span>}
-                        <div style={{ display: 'flex', alignItems: 'center', gap: 5, justifyContent: 'flex-end' }}>
-                          <Globe size={10} color="rgba(255,255,255,0.2)" /><span style={{ fontSize: 10, color: 'rgba(255,255,255,0.2)' }}>Powered by Google Maps</span>
-                        </div>
-                      </div>
-                    )}
+                   {form.locationType === 'venue' && (
+  <VenueSearch
+    venue={form.venue}
+    address={form.address}
+    onChange={handleVenueChange}
+    hasVenueError={!!errors.venue}
+  />
+)}
                     {form.locationType === 'online' && (
                       <input style={inputStyle()} placeholder="Online event URL or platform (e.g. Zoom link)" value={form.address}
                         onChange={e => setForm({ ...form, address: e.target.value })}

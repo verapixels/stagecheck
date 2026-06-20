@@ -101,7 +101,7 @@ export default function PublicFooter() {
         display: 'flex', justifyContent: 'space-between', alignItems: 'center',
         fontSize: 12, color: 'rgba(255,255,255,0.3)', flexWrap: 'wrap', gap: 12,
       }}>
-        <span>© 2025 StageCheck by Verapixels Technologies. All rights reserved.</span>
+        <span>© 2026 StageCheck by Verapixels Technologies. All rights reserved.</span>
         <div style={{ display: 'flex', gap: 16 }}>
           {[{ l: 'Privacy', to: '/privacy' }, { l: 'Terms', to: '/terms' }].map(({ l, to }) => (
             <button

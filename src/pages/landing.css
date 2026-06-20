@@ -1,0 +1,59 @@
+/*
+  PUT THIS AT THE TOP OF Landing.tsx INSIDE THE <style> BLOCK (or import as a CSS file).
+  This is the shared token system for the new landing page family.
+  Colors are UNCHANGED from your existing brand (black bg, #0dc75e green).
+  Only typography + component shapes change.
+*/
+
+:root {
+  --bg: #000612;
+  --bg-card: #060e1c;
+  --bg2: #04091a;
+  --green: #0dc75e;
+  --green-dim: rgba(13,199,94,0.12);
+  --border: rgba(255,255,255,0.08);
+  --border-g: rgba(13,199,94,0.2);
+  --text: #f0faf2;
+  --muted: rgba(255,255,255,0.72);
+  --muted2: rgba(255,255,255,0.45);
+  --nav-h: 76px;
+
+  /* NEW type pairing — Fraunces (characterful serif display) + Inter (body) */
+  --font-display: 'Fraunces', serif;
+  --font-body: 'Inter', sans-serif;
+}
+
+/* Add to your <link> imports:
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="" />
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,300..900;1,9..144,300..900&family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
+*/
+
+/* Pill button — matches the reference screenshot (rounded-full, outline, arrow circle) */
+.btn-pill {
+  display: inline-flex; align-items: center; gap: 10px;
+  padding: 6px 6px 6px 22px;
+  border-radius: 999px;
+  background: transparent;
+  border: 1px solid rgba(255,255,255,0.18);
+  color: var(--text);
+  font-family: var(--font-body);
+  font-size: 14px; font-weight: 500;
+  cursor: pointer;
+  transition: border-color .25s, background .25s;
+}
+.btn-pill:hover { border-color: var(--border-g); background: rgba(13,199,94,0.04); }
+.btn-pill .pill-arrow {
+  width: 32px; height: 32px; border-radius: 50%;
+  background: var(--green);
+  display: flex; align-items: center; justify-content: center;
+  color: #000; flex-shrink: 0;
+  transition: transform .25s;
+}
+.btn-pill:hover .pill-arrow { transform: rotate(45deg); }
+
+.btn-pill-solid {
+  background: var(--green); border-color: var(--green); color: #000; font-weight: 700;
+  padding: 6px 6px 6px 22px;
+}
+.btn-pill-solid .pill-arrow { background: #000; color: var(--green); }

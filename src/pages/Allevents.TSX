@@ -8,14 +8,14 @@ import {
   RiCalendarEventLine, RiMapPinLine, RiTimeLine, RiTicketLine,
   RiGroupLine, RiArrowRightLine, RiSearchLine, RiLoader4Line,
   RiArrowLeftLine, RiArrowRightSLine, RiArrowLeftSLine,
-  RiInstagramLine, RiTwitterXLine, RiFacebookCircleLine,
   RiHistoryLine, RiFlashlightLine, RiCalendarCheckLine,
   RiCloseCircleLine, RiFilterLine, RiArrowUpLine,
   RiMusicLine, RiTrophyLine, RiMicLine, RiHeartLine,
   RiSlideshowLine, RiGraduationCapLine, RiSparklingLine,
-  RiGridLine, RiListCheck,
+  RiGridLine, RiListCheck, RiInformationLine,
 } from 'react-icons/ri'
 import Navbar from '../components/Navbar'
+import PublicFooter from '../components/Publicfooter'
 
 interface FirebaseEvent {
   id: string
@@ -148,6 +148,21 @@ function ParticleField() {
   return <canvas ref={canvasRef} style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', pointerEvents: 'none', zIndex: 1 }} />
 }
 
+function TbaTooltip() {
+  const [show, setShow] = useState(false)
+  return (
+    <span
+      className="ev-tba-wrap"
+      onMouseEnter={e => { e.stopPropagation(); setShow(true) }}
+      onMouseLeave={e => { e.stopPropagation(); setShow(false) }}
+      onClick={e => e.stopPropagation()}
+    >
+      <span className="ev-tba-ic"><RiInformationLine size={13} /></span>
+      {show && <span className="ev-tba-tip">TBA = To Be Announced</span>}
+    </span>
+  )
+}
+
 function EventCard({ ev, idx, past }: { ev: FirebaseEvent; idx: number; past?: boolean }) {
   const navigate = useNavigate()
   const typeColor = getTypeColor(ev.eventType)
@@ -187,6 +202,7 @@ function EventCard({ ev, idx, past }: { ev: FirebaseEvent; idx: number; past?: b
         <div className="ev-meta-row">
           <RiMapPinLine size={12} />
           <span>{displayLoc}</span>
+          {displayLoc.trim().toUpperCase() === 'TBA' && <TbaTooltip />}
         </div>
         {displayTime && (
           <div className="ev-meta-row">
@@ -258,7 +274,7 @@ function EventRow({ ev, idx }: { ev: FirebaseEvent; idx: number }) {
         <div className="ev-row-metas">
           <span className="ev-meta-row"><RiCalendarEventLine size={11} />{formatEventDate(ev.date)}</span>
           {displayTime && <span className="ev-meta-row"><RiTimeLine size={11} />{displayTime}</span>}
-          <span className="ev-meta-row"><RiMapPinLine size={11} />{displayLoc}</span>
+          <span className="ev-meta-row"><RiMapPinLine size={11} />{displayLoc}{displayLoc.trim().toUpperCase() === 'TBA' && <TbaTooltip />}</span>
           {ev.attendingCount ? <span className="ev-meta-row"><RiGroupLine size={11} />{ev.attendingCount}+ attending</span> : null}
         </div>
       </div>
@@ -420,88 +436,6 @@ export default function AllEvents() {
         body, .ae-root { background: var(--bg); color: var(--text); font-family: var(--font-body); font-size: 15px; line-height: 1.6; overflow-x: hidden; min-height: 100vh; }
         .ae-root { animation: pageEnter .6s cubic-bezier(.16,1,.3,1) both; }
 
-        /* ── NAV ── */
-        .ae-nav {
-          position: fixed; top: 0; left: 0; right: 0; z-index: 500;
-          height: var(--nav-h); display: flex; align-items: center;
-          justify-content: space-between; padding: 0 clamp(16px,4%,64px);
-          transition: background .3s, border-color .3s, box-shadow .3s;
-          border-bottom: 1px solid transparent;
-        }
-        .ae-nav.scrolled {
-          background: rgba(0,4,14,.96); backdrop-filter: blur(24px);
-          border-bottom-color: var(--border); box-shadow: 0 4px 28px rgba(0,0,0,.5);
-        }
-
-        /* ── LOGO ── */
-        .ae-nav-logo {
-          display: flex; align-items: center; gap: 10px;
-          cursor: pointer; text-decoration: none; flex-shrink: 0;
-        }
-        .ae-logo-img {
-          height: 56px; width: auto; object-fit: contain;
-          filter: brightness(1.15) contrast(1.1) drop-shadow(0 0 10px rgba(13,199,94,0.45));
-          transition: filter .25s, transform .25s;
-        }
-        .ae-nav-logo:hover .ae-logo-img {
-          filter: brightness(1.3) contrast(1.1) drop-shadow(0 0 16px rgba(13,199,94,0.65));
-          transform: scale(1.04);
-        }
-        .ae-logo-fallback {
-          display: flex; align-items: center; gap: 10px;
-        }
-        .ae-logo-icon {
-          width: 42px; height: 42px; border-radius: 11px;
-          background: var(--green);
-          display: flex; align-items: center; justify-content: center;
-          box-shadow: 0 0 20px rgba(13,199,94,0.5), 0 2px 8px rgba(0,0,0,0.4);
-          flex-shrink: 0; font-size: 20px; color: #000; font-weight: 900;
-          font-family: var(--font-display); letter-spacing: -1px;
-        }
-        .ae-logo-wordmark {
-          display: flex; flex-direction: column; gap: 0;
-        }
-        .ae-logo-name {
-          font-family: var(--font-display); font-weight: 800; font-size: 18px;
-          color: var(--text); line-height: 1; letter-spacing: -0.5px;
-        }
-        .ae-logo-name span { color: var(--green); }
-        .ae-logo-tagline {
-          font-size: 9px; color: var(--muted); letter-spacing: .12em;
-          text-transform: uppercase; line-height: 1; margin-top: 2px;
-        }
-
-        .ae-nav-r { display:flex; align-items:center; gap:10px; }
-        .ae-btn-ghost { display:inline-flex; align-items:center; gap:6px; padding:9px 20px; border-radius:9px; font-size:13px; font-weight:600; cursor:pointer; background:transparent; border:1px solid rgba(255,255,255,0.12); color:var(--text); font-family:var(--font-body); transition:all .2s; }
-        .ae-btn-ghost:hover { border-color:var(--border-g); color:var(--green); }
-        .ae-btn-green { display:inline-flex; align-items:center; gap:7px; padding:10px 22px; border-radius:9px; font-size:13px; font-weight:700; cursor:pointer; background:var(--green); border:none; color:#000; font-family:var(--font-body); transition:all .2s; box-shadow:0 0 18px rgba(13,199,94,.22); }
-        .ae-btn-green:hover { background:#2fe070; box-shadow:0 0 28px rgba(13,199,94,.4); transform:translateY(-1px); }
-
-        /* ── HERO ── */
-        .ae-hero {
-          position: relative; min-height: 340px; display: flex; align-items: center;
-          padding: calc(var(--nav-h) + 40px) clamp(16px,5%,80px) 48px;
-          overflow: hidden; text-align: center;
-          background: radial-gradient(ellipse 90% 60% at 50% -10%, rgba(13,199,94,0.10) 0%, transparent 60%), var(--bg);
-        }
-        .ae-hero-orb {
-          position:absolute; border-radius:50%; pointer-events:none; animation:glow 6s ease-in-out infinite;
-        }
-        .ae-hero-content { position:relative; z-index:3; width:100%; max-width:680px; margin:0 auto; }
-        .ae-badge {
-          display:inline-flex; align-items:center; gap:8px; margin-bottom:20px;
-          background:rgba(13,199,94,.07); border:1px solid rgba(13,199,94,.2);
-          border-radius:24px; padding:5px 16px; font-size:11px; color:var(--green);
-          font-weight:700; letter-spacing:.1em;
-        }
-        .live-dot { width:6px; height:6px; border-radius:50%; background:var(--green); animation:pulse 1.4s infinite; flex-shrink:0; }
-        .ae-h1 {
-          font-family:var(--font-display); font-size:clamp(32px,5.5vw,62px);
-          font-weight:800; line-height:1.0; margin-bottom:14px; letter-spacing:-1.5px;
-        }
-        .ae-h1-accent { color:var(--green); }
-        .ae-hero-p { color:rgba(255,255,255,0.5); font-size:clamp(13px,1.6vw,15px); line-height:1.75; margin-bottom:20px; max-width:480px; margin-left:auto; margin-right:auto; }
-
         /* ── CONTROLS BAR ── */
         .ae-controls {
           position:sticky; top:var(--nav-h); z-index:100;
@@ -551,11 +485,14 @@ export default function AllEvents() {
         .ae-view-btn.active { background:rgba(13,199,94,.12); color:var(--green); }
         .ae-view-btn:hover:not(.active) { color:var(--text); }
 
-        /* ── CATEGORY PILLS (upgraded) ── */
+        /* ── CATEGORY PILLS — single scrollable line ── */
         .ae-cats {
-          display: flex; gap: 8px; flex-wrap: wrap; justify-content: center;
+          display: flex; gap: 8px; flex-wrap: nowrap; justify-content: flex-start;
           padding: 14px 0; border-top: 1px solid var(--border);
+          overflow-x: auto; overflow-y: hidden; scrollbar-width: none;
+          -ms-overflow-style: none; -webkit-overflow-scrolling: touch;
         }
+        .ae-cats::-webkit-scrollbar { display: none; }
         .ae-cat-pill {
           flex-shrink: 0; padding: 8px 16px; font-size: 12px; font-weight: 700;
           color: var(--muted);
@@ -586,6 +523,31 @@ export default function AllEvents() {
         }
         .ae-cat-pill.active .pill-ic,
         .ae-cat-pill:hover .pill-ic { opacity: 1; }
+
+        /* ── HERO ── */
+        .ae-hero {
+          position: relative; min-height: 340px; display: flex; align-items: center;
+          padding: calc(var(--nav-h) + 40px) clamp(16px,5%,80px) 48px;
+          overflow: hidden; text-align: center;
+          background: radial-gradient(ellipse 90% 60% at 50% -10%, rgba(13,199,94,0.10) 0%, transparent 60%), var(--bg);
+        }
+        .ae-hero-orb {
+          position:absolute; border-radius:50%; pointer-events:none; animation:glow 6s ease-in-out infinite;
+        }
+        .ae-hero-content { position:relative; z-index:3; width:100%; max-width:680px; margin:0 auto; }
+        .ae-badge {
+          display:inline-flex; align-items:center; gap:8px; margin-bottom:20px;
+          background:rgba(13,199,94,.07); border:1px solid rgba(13,199,94,.2);
+          border-radius:24px; padding:5px 16px; font-size:11px; color:var(--green);
+          font-weight:700; letter-spacing:.1em;
+        }
+        .live-dot { width:6px; height:6px; border-radius:50%; background:var(--green); animation:pulse 1.4s infinite; flex-shrink:0; }
+        .ae-h1 {
+          font-family:var(--font-display); font-size:clamp(32px,5.5vw,62px);
+          font-weight:800; line-height:1.0; margin-bottom:14px; letter-spacing:-1.5px;
+        }
+        .ae-h1-accent { color:var(--green); }
+        .ae-hero-p { color:rgba(255,255,255,0.5); font-size:clamp(13px,1.6vw,15px); line-height:1.75; margin-bottom:20px; max-width:480px; margin-left:auto; margin-right:auto; }
 
         /* ── EVENTS GRID / LIST ── */
         .ae-section { padding:clamp(32px,5vw,56px) clamp(16px,5%,80px); }
@@ -622,8 +584,20 @@ export default function AllEvents() {
         .ev-date-chip { position:absolute; bottom:42px; left:14px; z-index:1; font-size:9.5px; font-weight:700; color:rgba(255,255,255,0.6); letter-spacing:.04em; }
         .ev-name { font-family:var(--font-display); font-weight:800; font-size:18px; color:#fff; line-height:1.15; position:relative; z-index:1; }
         .ev-body { padding:14px 16px 16px; flex:1; display:flex; flex-direction:column; gap:4px; }
-        .ev-summary { font-size:12px; color:var(--muted); line-height:1.6; margin-bottom:6px; display:-webkit-box; -webkit-line-clamp:2; -webkit-box-orient:vertical; overflow:hidden; }
-        .ev-meta-row { display:flex; align-items:center; gap:6px; font-size:11.5px; color:rgba(255,255,255,0.5); }
+        .ev-summary { font-size:12px; color:rgba(255,255,255,0.72); line-height:1.6; margin-bottom:6px; display:-webkit-box; -webkit-line-clamp:2; -webkit-box-orient:vertical; overflow:hidden; }
+        .ev-meta-row { display:flex; align-items:center; gap:6px; font-size:11.5px; color:rgba(255,255,255,0.78); }
+        .ev-tba-wrap { position: relative; display: inline-flex; align-items: center; }
+        .ev-tba-ic { display: inline-flex; align-items: center; color: rgba(255,255,255,0.5); cursor: help; margin-left: 2px; }
+        .ev-tba-tip {
+          position: absolute; bottom: calc(100% + 8px); left: 50%; transform: translateX(-50%);
+          background: #0c1626; border: 1px solid rgba(255,255,255,0.12); border-radius: 8px;
+          padding: 7px 11px; font-size: 11px; color: rgba(255,255,255,0.85); white-space: nowrap;
+          box-shadow: 0 10px 28px rgba(0,0,0,.5); z-index: 5; pointer-events: none;
+        }
+        .ev-tba-tip::after {
+          content: ''; position: absolute; top: 100%; left: 50%; transform: translateX(-50%);
+          border: 5px solid transparent; border-top-color: #0c1626;
+        }
         .ev-footer { display:flex; align-items:center; justify-content:space-between; margin-top:12px; }
         .ev-avatars { display:flex; align-items:center; gap:6px; }
         .ev-av { width:22px; height:22px; border-radius:50%; border:2px solid var(--bg-card); display:inline-block; }
@@ -681,17 +655,8 @@ export default function AllEvents() {
         .ae-clear-btn { display:inline-flex; align-items:center; gap:6px; margin-top:14px; padding:8px 18px; border-radius:9px; background:rgba(255,255,255,0.05); border:1px solid var(--border); color:var(--text); font-size:13px; cursor:pointer; font-family:var(--font-body); transition:all .2s; }
         .ae-clear-btn:hover { border-color:rgba(13,199,94,.3); color:var(--green); }
 
-        .ae-footer { background:#010814; border-top:1px solid var(--border); padding:clamp(36px,5vw,56px) clamp(16px,5%,80px) 24px; }
-        .ae-footer-inner { display:flex; align-items:flex-start; justify-content:space-between; gap:28px; flex-wrap:wrap; margin-bottom:32px; }
-        .ae-ft-p { font-size:13px; color:var(--muted); margin:12px 0 16px; max-width:200px; line-height:1.7; }
-        .soc-row { display:flex; gap:8px; }
-        .soc-ic { width:32px; height:32px; border-radius:8px; background:rgba(255,255,255,0.04); border:1px solid var(--border); display:flex; align-items:center; justify-content:center; font-size:14px; color:var(--muted); cursor:pointer; transition:all .2s; }
-        .soc-ic:hover { border-color:rgba(13,199,94,.4); color:var(--green); }
-        .ae-ft-links { display:flex; gap:clamp(20px,4vw,48px); flex-wrap:wrap; }
-        .ae-ft-col h5 { font-family:var(--font-display); font-size:13px; font-weight:700; margin-bottom:14px; color:var(--text); }
-        .ae-ft-lnk { display:block; font-size:12px; color:var(--muted); text-decoration:none; margin-bottom:8px; background:none; border:none; cursor:pointer; font-family:var(--font-body); text-align:left; padding:0; transition:color .2s; }
-        .ae-ft-lnk:hover { color:var(--green); }
-        .ae-ft-bottom { border-top:1px solid var(--border); padding-top:20px; display:flex; justify-content:space-between; align-items:center; font-size:11px; color:var(--muted2); flex-wrap:wrap; gap:10px; }
+        .ae-btn-green { display:inline-flex; align-items:center; gap:7px; padding:10px 22px; border-radius:9px; font-size:13px; font-weight:700; cursor:pointer; background:var(--green); border:none; color:#000; font-family:var(--font-body); transition:all .2s; box-shadow:0 0 18px rgba(13,199,94,.22); }
+        .ae-btn-green:hover { background:#2fe070; box-shadow:0 0 28px rgba(13,199,94,.4); transform:translateY(-1px); }
 
         .ae-scroll-top { position:fixed; bottom:28px; right:28px; width:40px; height:40px; border-radius:50%; background:var(--green); border:none; color:#000; cursor:pointer; display:flex; align-items:center; justify-content:center; box-shadow:0 4px 18px rgba(13,199,94,.4); transition:all .3s; z-index:300; transform:scale(0); }
         .ae-scroll-top.show { transform:scale(1); }
@@ -706,14 +671,12 @@ export default function AllEvents() {
           .ae-hero { padding-bottom:32px; }
           .ev-row-action { display:none; }
           .ev-row-thumb { width:80px; height:70px; }
-          .ae-logo-tagline { display: none; }
         }
       `}</style>
 
       <div className="ae-root">
-
-        <Navbar variant="events" />
         
+
         {/* ── HERO ── */}
         <section className="ae-hero">
           <div className="ae-hero-orb" style={{ width: 500, height: 500, background: 'radial-gradient(circle,rgba(13,199,94,0.12) 0%,transparent 70%)', top: '-10%', left: '0%' }} />
@@ -729,7 +692,7 @@ export default function AllEvents() {
               All <span className="ae-h1-accent">Events</span>
             </h1>
             <p className="ae-hero-p">
-              Browse upcoming concerts, competitions, conferences and more — all powered by StageCheck.
+              Browse upcoming concerts, competitions, conferences and more all powered by StageCheck.
             </p>
 
             {!loading && allArtistPhotos.length > 0 && (
@@ -811,7 +774,7 @@ export default function AllEvents() {
             </div>
           </div>
 
-          {/* Category pills */}
+          {/* Category pills — single scrollable line */}
           <div className="ae-cats">
             {CATEGORIES.map(cat => (
               <button
@@ -943,57 +906,7 @@ export default function AllEvents() {
         )}
 
         {/* ── FOOTER ── */}
-        <footer className="ae-footer">
-          <div className="ae-footer-inner">
-            <div>
-              <div className="ae-nav-logo" onClick={() => navigate('/')} style={{ marginBottom: 0, cursor: 'pointer' }}>
-                <img
-                  src="/Stagechecklogo.png"
-                  alt="StageCheck"
-                  className="ae-logo-img"
-                  style={{ height: 40 }}
-                  onError={e => {
-                    const img = e.target as HTMLImageElement
-                    img.style.display = 'none'
-                    const fallback = img.nextSibling as HTMLElement
-                    if (fallback) fallback.style.display = 'flex'
-                  }}
-                />
-                <div className="ae-logo-fallback" style={{ display: 'none' }}>
-                  <div className="ae-logo-icon" style={{ width: 32, height: 32, fontSize: 16, borderRadius: 8 }}>S</div>
-                  <div className="ae-logo-wordmark">
-                    <span className="ae-logo-name" style={{ fontSize: 15 }}>Stage<span>Check</span></span>
-                  </div>
-                </div>
-              </div>
-              <p className="ae-ft-p">The complete platform for discovering and managing flawless events.</p>
-              <div className="soc-row">
-                {[<RiFacebookCircleLine />, <RiInstagramLine />, <RiTwitterXLine />].map((ic, i) => (
-                  <div key={i} className="soc-ic">{ic}</div>
-                ))}
-              </div>
-            </div>
-            <div className="ae-ft-links">
-              {[
-                { h: 'Platform', links: ['Features', 'How It Works', 'Pricing'] },
-                { h: 'Company',  links: ['About Us', 'Blog', 'Contact'] },
-                { h: 'Legal',    links: ['Privacy Policy', 'Terms of Service'] },
-              ].map(col => (
-                <div className="ae-ft-col" key={col.h}>
-                  <h5>{col.h}</h5>
-                  {col.links.map(l => <button key={l} className="ae-ft-lnk">{l}</button>)}
-                </div>
-              ))}
-            </div>
-          </div>
-          <div className="ae-ft-bottom">
-            <span>© 2025 StageCheck by Verapixels Technologies. All rights reserved.</span>
-            <div style={{ display: 'flex', gap: 14 }}>
-              <button className="ae-ft-lnk" style={{ margin: 0 }}>Privacy</button>
-              <button className="ae-ft-lnk" style={{ margin: 0 }}>Terms</button>
-            </div>
-          </div>
-        </footer>
+        <PublicFooter />
 
         {/* Scroll top */}
         <button

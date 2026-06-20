@@ -8,21 +8,29 @@ import { db } from '../lib/firebase'
 import {
   RiCalendarEventLine, RiMapPinLine, RiTimeLine,
   RiTicketLine, RiArrowRightLine, RiArrowLeftLine, RiCheckLine,
-  RiCloseLine, RiDownloadLine, RiMailLine, RiPhoneLine,
-  RiUserLine, RiShieldCheckLine, RiLockLine, RiBankCardLine,
+  RiCloseLine, RiDownloadLine, RiMailLine,
+  RiShieldCheckLine, RiLockLine, RiBankCardLine,
   RiBankLine, RiLoader4Line, RiMusicLine, RiShareLine,
   RiTimerLine, RiAlertLine, RiCheckboxCircleLine,
   RiExternalLinkLine, RiRefreshLine, RiArrowDownSLine,
   RiArrowUpSLine, RiCalendar2Line, RiMapPin2Line,
   RiGroupLine, RiHeartLine, RiHeartFill, RiFlag2Line,
-  RiInstagramLine, RiGlobalLine, RiInformationLine,
+  RiGlobalLine, RiInformationLine,
   RiStarLine, RiFileTextLine, RiBuilding2Line,
- RiCarLine, RiBusLine, RiWalkLine,
+  RiCarLine, RiBusLine, RiWalkLine,
   RiRepeatLine, RiAlarmLine, RiParkingLine,
-  RiUserVoiceLine, RiHashtag, RiBarChartLine,
-  RiAccountCircleLine, RiTeamLine,
+  RiUserVoiceLine, RiMailSendLine,
 } from 'react-icons/ri'
 import QRCode from 'qrcode'
+
+// ─── Cloud Function base URL ──────────────────────────────────────
+const CF_BASE = 'https://us-central1-stagecheck-699c7.cloudfunctions.net'
+
+declare global {
+  interface Window {
+    PaystackPop: any
+  }
+}
 
 // ─── Types ────────────────────────────────────────────────────────
 interface EventData {
@@ -72,8 +80,16 @@ interface AttendeeForm {
   altPhone: string
 }
 
+interface TransferDetails {
+  accountNumber: string
+  bankName: string
+  accountName?: string
+  pendingOrderId: string
+}
+
 type PaymentMethod = 'card' | 'transfer'
 type Step = 'details' | 'select-ticket' | 'attendee-form' | 'payment' | 'success'
+type CardChargeStatus = 'idle' | 'charging' | 'otp' | 'verifying' | 'success' | 'failed'
 
 // ─── Helpers ──────────────────────────────────────────────────────
 function formatDate(val: any): string {
@@ -122,16 +138,38 @@ function generateTicketCode(): string {
   ).join('-')
 }
 
-declare global { interface Window { PaystackPop: any } }
+// ─── Card helpers ─────────────────────────────────────────────────
+function formatCardNumber(val: string): string {
+  return val.replace(/\D/g, '').slice(0, 16).replace(/(.{4})/g, '$1 ').trim()
+}
 
-function loadPaystack(): Promise<void> {
-  return new Promise(resolve => {
-    if (window.PaystackPop) { resolve(); return }
-    const s = document.createElement('script')
-    s.src = 'https://js.paystack.co/v1/inline.js'
-    s.onload = () => resolve()
-    document.head.appendChild(s)
-  })
+function formatExpiry(val: string): string {
+  const digits = val.replace(/\D/g, '').slice(0, 4)
+  if (digits.length >= 3) return digits.slice(0, 2) + '/' + digits.slice(2)
+  return digits
+}
+
+function detectCardType(num: string): 'visa' | 'mastercard' | 'verve' | 'unknown' {
+  const n = num.replace(/\s/g, '')
+  if (/^4/.test(n)) return 'visa'
+  if (/^5[1-5]/.test(n) || /^2[2-7]/.test(n)) return 'mastercard'
+  if (/^650[0-9]|^5061|^6304/.test(n)) return 'verve'
+  return 'unknown'
+}
+
+function validateCardForm(card: { number: string; expiry: string; cvv: string }): Record<string, string> {
+  const errors: Record<string, string> = {}
+  const rawNum = card.number.replace(/\s/g, '')
+  if (rawNum.length < 16) errors.number = 'Enter a valid 16-digit card number'
+  if (!card.expiry.match(/^\d{2}\/\d{2}$/)) errors.expiry = 'Enter expiry as MM/YY'
+  else {
+    const [mm, yy] = card.expiry.split('/').map(Number)
+    const now = new Date()
+    const expDate = new Date(2000 + yy, mm - 1)
+    if (mm < 1 || mm > 12 || expDate < now) errors.expiry = 'Card has expired'
+  }
+  if (card.cvv.length < 3) errors.cvv = 'Enter valid CVV'
+  return errors
 }
 
 // ─── Main Component ───────────────────────────────────────────────
@@ -146,7 +184,8 @@ export default function EventDetailPage() {
   const [step, setStep] = useState<Step>('details')
   const [selectedTicket, setSelectedTicket] = useState<TicketType | null>(null)
   const [qty, setQty] = useState(1)
-  const [payMethod, setPayMethod] = useState<PaymentMethod>('card')
+  const [paying, setPaying] = useState(false)
+ const [payError, setPayError] = useState('')
   const [attendee, setAttendee] = useState<AttendeeForm>({ name: '', email: '', phone: '', altPhone: '' })
   const [formErrors, setFormErrors] = useState<Partial<AttendeeForm>>({})
   const [processing, setProcessing] = useState(false)
@@ -155,33 +194,36 @@ export default function EventDetailPage() {
   const [activeImg, setActiveImg] = useState(0)
   const [expandFaq, setExpandFaq] = useState<string | null>(null)
   const [descExpanded, setDescExpanded] = useState(false)
-  const [transferDetails, setTransferDetails] = useState<{ accountNumber: string; bankName: string; reference: string } | null>(null)
-  const [transferCountdown, setTransferCountdown] = useState(300)
-  const [transferExpired, setTransferExpired] = useState(false)
-  const [verifying, setVerifying] = useState(false)
   const [liked, setLiked] = useState(false)
   const [copied, setCopied] = useState(false)
   const [reportModal, setReportModal] = useState(false)
-const [reportIssue, setReportIssue] = useState('')
-const [reportCustom, setReportCustom] = useState('')
-const [reportEmail, setReportEmail] = useState('')
-const [reportSubmitting, setReportSubmitting] = useState(false)
-const [reportSuccess, setReportSuccess] = useState(false)
-  const countdownRef = useRef<any>(null)
-  const ticketRef = useRef<HTMLDivElement>(null)
+  const [reportIssue, setReportIssue] = useState('')
+  const [reportCustom, setReportCustom] = useState('')
+  const [reportEmail, setReportEmail] = useState('')
+  const [reportSubmitting, setReportSubmitting] = useState(false)
+  const [reportSuccess, setReportSuccess] = useState(false)
   const [scrolled, setScrolled] = useState(false)
   const [ticketDrawerOpen, setTicketDrawerOpen] = useState(false)
 
-  // ── DOUBLE-CLICK FIX: this ref blocks any second call to handlePaymentSuccess ──
+ 
+  const ticketRef = useRef<HTMLDivElement>(null)
   const paymentInProgress = useRef(false)
-
-  const PAYSTACK_KEY = import.meta.env.VITE_PAYSTACK_PUBLIC_KEY || 'pk_test_xxxxxxxxx'
 
   useEffect(() => {
     const fn = () => setScrolled(window.scrollY > 60)
     window.addEventListener('scroll', fn, { passive: true })
     return () => window.removeEventListener('scroll', fn)
   }, [])
+
+  useEffect(() => {
+  if (document.getElementById('paystack-inline-script')) return
+  const script = document.createElement('script')
+  script.id = 'paystack-inline-script'
+  script.src = 'https://js.paystack.co/v1/inline.js'
+  script.onload = () => console.log('PAYSTACK SCRIPT LOADED', !!window.PaystackPop)
+  script.onerror = () => console.error('PAYSTACK SCRIPT FAILED TO LOAD')
+  document.body.appendChild(script)
+}, [])
 
   useEffect(() => {
     if (!eventId) return
@@ -195,19 +237,19 @@ const [reportSuccess, setReportSuccess] = useState(false)
             const rq = query(collection(db, 'events'), limit(4))
             const rSnap = await getDocs(rq)
             const now = new Date()
-setRelatedEvents(
-  rSnap.docs
-    .filter(d => {
-      if (d.id === eventId) return false
-      const raw = d.data().date
-      try {
-        const evDate = raw?.toDate ? raw.toDate() : new Date(raw)
-        return evDate >= now
-      } catch { return true }
-    })
-    .slice(0, 3)
-    .map(d => ({ id: d.id, ...d.data() } as EventData))
-)
+            setRelatedEvents(
+              rSnap.docs
+                .filter(d => {
+                  if (d.id === eventId) return false
+                  const raw = d.data().date
+                  try {
+                    const evDate = raw?.toDate ? raw.toDate() : new Date(raw)
+                    return evDate >= now
+                  } catch { return true }
+                })
+                .slice(0, 3)
+                .map(d => ({ id: d.id, ...d.data() } as EventData))
+            )
           } catch { /* ignore */ }
         }
         const tSnap = await getDocs(collection(db, 'events', eventId!, 'tickets'))
@@ -218,21 +260,6 @@ setRelatedEvents(
     load()
   }, [eventId])
 
-  useEffect(() => {
-    if (step === 'payment' && payMethod === 'transfer' && transferDetails) {
-      setTransferCountdown(300)
-      setTransferExpired(false)
-      countdownRef.current = setInterval(() => {
-        setTransferCountdown(prev => {
-          if (prev <= 1) { clearInterval(countdownRef.current); setTransferExpired(true); return 0 }
-          return prev - 1
-        })
-      }, 1000)
-    }
-    return () => clearInterval(countdownRef.current)
-  }, [step, payMethod, transferDetails])
-
-  const fmtCountdown = (s: number) => `${String(Math.floor(s / 60)).padStart(2, '0')}:${String(s % 60).padStart(2, '0')}`
   const totalAmount = selectedTicket ? selectedTicket.price * qty : 0
 
   const validateAttendee = () => {
@@ -244,57 +271,16 @@ setRelatedEvents(
     return Object.keys(e).length === 0
   }
 
-  const handleCardPayment = useCallback(async () => {
-    if (!validateAttendee()) return
-    if (paymentInProgress.current) return  // block double click
-    setProcessing(true)
-    try {
-      await loadPaystack()
-      const handler = window.PaystackPop.setup({
-        key: PAYSTACK_KEY, email: attendee.email, amount: totalAmount * 100, currency: 'NGN',
-        callback: async (response: any) => { await handlePaymentSuccess(response.reference) },
-        onClose: () => { setProcessing(false) },
-      })
-      handler.openIframe()
-    } catch { setProcessing(false) }
-  }, [attendee, totalAmount, PAYSTACK_KEY])
-
-  const handleBankTransfer = async () => {
-    if (!validateAttendee()) return
-    if (paymentInProgress.current) return  // block double click
-    setProcessing(true)
-    setTransferDetails({
-      accountNumber: '0' + Math.floor(100000000 + Math.random() * 900000000).toString(),
-      bankName: 'Wema Bank (Verapixels)',
-      reference: 'SC_' + Date.now(),
-    })
-    setProcessing(false)
-  }
-
   const handlePaymentSuccess = async (reference: string) => {
-    // ── GUARD: if already running, do nothing — prevents multiple emails ──
     if (paymentInProgress.current) return
     paymentInProgress.current = true
-
-    if (!eventId || !selectedTicket || !event) {
-      paymentInProgress.current = false
-      return
-    }
+    if (!eventId || !selectedTicket || !event) { paymentInProgress.current = false; return }
 
     setProcessing(true)
     const code = generateTicketCode()
     setTicketCode(code)
 
     try {
-      await addDoc(collection(db, 'events', eventId, 'attendees'), {
-        name: attendee.name, email: attendee.email, phone: attendee.phone,
-        altPhone: attendee.altPhone, ticketType: selectedTicket.name,
-        ticketTypeId: selectedTicket.id, ticketColor: selectedTicket.color,
-        ticketCode: code, quantity: qty, totalPaid: totalAmount,
-        paymentMethod: payMethod, paymentReference: reference,
-        eventName: event.name, eventDate: event.date, eventVenue: event.venue || '',
-        checkedIn: false, purchasedAt: serverTimestamp(),
-      })
       await updateDoc(doc(db, 'events', eventId, 'tickets', selectedTicket.id), {
         sold: (selectedTicket.sold || 0) + qty,
       })
@@ -305,8 +291,7 @@ setRelatedEvents(
       setQrDataUrl(qr)
       setStep('success')
 
-      // Send ticket confirmation email (fire and forget — don't block success screen)
-      fetch('https://us-central1-stagecheck-699c7.cloudfunctions.net/sendTicketConfirmation', {
+      fetch(`${CF_BASE}/sendTicketConfirmation`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -327,20 +312,20 @@ setRelatedEvents(
 
     } catch (e) {
       console.error(e)
-      // If something failed, release the lock so they can retry
       paymentInProgress.current = false
     }
-
     setProcessing(false)
   }
 
-  const handleVerifyTransfer = async () => {
-    if (!transferDetails) return
-    if (paymentInProgress.current) return  // block double click
-    setVerifying(true)
-    await new Promise(r => setTimeout(r, 2000))
-    await handlePaymentSuccess(transferDetails.reference)
-    setVerifying(false)
+  const handleShare = () => {
+    const url = window.location.href
+    if (navigator.share) {
+      navigator.share({ title: event?.name, url })
+    } else {
+      navigator.clipboard.writeText(url)
+      setCopied(true)
+      setTimeout(() => setCopied(false), 2000)
+    }
   }
 
   const downloadTicket = () => {
@@ -360,43 +345,6 @@ setRelatedEvents(
     })
   }
 
-  const handleShare = () => {
-    const url = window.location.href
-    if (navigator.share) {
-      navigator.share({ title: event?.name, url })
-    } else {
-      navigator.clipboard.writeText(url)
-      setCopied(true)
-      setTimeout(() => setCopied(false), 2000)
-    }
-  }
-
-  const allMedia = event ? [
-    ...(event.coverImage ? [{ url: event.coverImage, type: 'image' }] : []),
-    ...(event.media || []),
-  ] : []
-  const allImages = allMedia.filter(m => m.type === 'image')
-  const heroImg = allImages[0]?.url || ''
-
-  const minPrice = tickets.filter(t => t.price > 0).length > 0
-    ? Math.min(...tickets.filter(t => t.price > 0).map(t => t.price))
-    : 0
-  const isFree = tickets.length > 0 && tickets.every(t => t.price === 0)
-  const hasFeatured = (event?.featuredArtists || []).length > 0
-  const hasAgenda = (event?.agenda || []).length > 0
-  const hasFAQ = (event?.faq || []).length > 0
-  const hasGTK = event?.goodToKnow && Object.values(event.goodToKnow).some(v => v)
-
-    const REPORT_ISSUES = [
-    'Misleading or false information',
-    'Event has been cancelled',
-    'Scam or fraud',
-    'Inappropriate content',
-    'Safety concern',
-    'Ticket pricing issues',
-    'Other (describe below)',
-  ]
-
   const handleSubmitReport = async () => {
     if (!reportIssue) return
     setReportSubmitting(true)
@@ -413,9 +361,7 @@ setRelatedEvents(
         createdAt: serverTimestamp(),
       })
       setReportSuccess(true)
-    } catch (e) {
-      console.error(e)
-    }
+    } catch (e) { console.error(e) }
     setReportSubmitting(false)
   }
 
@@ -431,6 +377,31 @@ setRelatedEvents(
     : event?.venue
     ? `https://maps.google.com/maps?q=${encodeURIComponent(event.venue)}&output=embed&z=15&hl=en`
     : ''
+
+  const allMedia = event ? [
+    ...(event.coverImage ? [{ url: event.coverImage, type: 'image' }] : []),
+    ...(event.media || []),
+  ] : []
+  const allImages = allMedia.filter(m => m.type === 'image')
+  const heroImg = allImages[0]?.url || ''
+  const minPrice = tickets.filter(t => t.price > 0).length > 0
+    ? Math.min(...tickets.filter(t => t.price > 0).map(t => t.price))
+    : 0
+  const isFree = tickets.length > 0 && tickets.every(t => t.price === 0)
+  const hasFeatured = (event?.featuredArtists || []).length > 0
+  const hasAgenda = (event?.agenda || []).length > 0
+  const hasFAQ = (event?.faq || []).length > 0
+  const hasGTK = event?.goodToKnow && Object.values(event.goodToKnow).some(v => v)
+
+  const REPORT_ISSUES = [
+    'Misleading or false information',
+    'Event has been cancelled',
+    'Scam or fraud',
+    'Inappropriate content',
+    'Safety concern',
+    'Ticket pricing issues',
+    'Other (describe below)',
+  ]
 
   if (loading) return (
     <div style={{ minHeight: '100vh', background: '#000612', display: 'flex', alignItems: 'center', justifyContent: 'center', flexDirection: 'column', gap: 16 }}>
@@ -448,7 +419,7 @@ setRelatedEvents(
     </div>
   )
 
-  // ── TICKET DRAWER ─────────────────────────────────────────────
+  // ── DRAWER STEPS ──────────────────────────────────────────────
   const renderDrawerContent = () => {
     if (step === 'select-ticket') return renderTicketSelect()
     if (step === 'attendee-form') return renderAttendeeForm()
@@ -560,120 +531,147 @@ setRelatedEvents(
     </div>
   )
 
-  const renderPayment = () => (
-    <div style={{ paddingTop: 20 }}>
-      <button onClick={() => setStep('attendee-form')} style={{ display: 'flex', alignItems: 'center', gap: 6, background: 'none', border: 'none', color: 'rgba(255,255,255,0.4)', cursor: 'pointer', fontSize: 13, marginBottom: 20, padding: 0 }}>
-        <RiArrowLeftLine size={15} /> Back
-      </button>
-      <div style={{ background: 'rgba(13,199,94,0.06)', border: '1px solid rgba(13,199,94,0.15)', borderRadius: 10, padding: '14px 16px', marginBottom: 22 }}>
-        <div style={{ fontSize: 14, color: '#fff', marginBottom: 2 }}>{selectedTicket?.name} × {qty}</div>
-        <div style={{ fontSize: 13, color: 'rgba(255,255,255,0.4)', marginBottom: 10 }}>{attendee.name} · {attendee.email}</div>
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', paddingTop: 10, borderTop: '1px solid rgba(255,255,255,0.06)' }}>
-          <span style={{ fontSize: 12, color: 'rgba(255,255,255,0.4)' }}>Total</span>
-          <span style={{ fontSize: 20, fontWeight: 800, color: '#0dc75e', fontFamily: 'Syne, sans-serif' }}>{totalAmount === 0 ? 'Free' : `₦${totalAmount.toLocaleString()}`}</span>
-        </div>
-      </div>
-      {totalAmount === 0 ? (
-        // ── FREE TICKET BUTTON — disabled + spinner while processing ──
-        <button
-          onClick={() => { if (!processing && !paymentInProgress.current) handlePaymentSuccess('free_' + Date.now()) }}
-          disabled={processing}
-          style={{ width: '100%', padding: '14px', background: processing ? 'rgba(13,199,94,0.5)' : '#0dc75e', border: 'none', color: '#000', borderRadius: 11, fontWeight: 800, fontSize: 14, cursor: processing ? 'not-allowed' : 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8, opacity: processing ? 0.8 : 1, transition: 'all 0.2s' }}>
-          {processing
-            ? <><RiLoader4Line size={16} style={{ animation: 'spin 0.8s linear infinite' }} /> Processing…</>
-            : <><RiCheckboxCircleLine size={16} /> Claim Free Ticket</>
-          }
-        </button>
-      ) : (
-        <>
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10, marginBottom: 18 }}>
-            {[
-              { id: 'card' as PaymentMethod, icon: <RiBankCardLine size={18} />, label: 'Card', sub: 'Debit / Credit' },
-              { id: 'transfer' as PaymentMethod, icon: <RiBankLine size={18} />, label: 'Bank Transfer', sub: 'Get account no.' }
-            ].map(m => (
-              <button key={m.id} onClick={() => { setPayMethod(m.id); setTransferDetails(null); setTransferExpired(false) }}
-                style={{ border: `1.5px solid ${payMethod === m.id ? 'rgba(13,199,94,0.6)' : 'rgba(255,255,255,0.08)'}`, borderRadius: 12, padding: '14px 12px', background: payMethod === m.id ? 'rgba(13,199,94,0.07)' : 'rgba(255,255,255,0.02)', cursor: 'pointer', textAlign: 'left', transition: 'all 0.2s' }}>
-                <div style={{ color: payMethod === m.id ? '#0dc75e' : 'rgba(255,255,255,0.5)', marginBottom: 6 }}>{m.icon}</div>
-                <div style={{ fontSize: 13, fontWeight: 700, color: payMethod === m.id ? '#fff' : 'rgba(255,255,255,0.7)', marginBottom: 2 }}>{m.label}</div>
-                <div style={{ fontSize: 11, color: 'rgba(255,255,255,0.35)' }}>{m.sub}</div>
-              </button>
-            ))}
-          </div>
+  const renderPayment = () => {
+    const handlePaystackPay = () => {
+      if (!validateAttendee()) return
+      if (!event || !selectedTicket) return
+      if (!window.PaystackPop) {
+        setPayError('Payment system is still loading. Please wait a moment and try again.')
+        return
+      }
 
-          {/* ── CARD PAYMENT BUTTON — disabled + spinner while processing ── */}
-          {payMethod === 'card' && (
+      setPayError('')
+      setPaying(true)
+
+      const handler = window.PaystackPop.setup({
+        key: import.meta.env.VITE_PAYSTACK_PUBLIC_KEY,
+        email: attendee.email,
+        amount: Math.round(totalAmount * 100), // kobo
+        currency: 'NGN',
+        metadata: {
+          eventId,
+          ticketTypeId: selectedTicket.id,
+          ticketType: selectedTicket.name,
+          ticketColor: selectedTicket.color,
+          quantity: qty,
+          attendeeName: attendee.name,
+          attendeeEmail: attendee.email,
+          phone: attendee.phone,
+          altPhone: attendee.altPhone,
+          eventName: event.name,
+          eventDate: formatDate(event.date),
+          eventTime: event.startTime ? formatTime(event.startTime) : '',
+          venueName: event.venue || '',
+          venueAddress: event.address || '',
+          organizerEmail: event.organizerEmail || event.organizer?.email || '',
+        },
+        callback: (response: { reference: string }) => {
+          // Paystack popup confirmed payment client-side; server verify is the
+          // real source of truth before we fulfill the order.
+          ;(async () => {
+            try {
+              const res = await fetch(`${CF_BASE}/verifyAndFulfillPayment`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                  reference: response.reference,
+                  expectedAmount: totalAmount,
+                }),
+              })
+              const data = await res.json()
+
+              if (!data.success) {
+                setPayError(data.message || 'Payment could not be verified. If you were charged, contact support with your reference.')
+                setPaying(false)
+                return
+              }
+
+              setTicketCode(data.ticketCode)
+              const qr = await QRCode.toDataURL(
+                JSON.stringify({
+                  code: data.ticketCode,
+                  event: event.name,
+                  attendee: attendee.name,
+                  ticket: selectedTicket.name,
+                }),
+                { width: 200, margin: 1, color: { dark: '#0dc75e', light: '#060e1c' } }
+              )
+              setQrDataUrl(qr)
+              setStep('success')
+              setPaying(false)
+            } catch (e) {
+              console.error('Verify error:', e)
+              setPayError('Could not confirm payment. If you were charged, contact support with your reference: ' + response.reference)
+              setPaying(false)
+            }
+          })()
+        },
+        onClose: () => {
+          setPaying(false)
+        },
+      })
+
+      handler.openIframe()
+    }
+
+    return (
+      <div style={{ paddingTop: 20 }}>
+        <button onClick={() => setStep('attendee-form')} style={{ display: 'flex', alignItems: 'center', gap: 6, background: 'none', border: 'none', color: 'rgba(255,255,255,0.4)', cursor: 'pointer', fontSize: 13, marginBottom: 20, padding: 0 }}>
+          <RiArrowLeftLine size={15} /> Back
+        </button>
+
+        {/* Order summary */}
+        <div style={{ background: 'rgba(13,199,94,0.06)', border: '1px solid rgba(13,199,94,0.15)', borderRadius: 10, padding: '14px 16px', marginBottom: 22 }}>
+          <div style={{ fontSize: 14, color: '#fff', marginBottom: 2 }}>{selectedTicket?.name} × {qty}</div>
+          <div style={{ fontSize: 13, color: 'rgba(255,255,255,0.4)', marginBottom: 10 }}>{attendee.name} · {attendee.email}</div>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', paddingTop: 10, borderTop: '1px solid rgba(255,255,255,0.06)' }}>
+            <span style={{ fontSize: 12, color: 'rgba(255,255,255,0.4)' }}>Total</span>
+            <span style={{ fontSize: 20, fontWeight: 800, color: '#0dc75e', fontFamily: 'Syne, sans-serif' }}>{totalAmount === 0 ? 'Free' : `₦${totalAmount.toLocaleString()}`}</span>
+          </div>
+        </div>
+
+        {totalAmount === 0 ? (
+          <button
+            onClick={() => { if (!processing && !paymentInProgress.current) handlePaymentSuccess('free_' + Date.now()) }}
+            disabled={processing}
+            style={{ width: '100%', padding: '14px', background: processing ? 'rgba(13,199,94,0.5)' : '#0dc75e', border: 'none', color: '#000', borderRadius: 11, fontWeight: 800, fontSize: 14, cursor: processing ? 'not-allowed' : 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8 }}>
+            {processing ? <><RiLoader4Line size={16} style={{ animation: 'spin 0.8s linear infinite' }} /> Processing…</> : <><RiCheckboxCircleLine size={16} /> Claim Free Ticket</>}
+          </button>
+        ) : (
+          <>
+            {payError && (
+              <div style={{ background: 'rgba(239,68,68,0.08)', border: '1px solid rgba(239,68,68,0.25)', borderRadius: 10, padding: '12px 14px', marginBottom: 16, display: 'flex', alignItems: 'flex-start', gap: 10 }}>
+                <RiAlertLine size={15} color="#f87171" style={{ flexShrink: 0, marginTop: 1 }} />
+                <span style={{ fontSize: 13, color: '#f87171', lineHeight: 1.5 }}>{payError}</span>
+              </div>
+            )}
+
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '12px 14px', background: 'rgba(13,199,94,0.04)', border: '1px solid rgba(13,199,94,0.1)', borderRadius: 10, marginBottom: 18 }}>
+              <RiShieldCheckLine size={14} color="#0dc75e" />
+              <span style={{ fontSize: 11, color: 'rgba(255,255,255,0.5)', lineHeight: 1.5 }}>
+                Pay securely with card, bank transfer, or USSD — Paystack will guide you through it.
+              </span>
+            </div>
+
             <button
-              onClick={() => { if (!processing && !paymentInProgress.current) handleCardPayment() }}
-              disabled={processing}
-              style={{ width: '100%', padding: '14px', background: processing ? 'rgba(13,199,94,0.5)' : '#0dc75e', border: 'none', color: '#000', borderRadius: 11, fontWeight: 800, fontSize: 14, cursor: processing ? 'not-allowed' : 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8, opacity: processing ? 0.8 : 1, transition: 'all 0.2s' }}>
-              {processing
-                ? <><RiLoader4Line size={16} style={{ animation: 'spin 0.8s linear infinite' }} /> Processing…</>
-                : <><RiLockLine size={15} /> Pay ₦{totalAmount.toLocaleString()} Securely</>
+              onClick={handlePaystackPay}
+              disabled={paying}
+              style={{ width: '100%', padding: '15px', background: paying ? 'rgba(13,199,94,0.5)' : '#0dc75e', border: 'none', color: '#000', borderRadius: 11, fontWeight: 800, fontSize: 15, cursor: paying ? 'not-allowed' : 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8 }}>
+              {paying
+                ? <><RiLoader4Line size={17} style={{ animation: 'spin 0.8s linear infinite' }} /> Waiting for payment…</>
+                : <><RiLockLine size={16} /> Pay ₦{totalAmount.toLocaleString()} Securely</>
               }
             </button>
-          )}
+          </>
+        )}
 
-          {payMethod === 'transfer' && (
-            !transferDetails ? (
-              // ── GENERATE ACCOUNT BUTTON — disabled + spinner while processing ──
-              <button
-                onClick={() => { if (!processing && !paymentInProgress.current) handleBankTransfer() }}
-                disabled={processing}
-                style={{ width: '100%', padding: '14px', background: processing ? 'rgba(13,199,94,0.5)' : '#0dc75e', border: 'none', color: '#000', borderRadius: 11, fontWeight: 800, fontSize: 14, cursor: processing ? 'not-allowed' : 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8, opacity: processing ? 0.8 : 1, transition: 'all 0.2s' }}>
-                {processing
-                  ? <><RiLoader4Line size={16} style={{ animation: 'spin 0.8s linear infinite' }} /> Generating…</>
-                  : <><RiBankLine size={15} /> Generate Bank Account</>
-                }
-              </button>
-            ) : transferExpired ? (
-              <div style={{ textAlign: 'center', padding: '20px 0' }}>
-                <div style={{ fontSize: 14, color: '#f87171', fontWeight: 600, marginBottom: 12 }}>Account number expired</div>
-                <button onClick={() => { setTransferDetails(null); setTransferExpired(false) }} style={{ background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.1)', color: '#fff', padding: '10px 18px', borderRadius: 9, cursor: 'pointer', fontSize: 13, display: 'flex', alignItems: 'center', gap: 6, margin: '0 auto' }}>
-                  <RiRefreshLine size={14} /> Generate New Account
-                </button>
-              </div>
-            ) : (
-              <div>
-                <div style={{ background: 'rgba(13,199,94,0.05)', border: '1px solid rgba(13,199,94,0.2)', borderRadius: 14, padding: '20px', marginBottom: 14 }}>
-                  <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 16 }}>
-                    <div style={{ fontSize: 12, color: 'rgba(255,255,255,0.45)', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.08em' }}>Transfer Details</div>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: 6, background: transferCountdown < 60 ? 'rgba(239,68,68,0.12)' : 'rgba(13,199,94,0.12)', borderRadius: 20, padding: '4px 10px' }}>
-                      <RiTimerLine size={12} color={transferCountdown < 60 ? '#f87171' : '#0dc75e'} />
-                      <span style={{ fontSize: 12, fontWeight: 700, color: transferCountdown < 60 ? '#f87171' : '#0dc75e', fontFamily: 'Syne, sans-serif' }}>{fmtCountdown(transferCountdown)}</span>
-                    </div>
-                  </div>
-                  <div style={{ marginBottom: 10 }}>
-                    <div style={{ fontSize: 11, color: 'rgba(255,255,255,0.35)', marginBottom: 3 }}>Bank</div>
-                    <div style={{ fontSize: 15, fontWeight: 700, color: '#fff' }}>{transferDetails.bankName}</div>
-                  </div>
-                  <div style={{ marginBottom: 10 }}>
-                    <div style={{ fontSize: 11, color: 'rgba(255,255,255,0.35)', marginBottom: 3 }}>Account Number</div>
-                    <div style={{ fontSize: 28, fontWeight: 800, color: '#0dc75e', fontFamily: 'Syne, sans-serif', letterSpacing: '0.06em' }}>
-                      {transferDetails.accountNumber.replace(/(\d{4})(\d{3})(\d{3})/, '$1 $2 $3')}
-                    </div>
-                  </div>
-                  <div>
-                    <div style={{ fontSize: 11, color: 'rgba(255,255,255,0.35)', marginBottom: 3 }}>Amount</div>
-                    <div style={{ fontSize: 18, fontWeight: 700, color: '#fff' }}>₦{totalAmount.toLocaleString()}</div>
-                  </div>
-                </div>
-                {/* ── VERIFY TRANSFER BUTTON — disabled + spinner while verifying ── */}
-                <button
-                  onClick={() => { if (!verifying && !paymentInProgress.current) handleVerifyTransfer() }}
-                  disabled={verifying}
-                  style={{ width: '100%', padding: '13px', background: verifying ? 'rgba(13,199,94,0.5)' : '#0dc75e', border: 'none', color: '#000', borderRadius: 11, fontWeight: 800, fontSize: 14, cursor: verifying ? 'not-allowed' : 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8, opacity: verifying ? 0.8 : 1, transition: 'all 0.2s' }}>
-                  {verifying
-                    ? <><RiLoader4Line size={16} style={{ animation: 'spin 0.8s linear infinite' }} /> Verifying…</>
-                    : <><RiCheckLine size={15} /> I've Made the Transfer</>
-                  }
-                </button>
-              </div>
-            )
-          )}
-        </>
-      )}
-    </div>
-  )
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6, marginTop: 18 }}>
+          <RiShieldCheckLine size={11} color="rgba(255,255,255,0.2)" />
+          <span style={{ fontSize: 11, color: 'rgba(255,255,255,0.2)' }}>Secured by Paystack</span>
+        </div>
+      </div>
+    )
+  }
 
   const renderSuccess = () => (
     <div style={{ paddingTop: 20 }}>
@@ -721,7 +719,7 @@ setRelatedEvents(
     </div>
   )
 
-  // ═══ MAIN PAGE ═══════════════════════════════════════════════
+  // ═══ MAIN PAGE ════════════════════════════════════════════════
   return (
     <>
       <link rel="preconnect" href="https://fonts.googleapis.com" />
@@ -1059,51 +1057,38 @@ setRelatedEvents(
                 </div>
               </div>
             )}
-              
-              <div className="sc" style={{ background: 'rgba(13,199,94,0.03)', border: '1px solid rgba(13,199,94,0.1)' }}>
-  <div style={{ display: 'flex', alignItems: 'center', gap: 16, flexWrap: 'wrap' }}>
-    <div style={{ width: 48, height: 48, borderRadius: '50%', background: 'rgba(13,199,94,0.1)', border: '2px solid rgba(13,199,94,0.2)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
-      <RiShieldCheckLine size={22} color="var(--green)" />
-    </div>
-    <div style={{ flex: 1 }}>
-      <div style={{ fontSize: 15, fontWeight: 700, color: '#fff', fontFamily: 'Syne, sans-serif', marginBottom: 4 }}>
-        Have a question about this event?
-      </div>
-      <div style={{ fontSize: 13, color: 'rgba(255,255,255,0.5)', marginBottom: 8 }}>
-        Our support team is here to help.
-      </div>
-      <a href="mailto:support@stagecheck.com" style={{ display: 'inline-flex', alignItems: 'center', gap: 5, fontSize: 13, color: 'rgba(255,255,255,0.5)', textDecoration: 'none', transition: 'color 0.2s' }}
-        onMouseEnter={e => (e.currentTarget as HTMLAnchorElement).style.color = 'var(--green)'}
-        onMouseLeave={e => (e.currentTarget as HTMLAnchorElement).style.color = 'rgba(255,255,255,0.5)'}>
-        <RiMailLine size={13} /> support@stagecheck.com
-      </a>
-    </div>
-    <div style={{ flexShrink: 0 }}>
-      <a href="mailto:support@stagecheck.com" style={{ padding: '8px 16px', background: 'rgba(13,199,94,0.1)', border: '1px solid rgba(13,199,94,0.3)', borderRadius: 9, color: 'var(--green)', fontSize: 13, fontWeight: 600, textDecoration: 'none', transition: 'all 0.2s', display: 'flex', alignItems: 'center', gap: 6 }}
-        onMouseEnter={e => { (e.currentTarget as HTMLAnchorElement).style.background = 'rgba(13,199,94,0.15)' }}
-        onMouseLeave={e => { (e.currentTarget as HTMLAnchorElement).style.background = 'rgba(13,199,94,0.1)' }}>
-        <RiMailLine size={13} /> Contact Support
-      </a>
-    </div>
-  </div>
-</div>
+
+            <div className="sc" style={{ background: 'rgba(13,199,94,0.03)', border: '1px solid rgba(13,199,94,0.1)' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 16, flexWrap: 'wrap' }}>
+                <div style={{ width: 48, height: 48, borderRadius: '50%', background: 'rgba(13,199,94,0.1)', border: '2px solid rgba(13,199,94,0.2)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                  <RiShieldCheckLine size={22} color="var(--green)" />
+                </div>
+                <div style={{ flex: 1 }}>
+                  <div style={{ fontSize: 15, fontWeight: 700, color: '#fff', fontFamily: 'Syne, sans-serif', marginBottom: 4 }}>Have a question about this event?</div>
+                  <div style={{ fontSize: 13, color: 'rgba(255,255,255,0.5)', marginBottom: 8 }}>Our support team is here to help.</div>
+                  <a href="mailto:support@stagecheck.com" style={{ display: 'inline-flex', alignItems: 'center', gap: 5, fontSize: 13, color: 'rgba(255,255,255,0.5)', textDecoration: 'none', transition: 'color 0.2s' }}
+                    onMouseEnter={e => (e.currentTarget as HTMLAnchorElement).style.color = 'var(--green)'}
+                    onMouseLeave={e => (e.currentTarget as HTMLAnchorElement).style.color = 'rgba(255,255,255,0.5)'}>
+                    <RiMailLine size={13} /> support@stagecheck.com
+                  </a>
+                </div>
+                <div style={{ flexShrink: 0 }}>
+                  <a href="mailto:support@stagecheck.com" style={{ padding: '8px 16px', background: 'rgba(13,199,94,0.1)', border: '1px solid rgba(13,199,94,0.3)', borderRadius: 9, color: 'var(--green)', fontSize: 13, fontWeight: 600, textDecoration: 'none', display: 'flex', alignItems: 'center', gap: 6 }}>
+                    <RiMailLine size={13} /> Contact Support
+                  </a>
+                </div>
+              </div>
+            </div>
 
             <div style={{ textAlign: 'center', padding: '10px 0 20px' }}>
-  <button
-    onClick={() => { setReportModal(true); setReportSuccess(false); setReportIssue(''); setReportCustom(''); setReportEmail('') }}
-    style={{
-      background: 'rgba(248,113,113,0.06)', border: '1px solid rgba(248,113,113,0.2)',
-      color: 'rgba(248,113,113,0.7)', fontSize: 12, cursor: 'pointer',
-      display: 'inline-flex', alignItems: 'center', gap: 6,
-      padding: '8px 16px', borderRadius: 9, fontWeight: 600,
-      transition: 'all 0.2s',
-    }}
-    onMouseEnter={e => { const el = e.currentTarget; el.style.background = 'rgba(248,113,113,0.12)'; el.style.borderColor = 'rgba(248,113,113,0.4)'; el.style.color = '#f87171' }}
-    onMouseLeave={e => { const el = e.currentTarget; el.style.background = 'rgba(248,113,113,0.06)'; el.style.borderColor = 'rgba(248,113,113,0.2)'; el.style.color = 'rgba(248,113,113,0.7)' }}
-  >
-    <RiFlag2Line size={13} /> Report this event
-  </button>
-</div>
+              <button
+                onClick={() => { setReportModal(true); setReportSuccess(false); setReportIssue(''); setReportCustom(''); setReportEmail('') }}
+                style={{ background: 'rgba(248,113,113,0.06)', border: '1px solid rgba(248,113,113,0.2)', color: 'rgba(248,113,113,0.7)', fontSize: 12, cursor: 'pointer', display: 'inline-flex', alignItems: 'center', gap: 6, padding: '8px 16px', borderRadius: 9, fontWeight: 600, transition: 'all 0.2s' }}
+                onMouseEnter={e => { const el = e.currentTarget; el.style.background = 'rgba(248,113,113,0.12)'; el.style.borderColor = 'rgba(248,113,113,0.4)'; el.style.color = '#f87171' }}
+                onMouseLeave={e => { const el = e.currentTarget; el.style.background = 'rgba(248,113,113,0.06)'; el.style.borderColor = 'rgba(248,113,113,0.2)'; el.style.color = 'rgba(248,113,113,0.7)' }}>
+                <RiFlag2Line size={13} /> Report this event
+              </button>
+            </div>
 
             {relatedEvents.length > 0 && (
               <div>
@@ -1259,167 +1244,84 @@ setRelatedEvents(
       )}
 
       {/* REPORT MODAL */}
-{reportModal && (
-  <div
-    style={{ position: 'fixed', inset: 0, zIndex: 700, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '16px', background: 'rgba(0,0,0,0.75)', backdropFilter: 'blur(6px)' }}
-    onClick={() => !reportSubmitting && setReportModal(false)}
-  >
-    <div
-      onClick={e => e.stopPropagation()}
-      style={{
-        width: '100%', maxWidth: 480, background: '#030d1a',
-        border: '1px solid rgba(255,255,255,0.08)', borderRadius: 20,
-        overflow: 'hidden', animation: 'popIn 0.3s cubic-bezier(.16,1,.3,1)',
-      }}
-    >
-      {/* Header */}
-      <div style={{ padding: '20px 24px 16px', borderBottom: '1px solid rgba(255,255,255,0.06)', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-          <div style={{ width: 34, height: 34, borderRadius: 9, background: 'rgba(248,113,113,0.1)', border: '1px solid rgba(248,113,113,0.2)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-            <RiFlag2Line size={16} color="#f87171" />
-          </div>
-          <div>
-            <div style={{ fontSize: 15, fontWeight: 800, color: '#fff', fontFamily: 'Syne, sans-serif' }}>Report Event</div>
-            <div style={{ fontSize: 11, color: 'rgba(255,255,255,0.35)', marginTop: 1 }}>Help us keep StageCheck safe</div>
+      {reportModal && (
+        <div
+          style={{ position: 'fixed', inset: 0, zIndex: 700, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '16px', background: 'rgba(0,0,0,0.75)', backdropFilter: 'blur(6px)' }}
+          onClick={() => !reportSubmitting && setReportModal(false)}
+        >
+          <div onClick={e => e.stopPropagation()} style={{ width: '100%', maxWidth: 480, background: '#030d1a', border: '1px solid rgba(255,255,255,0.08)', borderRadius: 20, overflow: 'hidden', animation: 'popIn 0.3s cubic-bezier(.16,1,.3,1)' }}>
+            <div style={{ padding: '20px 24px 16px', borderBottom: '1px solid rgba(255,255,255,0.06)', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                <div style={{ width: 34, height: 34, borderRadius: 9, background: 'rgba(248,113,113,0.1)', border: '1px solid rgba(248,113,113,0.2)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                  <RiFlag2Line size={16} color="#f87171" />
+                </div>
+                <div>
+                  <div style={{ fontSize: 15, fontWeight: 800, color: '#fff', fontFamily: 'Syne, sans-serif' }}>Report Event</div>
+                  <div style={{ fontSize: 11, color: 'rgba(255,255,255,0.35)', marginTop: 1 }}>Help us keep StageCheck safe</div>
+                </div>
+              </div>
+              {!reportSubmitting && (
+                <button onClick={() => setReportModal(false)} style={{ width: 32, height: 32, borderRadius: 8, background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.08)', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', color: 'rgba(255,255,255,0.5)' }}>
+                  <RiCloseLine size={16} />
+                </button>
+              )}
+            </div>
+            <div style={{ padding: '20px 24px 24px' }}>
+              {reportSuccess ? (
+                <div style={{ textAlign: 'center', padding: '20px 0 10px' }}>
+                  <div style={{ width: 72, height: 72, borderRadius: '50%', margin: '0 auto 18px', background: 'rgba(13,199,94,0.12)', border: '2px solid rgba(13,199,94,0.35)', display: 'flex', alignItems: 'center', justifyContent: 'center', animation: 'popIn 0.4s cubic-bezier(.16,1,.3,1)' }}>
+                    <RiCheckLine size={34} color="#0dc75e" />
+                  </div>
+                  <div style={{ fontSize: 20, fontWeight: 800, color: '#fff', fontFamily: 'Syne, sans-serif', marginBottom: 8 }}>Report Submitted</div>
+                  <p style={{ fontSize: 13, color: 'rgba(255,255,255,0.5)', lineHeight: 1.7, marginBottom: 20 }}>
+                    Thanks for letting us know. Our team will review this event and take action if needed.
+                    {reportEmail && <><br /><span style={{ color: 'rgba(13,199,94,0.8)' }}>We'll update you at <strong>{reportEmail}</strong></span></>}
+                  </p>
+                  <button onClick={() => setReportModal(false)} style={{ padding: '10px 28px', background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: 10, color: 'rgba(255,255,255,0.7)', fontSize: 13, fontWeight: 600, cursor: 'pointer' }}>Close</button>
+                </div>
+              ) : (
+                <>
+                  <div style={{ fontSize: 12, color: 'rgba(255,255,255,0.45)', marginBottom: 14, lineHeight: 1.6 }}>
+                    What's the issue with <strong style={{ color: 'rgba(255,255,255,0.75)' }}>{event.name}</strong>?
+                  </div>
+                  <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, marginBottom: 18 }}>
+                    {REPORT_ISSUES.map(issue => (
+                      <button key={issue} onClick={() => setReportIssue(issue)}
+                        style={{ padding: '7px 13px', borderRadius: 20, fontSize: 12, fontWeight: 600, cursor: 'pointer', background: reportIssue === issue ? 'rgba(248,113,113,0.15)' : 'rgba(255,255,255,0.04)', border: `1.5px solid ${reportIssue === issue ? 'rgba(248,113,113,0.5)' : 'rgba(255,255,255,0.08)'}`, color: reportIssue === issue ? '#f87171' : 'rgba(255,255,255,0.55)', transition: 'all 0.15s' }}>
+                        {issue}
+                      </button>
+                    ))}
+                  </div>
+                  <div style={{ marginBottom: 16 }}>
+                    <label style={{ fontSize: 11, color: 'rgba(255,255,255,0.4)', display: 'block', marginBottom: 6, fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.06em' }}>
+                      {reportIssue === 'Other (describe below)' ? 'Describe the issue *' : 'Additional details (optional)'}
+                    </label>
+                    <textarea value={reportCustom} onChange={e => setReportCustom(e.target.value)} placeholder="Tell us more about what you experienced..." rows={3}
+                      style={{ width: '100%', padding: '11px 14px', background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.09)', borderRadius: 11, color: '#fff', fontSize: 13, fontFamily: 'DM Sans, sans-serif', outline: 'none', resize: 'vertical', boxSizing: 'border-box', lineHeight: 1.6 }}
+                      onFocus={e => e.currentTarget.style.borderColor = 'rgba(248,113,113,0.4)'}
+                      onBlur={e => e.currentTarget.style.borderColor = 'rgba(255,255,255,0.09)'} />
+                  </div>
+                  <div style={{ marginBottom: 22 }}>
+                    <label style={{ fontSize: 11, color: 'rgba(255,255,255,0.4)', display: 'block', marginBottom: 6, fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.06em' }}>Your email — optional, for status updates</label>
+                    <input type="email" value={reportEmail} onChange={e => setReportEmail(e.target.value)} placeholder="you@example.com"
+                      style={{ width: '100%', padding: '11px 14px', background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.09)', borderRadius: 11, color: '#fff', fontSize: 13, fontFamily: 'DM Sans, sans-serif', outline: 'none', boxSizing: 'border-box' }}
+                      onFocus={e => e.currentTarget.style.borderColor = 'rgba(13,199,94,0.4)'}
+                      onBlur={e => e.currentTarget.style.borderColor = 'rgba(255,255,255,0.09)'} />
+                  </div>
+                  <div style={{ display: 'flex', gap: 10 }}>
+                    <button onClick={() => setReportModal(false)} style={{ flex: 1, padding: '12px', background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.08)', borderRadius: 11, color: 'rgba(255,255,255,0.5)', fontSize: 13, fontWeight: 600, cursor: 'pointer' }}>Cancel</button>
+                    <button onClick={handleSubmitReport}
+                      disabled={!reportIssue || (reportIssue === 'Other (describe below)' && !reportCustom.trim()) || reportSubmitting}
+                      style={{ flex: 2, padding: '12px', borderRadius: 11, fontSize: 13, fontWeight: 800, cursor: (!reportIssue || (reportIssue === 'Other (describe below)' && !reportCustom.trim()) || reportSubmitting) ? 'not-allowed' : 'pointer', background: (!reportIssue || (reportIssue === 'Other (describe below)' && !reportCustom.trim())) ? 'rgba(248,113,113,0.2)' : reportSubmitting ? 'rgba(248,113,113,0.4)' : 'rgba(248,113,113,0.85)', border: '1px solid rgba(248,113,113,0.3)', color: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 7, transition: 'all 0.2s' }}>
+                      {reportSubmitting ? <><RiLoader4Line size={14} style={{ animation: 'spin 0.8s linear infinite' }} /> Submitting…</> : <><RiFlag2Line size={14} /> Submit Report</>}
+                    </button>
+                  </div>
+                </>
+              )}
+            </div>
           </div>
         </div>
-        {!reportSubmitting && (
-          <button onClick={() => setReportModal(false)} style={{ width: 32, height: 32, borderRadius: 8, background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.08)', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', color: 'rgba(255,255,255,0.5)' }}>
-            <RiCloseLine size={16} />
-          </button>
-        )}
-      </div>
-
-      <div style={{ padding: '20px 24px 24px' }}>
-        {reportSuccess ? (
-          /* ── SUCCESS STATE ── */
-          <div style={{ textAlign: 'center', padding: '20px 0 10px' }}>
-            <div style={{
-              width: 72, height: 72, borderRadius: '50%', margin: '0 auto 18px',
-              background: 'rgba(13,199,94,0.12)', border: '2px solid rgba(13,199,94,0.35)',
-              display: 'flex', alignItems: 'center', justifyContent: 'center',
-              animation: 'popIn 0.4s cubic-bezier(.16,1,.3,1)',
-            }}>
-              <RiCheckLine size={34} color="#0dc75e" />
-            </div>
-            <div style={{ fontSize: 20, fontWeight: 800, color: '#fff', fontFamily: 'Syne, sans-serif', marginBottom: 8 }}>
-              Report Submitted
-            </div>
-            <p style={{ fontSize: 13, color: 'rgba(255,255,255,0.5)', lineHeight: 1.7, marginBottom: 20 }}>
-              Thanks for letting us know. Our team will review this event and take action if needed.
-              {reportEmail && <><br /><span style={{ color: 'rgba(13,199,94,0.8)' }}>We'll update you at <strong>{reportEmail}</strong></span></>}
-            </p>
-            <button
-              onClick={() => setReportModal(false)}
-              style={{ padding: '10px 28px', background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: 10, color: 'rgba(255,255,255,0.7)', fontSize: 13, fontWeight: 600, cursor: 'pointer' }}
-            >
-              Close
-            </button>
-          </div>
-        ) : (
-          /* ── FORM STATE ── */
-          <>
-            <div style={{ fontSize: 12, color: 'rgba(255,255,255,0.45)', marginBottom: 14, lineHeight: 1.6 }}>
-              What's the issue with <strong style={{ color: 'rgba(255,255,255,0.75)' }}>{event.name}</strong>?
-            </div>
-
-            {/* Issue chips */}
-            <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, marginBottom: 18 }}>
-              {REPORT_ISSUES.map(issue => {
-                const selected = reportIssue === issue
-                return (
-                  <button
-                    key={issue}
-                    onClick={() => setReportIssue(issue)}
-                    style={{
-                      padding: '7px 13px', borderRadius: 20, fontSize: 12, fontWeight: 600, cursor: 'pointer',
-                      background: selected ? 'rgba(248,113,113,0.15)' : 'rgba(255,255,255,0.04)',
-                      border: `1.5px solid ${selected ? 'rgba(248,113,113,0.5)' : 'rgba(255,255,255,0.08)'}`,
-                      color: selected ? '#f87171' : 'rgba(255,255,255,0.55)',
-                      transition: 'all 0.15s',
-                    }}
-                  >
-                    {issue}
-                  </button>
-                )
-              })}
-            </div>
-
-            {/* Custom description */}
-            <div style={{ marginBottom: 16 }}>
-              <label style={{ fontSize: 11, color: 'rgba(255,255,255,0.4)', display: 'block', marginBottom: 6, fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.06em' }}>
-                {reportIssue === 'Other (describe below)' ? 'Describe the issue *' : 'Additional details (optional)'}
-              </label>
-              <textarea
-                value={reportCustom}
-                onChange={e => setReportCustom(e.target.value)}
-                placeholder="Tell us more about what you experienced..."
-                rows={3}
-                style={{
-                  width: '100%', padding: '11px 14px', background: 'rgba(255,255,255,0.04)',
-                  border: '1px solid rgba(255,255,255,0.09)', borderRadius: 11,
-                  color: '#fff', fontSize: 13, fontFamily: 'DM Sans, sans-serif',
-                  outline: 'none', resize: 'vertical', boxSizing: 'border-box',
-                  lineHeight: 1.6,
-                }}
-                onFocus={e => e.currentTarget.style.borderColor = 'rgba(248,113,113,0.4)'}
-                onBlur={e => e.currentTarget.style.borderColor = 'rgba(255,255,255,0.09)'}
-              />
-            </div>
-
-            {/* Optional email */}
-            <div style={{ marginBottom: 22 }}>
-              <label style={{ fontSize: 11, color: 'rgba(255,255,255,0.4)', display: 'block', marginBottom: 6, fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.06em' }}>
-                Your email — optional, for status updates
-              </label>
-              <input
-                type="email"
-                value={reportEmail}
-                onChange={e => setReportEmail(e.target.value)}
-                placeholder="you@example.com"
-                style={{
-                  width: '100%', padding: '11px 14px', background: 'rgba(255,255,255,0.04)',
-                  border: '1px solid rgba(255,255,255,0.09)', borderRadius: 11,
-                  color: '#fff', fontSize: 13, fontFamily: 'DM Sans, sans-serif',
-                  outline: 'none', boxSizing: 'border-box',
-                }}
-                onFocus={e => e.currentTarget.style.borderColor = 'rgba(13,199,94,0.4)'}
-                onBlur={e => e.currentTarget.style.borderColor = 'rgba(255,255,255,0.09)'}
-              />
-            </div>
-
-            <div style={{ display: 'flex', gap: 10 }}>
-              <button
-                onClick={() => setReportModal(false)}
-                style={{ flex: 1, padding: '12px', background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.08)', borderRadius: 11, color: 'rgba(255,255,255,0.5)', fontSize: 13, fontWeight: 600, cursor: 'pointer' }}
-              >
-                Cancel
-              </button>
-              <button
-                onClick={handleSubmitReport}
-                disabled={!reportIssue || (reportIssue === 'Other (describe below)' && !reportCustom.trim()) || reportSubmitting}
-                style={{
-                  flex: 2, padding: '12px', borderRadius: 11, fontSize: 13, fontWeight: 800,
-                  cursor: (!reportIssue || (reportIssue === 'Other (describe below)' && !reportCustom.trim()) || reportSubmitting) ? 'not-allowed' : 'pointer',
-                  background: (!reportIssue || (reportIssue === 'Other (describe below)' && !reportCustom.trim()))
-                    ? 'rgba(248,113,113,0.2)' : reportSubmitting ? 'rgba(248,113,113,0.4)' : 'rgba(248,113,113,0.85)',
-                  border: '1px solid rgba(248,113,113,0.3)', color: '#fff',
-                  display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 7,
-                  transition: 'all 0.2s',
-                }}
-              >
-                {reportSubmitting
-                  ? <><RiLoader4Line size={14} style={{ animation: 'spin 0.8s linear infinite' }} /> Submitting…</>
-                  : <><RiFlag2Line size={14} /> Submit Report</>
-                }
-              </button>
-            </div>
-          </>
-        )}
-      </div>
-    </div>
-  </div>
-)}
+      )}
     </>
   )
 }
