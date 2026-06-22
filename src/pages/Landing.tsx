@@ -82,6 +82,7 @@ export default function LandingPage() {
           const dt = toDate(d.date)
           const dateLabel = dt.getTime() ? dt.toLocaleDateString('en-US', { month: 'short', day: 'numeric' }).toUpperCase() : ''
 
+ 
           grid.push({
             id: doc.id,
             name: d.name ?? 'Unnamed Event',
@@ -92,6 +93,11 @@ export default function LandingPage() {
             coverGradient: FALLBACK_GRADIENTS[i % FALLBACK_GRADIENTS.length],
             typeLabel: d.eventType || '',
             attendingCount: d.attendingCount ?? d.ticketsSold ?? 0,
+            summary: d.summary || '',
+            avatarImages: (d.featuredArtists || [])
+              .filter((a: any) => a.image && !a.image.includes('2a96cbd8b46e442fc41c2b86b821562f'))
+              .map((a: any) => a.image)
+              .slice(0, 3),
           })
 
           if (d.coverImage && hero.length < 7) {

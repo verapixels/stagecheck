@@ -674,6 +674,8 @@ export default function AllEvents() {
         }
       `}</style>
 
+      <Navbar />
+
       <div className="ae-root">
         
 

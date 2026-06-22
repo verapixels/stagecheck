@@ -26,6 +26,7 @@ import JoinPage from './pages/JoinPage'
 
 // Public event detail
 import EventDetailPage from './pages/Eventdetailpage'
+import GetTicketsPage from './pages/GetTicketingPage'
 
 // Public — all events
 import AllEvents from './pages/AllEvents'
@@ -149,6 +150,7 @@ export default function App() {
           <Route path="/login" element={<AuthRoute><Login /></AuthRoute>} />
           <Route path="/join/:joinCode" element={<JoinPage />} />
           <Route path="/event/:eventId" element={<EventDetailPage />} />
+          <Route path="/event/:eventId/tickets" element={<GetTicketsPage />} /> 
           <Route path="/submit/:eventSlug/:eventId" element={<SubmitPage />} />
           <Route path="/feedback/:tokenId" element={<FeedbackPage />} />
 
