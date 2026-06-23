@@ -1,15 +1,11 @@
 // ─── EventDetailRelated.tsx ───────────────────────────────────────────────────
-// "You May Also Like" — horizontal scrolling cards with:
-// Cover image (top, full-width) + heart icon overlay + event type badge
-// Event name, date, venue, "From ₦X,XXX" price line below image
-
 import { useRef } from 'react'
 import { useNavigate } from 'react-router-dom'
 import {
   RiCalendarEventLine, RiMapPinLine,
   RiHeartLine, RiArrowRightLine,
 } from 'react-icons/ri'
-import type { EventData, TicketType } from './eventDetailTypes'
+import type { EventData } from './eventDetailTypes'
 import { formatDateShort, getEventTypeLabel } from './eventDetailHelpers'
 
 interface Props {
@@ -31,7 +27,7 @@ export default function EventDetailRelated({ events, getMinPrice }: Props) {
     <div style={{ marginBottom: 14 }}>
       {/* Header */}
       <div style={{
-        display: 'flex', alignItems: 'center',
+        display: 'flex', alignItems: 'flex-start',
         justifyContent: 'space-between', marginBottom: 16,
       }}>
         <div>
@@ -46,7 +42,7 @@ export default function EventDetailRelated({ events, getMinPrice }: Props) {
         </div>
         <span style={{
           fontSize: 12, color: 'var(--green)',
-          fontWeight: 600, cursor: 'pointer',
+          fontWeight: 600, cursor: 'pointer', paddingTop: 4,
         }}>
           View All
         </span>
@@ -57,9 +53,12 @@ export default function EventDetailRelated({ events, getMinPrice }: Props) {
         <div
           ref={rowRef}
           style={{
-            display: 'flex', gap: 14,
-            overflowX: 'auto', paddingBottom: 6,
+            display: 'flex',
+            gap: 14,
+            overflowX: 'auto',
+            paddingBottom: 8,
             scrollbarWidth: 'none',
+            msOverflowStyle: 'none',
           }}
         >
           {events.map(ev => {
@@ -73,11 +72,11 @@ export default function EventDetailRelated({ events, getMinPrice }: Props) {
               >
                 {/* Cover image */}
                 <div style={{
-                  width: '100%', height: 130, position: 'relative',
+                  width: '100%', height: 140, position: 'relative',
                   background: ev.coverImage
                     ? 'transparent'
                     : 'linear-gradient(135deg, #1a0a2e, #3b1d7a)',
-                  overflow: 'hidden',
+                  overflow: 'hidden', flexShrink: 0,
                 }}>
                   {ev.coverImage ? (
                     <img
@@ -93,14 +92,12 @@ export default function EventDetailRelated({ events, getMinPrice }: Props) {
                     </div>
                   )}
 
-                  {/* Gradient overlay at bottom */}
                   <div style={{
                     position: 'absolute', bottom: 0, left: 0, right: 0,
                     height: 60,
                     background: 'linear-gradient(to top, rgba(13,18,32,0.95), transparent)',
                   }} />
 
-                  {/* Event type badge */}
                   {ev.eventType && (
                     <div style={{
                       position: 'absolute', bottom: 8, left: 10,
@@ -113,7 +110,6 @@ export default function EventDetailRelated({ events, getMinPrice }: Props) {
                     </div>
                   )}
 
-                  {/* Heart */}
                   <button
                     onClick={e => e.stopPropagation()}
                     style={{
@@ -165,7 +161,6 @@ export default function EventDetailRelated({ events, getMinPrice }: Props) {
                     </div>
                   )}
 
-                  {/* Price */}
                   {minP !== null && minP !== undefined && (
                     <div style={{
                       fontSize: 13, fontWeight: 700,
@@ -185,14 +180,14 @@ export default function EventDetailRelated({ events, getMinPrice }: Props) {
           <button
             onClick={scrollRight}
             style={{
-              position: 'absolute', right: -6, top: '35%',
+              position: 'absolute', right: -12, top: '40%',
               transform: 'translateY(-50%)',
-              width: 34, height: 34, borderRadius: '50%',
-              background: 'rgba(13,199,94,0.12)',
-              border: '1px solid rgba(13,199,94,0.25)',
+              width: 36, height: 36, borderRadius: '50%',
+              background: 'rgba(13,199,94,0.15)',
+              border: '1px solid rgba(13,199,94,0.3)',
               display: 'flex', alignItems: 'center', justifyContent: 'center',
               cursor: 'pointer', color: 'var(--green)',
-              boxShadow: '0 4px 16px rgba(0,0,0,0.4)',
+              boxShadow: '0 4px 16px rgba(0,0,0,0.5)',
             }}
           >
             <RiArrowRightLine size={16} />

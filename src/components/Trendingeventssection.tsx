@@ -184,10 +184,13 @@ export default function TrendingEventsSection({
               const isTBA = ev.location?.trim().toUpperCase() === 'TBA'
               return (
                 <div key={ev.id} className="ev-card" onClick={() => navigate(`/event/${ev.id}`)}>
-                  <div className="ev-cover" style={{
-                    background: ev.coverImage ? undefined : (ev.coverGradient || 'linear-gradient(160deg,#0a1628,#1e3a5f)'),
-                    backgroundImage: ev.coverImage ? `url(${ev.coverImage})` : undefined,
-                  }}>
+                   <div className="ev-cover" style={{
+  backgroundImage: ev.coverImage
+    ? `url(${ev.coverImage})`
+    : (ev.coverGradient || 'linear-gradient(160deg,#0a1628,#1e3a5f)'),
+  backgroundSize: 'cover',
+  backgroundPosition: 'center',
+}}>
                     <div className="ev-cover-overlay" />
                     {ev.typeLabel && (
                       <div className="ev-type-badge">{ev.typeLabel}</div>

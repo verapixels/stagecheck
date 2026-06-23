@@ -1,24 +1,4 @@
 // ─── EventDetailPage.tsx ──────────────────────────────────────────────────────
-// Full event detail page wiring all EventDetail* components.
-// Layout matches screenshot exactly:
-//   NAV (full-width)
-//   BREADCRUMB
-//   ┌─────────────────────────────────┬──────────────────┐
-//   │  HERO (cover image + overlay)   │  SIDEBAR (sticky)│
-//   └─────────────────────────────────┴──────────────────┘
-//   LEFT CONTENT              RIGHT COLUMN
-//   ┌────────────────────┐    ┌──────────────────────────┐
-//   │ About              │    │ Featured People           │
-//   └────────────────────┘    └──────────────────────────┘
-//   ┌───────────┐ ┌─────────┐ ┌────────────────────────┐
-//   │ Venue     │ │Date&Time│ │ Gallery                 │
-//   └───────────┘ └─────────┘ └────────────────────────┘
-//   ┌──────────────────┐  ┌──────────────────────────────┐
-//   │ FAQ              │  │ You May Also Like             │
-//   └──────────────────┘  └──────────────────────────────┘
-//   MOBILE STICKY CTA (always)
-//   TICKET DRAWER (overlay)
-//   REPORT MODAL (overlay)
 
 import { useEffect, useState, useRef, useCallback } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
@@ -59,13 +39,11 @@ export default function EventDetailPage() {
   const { eventId } = useParams<{ eventId: string }>()
   const navigate = useNavigate()
 
-  // ── Data
   const [event, setEvent]               = useState<EventData | null>(null)
   const [tickets, setTickets]           = useState<TicketType[]>([])
   const [relatedEvents, setRelatedEvents] = useState<EventData[]>([])
   const [loading, setLoading]           = useState(true)
 
-  // ── Drawer / flow
   const [drawerOpen, setDrawerOpen]     = useState(false)
   const [step, setStep]                 = useState<DrawerStep>('select-ticket')
   const [selectedTicket, setSelectedTicket] = useState<TicketType | null>(null)
@@ -78,7 +56,6 @@ export default function EventDetailPage() {
   const [ticketCode, setTicketCode]     = useState('')
   const [qrDataUrl, setQrDataUrl]       = useState('')
 
-  // ── UI state
   const [liked, setLiked]               = useState(false)
   const [copied, setCopied]             = useState(false)
   const [scrolled, setScrolled]         = useState(false)
@@ -93,7 +70,6 @@ export default function EventDetailPage() {
   const paymentInProgress = useRef(false)
   const ticketRef = useRef<HTMLDivElement>(null)
 
-  // ── Fonts + Paystack
   useEffect(() => {
     if (document.getElementById('paystack-inline-script')) return
     const s = document.createElement('script')
@@ -102,14 +78,12 @@ export default function EventDetailPage() {
     document.body.appendChild(s)
   }, [])
 
-  // ── Scroll listener
   useEffect(() => {
     const fn = () => setScrolled(window.scrollY > 80)
     window.addEventListener('scroll', fn, { passive: true })
     return () => window.removeEventListener('scroll', fn)
   }, [])
 
-  // ── Load event + tickets + related
   useEffect(() => {
     if (!eventId) return
     async function load() {
@@ -118,9 +92,8 @@ export default function EventDetailPage() {
         if (snap.exists()) {
           const data = { id: snap.id, ...snap.data() } as EventData
           setEvent(data)
-          // Related events
           try {
-            const rq = query(collection(db, 'events'), limit(5))
+            const rq = query(collection(db, 'events'), limit(12))
             const rSnap = await getDocs(rq)
             const now = new Date()
             setRelatedEvents(
@@ -136,7 +109,7 @@ export default function EventDetailPage() {
                 .slice(0, 4)
                 .map(d => ({ id: d.id, ...d.data() } as EventData))
             )
-          } catch { /* Related events are non-critical */ }
+          } catch { /* non-critical */ }
         }
         const tSnap = await getDocs(collection(db, 'events', eventId!, 'tickets'))
         setTickets(tSnap.docs.map(d => ({ id: d.id, ...d.data() } as TicketType)))
@@ -146,7 +119,6 @@ export default function EventDetailPage() {
     load()
   }, [eventId])
 
-  // ── Computed
   const allMedia = event
     ? [...(event.coverImage ? [{ url: event.coverImage, type: 'image' }] : []), ...(event.media || [])]
     : []
@@ -162,7 +134,6 @@ export default function EventDetailPage() {
       ? `https://maps.google.com/maps?q=${encodeURIComponent(event.venue)}&output=embed&z=15&hl=en`
       : ''
 
-  // ── Handlers
   const validateAttendee = () => {
     const e: Partial<AttendeeForm> = {}
     if (!attendee.name.trim()) e.name = 'Full name is required'
@@ -190,7 +161,6 @@ export default function EventDetailPage() {
       )
       setQrDataUrl(qr)
       setStep('success')
-      // Fire email (non-blocking)
       fetch(`${CF_BASE}/sendTicketConfirmation`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -255,17 +225,11 @@ export default function EventDetailPage() {
     setReportSubmitting(false)
   }
 
-  const openDrawer = () => {
-    setStep('select-ticket')
-    setDrawerOpen(true)
+  const handleGetTickets = () => {
+    setNavigatingToTickets(true)
+    setTimeout(() => navigate(`/event/${eventId}/tickets`), 900)
   }
 
-const handleGetTickets = () => {
-  setNavigatingToTickets(true)
-  setTimeout(() => navigate(`/event/${eventId}/tickets`), 900)
-}
-
-  // ── Loading / Not found
   if (loading) return (
     <div style={{ minHeight: '100vh', background: '#000612', display: 'flex', alignItems: 'center', justifyContent: 'center', flexDirection: 'column', gap: 16 }}>
       <style>{ED_GLOBAL_CSS}</style>
@@ -286,35 +250,28 @@ const handleGetTickets = () => {
     </div>
   )
 
-  // ══════════════════════════════════════════════════════════════
-  //  MAIN RENDER
-  // ══════════════════════════════════════════════════════════════
   return (
     <>
-      {/* Fonts */}
       <link rel="preconnect" href="https://fonts.googleapis.com" />
       <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="" />
       <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap" rel="stylesheet" />
       <style>{ED_GLOBAL_CSS}</style>
 
       <div style={{ background: 'var(--bg)', minHeight: '100vh' }}>
-
-        {/* ══ NAVBAR ══════════════════════════════════════════ */}
         <Navbar />
-
-        {/* ══ BREADCRUMB ══════════════════════════════════════ */}
         <EventDetailBreadcrumb event={event} />
 
-        {/* ══ HERO + SIDEBAR — 2-col layout ═══════════════════ */}
+        {/* ── HERO + SIDEBAR — side by side */}
         <div style={{
-          display: 'flex', gap: 0,
           maxWidth: 1160,
           margin: '0 auto',
           padding: '0 clamp(16px,4%,56px)',
-          alignItems: 'flex-start',
+          display: 'flex',
+          gap: 20,
+          alignItems: 'stretch',    // ← both columns same height
         }}>
-          {/* Hero (left, flex 1) */}
-          <div style={{ flex: 1, minWidth: 0, borderRadius: 18, overflow: 'hidden' }}>
+          {/* Hero (left) */}
+          <div style={{ flex: 1, minWidth: 0 }}>
             <EventDetailHero
               event={event}
               heroImg={heroImg}
@@ -325,13 +282,15 @@ const handleGetTickets = () => {
             />
           </div>
 
-          {/* Sidebar (right, fixed width, sticky) */}
+          {/* Sidebar (right, sticky) */}
           <div
             className="ed-sidebar ed-desktop"
             style={{
-              width: 310, flexShrink: 0,
-              marginLeft: 20,
-              position: 'sticky', top: 88,
+              width: 320,
+              flexShrink: 0,
+              position: 'sticky',
+              top: 88,
+              alignSelf: 'flex-start', // sticky needs this
             }}
           >
             <EventDetailSidebar
@@ -347,16 +306,20 @@ const handleGetTickets = () => {
           </div>
         </div>
 
-        {/* ══ MAIN CONTENT GRID ═══════════════════════════════ */}
+        {/* ── MAIN CONTENT GRID */}
         <div style={{
-          maxWidth: 1160, margin: '20px auto 0',
+          maxWidth: 1160,
+          margin: '20px auto 0',
           padding: '0 clamp(16px,4%,56px)',
           paddingBottom: 120,
         }}>
 
-          {/* ROW 1: About (left) + Featured People (right) */}
-          <div className="ed-two-col" style={{ display: 'flex', gap: 16, marginBottom: 0, alignItems: 'flex-start' }}>
-            <div style={{ flex: '0 0 54%', minWidth: 0 }}>
+          {/* ROW 1: About (left 55%) + Featured People (right) */}
+          <div
+            className="ed-two-col"
+            style={{ display: 'flex', gap: 16, marginBottom: 16, alignItems: 'flex-start' }}
+          >
+            <div style={{ flex: '0 0 55%', minWidth: 0 }}>
               <EventDetailAbout event={event} />
             </div>
             <div style={{ flex: 1, minWidth: 0 }}>
@@ -364,9 +327,12 @@ const handleGetTickets = () => {
             </div>
           </div>
 
-          {/* ROW 2: Venue (left) + Date&Time/Schedule (centre) + Gallery (right) */}
+          {/* ROW 2: Venue | Schedule | Gallery — 3 equal cols */}
           {(event.venue || (event.agenda || []).length > 0 || allImages.length > 1) && (
-            <div className="ed-three-col" style={{ display: 'flex', gap: 16, marginBottom: 0, alignItems: 'flex-start' }}>
+            <div
+              className="ed-three-col"
+              style={{ display: 'flex', gap: 16, marginBottom: 16, alignItems: 'flex-start' }}
+            >
               <div style={{ flex: 1, minWidth: 0 }}>
                 <EventDetailVenue event={event} mapsEmbedUrl={mapsEmbedUrl} />
               </div>
@@ -379,9 +345,12 @@ const handleGetTickets = () => {
             </div>
           )}
 
-          {/* ROW 3: FAQ (left) + Related Events (right) */}
+          {/* ROW 3: FAQ (left 40%) + Related Events (right) */}
           {((event.faq || []).length > 0 || relatedEvents.length > 0) && (
-            <div className="ed-two-col" style={{ display: 'flex', gap: 16, alignItems: 'flex-start' }}>
+            <div
+              className="ed-two-col"
+              style={{ display: 'flex', gap: 16, marginBottom: 16, alignItems: 'flex-start' }}
+            >
               <div style={{ flex: '0 0 40%', minWidth: 0 }}>
                 <EventDetailFAQ event={event} />
               </div>
@@ -431,11 +400,8 @@ const handleGetTickets = () => {
           </div>
         </div>
 
-        {/* ══ MOBILE SIDEBAR (below hero on mobile) ════════════ */}
-        <div className="ed-mobile" style={{
-          display: 'none',
-          padding: '0 16px 16px',
-        }}>
+        {/* ── MOBILE SIDEBAR (below hero) */}
+        <div className="ed-mobile" style={{ display: 'none', padding: '0 16px 16px' }}>
           <EventDetailSidebar
             tickets={tickets}
             selectedTicket={selectedTicket}
@@ -448,7 +414,7 @@ const handleGetTickets = () => {
           />
         </div>
 
-        {/* ══ MOBILE STICKY CTA ════════════════════════════════ */}
+        {/* ── MOBILE STICKY CTA */}
         <EventDetailMobileCTA
           event={event}
           heroImg={heroImg}
@@ -461,7 +427,6 @@ const handleGetTickets = () => {
 
       {navigatingToTickets && <TicketingLoadingTransition eventName={event.name} />}
 
-      {/* ══ TICKET DRAWER ════════════════════════════════════ */}
       {drawerOpen && (
         <EventDetailTicketDrawer
           event={event}
@@ -489,7 +454,6 @@ const handleGetTickets = () => {
         />
       )}
 
-      {/* ══ REPORT MODAL ═════════════════════════════════════ */}
       {reportModal && (
         <EventDetailReportModal
           event={event}

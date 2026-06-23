@@ -137,11 +137,7 @@ export default function EventDetailSidebar({
                         }}>
                           {t.name}
                         </div>
-                        {!soldOut && t.description && (
-                          <div style={{ fontSize: 11, color: 'var(--text-tertiary)', marginTop: 1 }}>
-                            {t.description}
-                          </div>
-                        )}
+                        
                         {!soldOut && rem <= 10 && (
                           <div style={{ fontSize: 10, color: '#f87171', marginTop: 1 }}>
                             Only {rem} left!

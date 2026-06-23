@@ -1,5 +1,4 @@
 // ─── EventDetail global CSS ───────────────────────────────────────────────────
-// Import and inject via <style>{ED_GLOBAL_CSS}</style> in EventDetailPage
 
 export const ED_GLOBAL_CSS = `
   *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
@@ -46,7 +45,7 @@ export const ED_GLOBAL_CSS = `
     display: inline-block; flex-shrink: 0;
   }
   input, textarea, select { -webkit-appearance: none; appearance: none; }
-  ::-webkit-scrollbar { width: 3px; }
+  ::-webkit-scrollbar { width: 3px; height: 3px; }
   ::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.08); border-radius: 3px; }
 
   /* ── Shared card shell */
@@ -55,6 +54,7 @@ export const ED_GLOBAL_CSS = `
     border: 1px solid var(--border);
     border-radius: 18px;
     padding: clamp(18px, 3vw, 26px);
+    height: 100%;
   }
 
   /* ── Buttons */
@@ -124,19 +124,25 @@ export const ED_GLOBAL_CSS = `
   }
   .ed-faq-btn:hover { background: rgba(255,255,255,0.03); }
 
-  /* ── Related card (vertical, screenshot style) */
+  /* ── Related card */
   .ed-related-card {
     background: var(--bg-card);
     border: 1px solid var(--border);
     border-radius: 14px; overflow: hidden;
     cursor: pointer;
     transition: border-color 0.2s, transform 0.2s;
-    flex-shrink: 0; width: 220px;
+    flex-shrink: 0;
+    width: 210px;
+    min-width: 210px;
   }
   .ed-related-card:hover {
     border-color: rgba(13,199,94,0.28);
     transform: translateY(-3px);
   }
+
+  /* Hide scrollbar on related row */
+  .ed-related-scroll::-webkit-scrollbar { display: none; }
+  .ed-related-scroll { -ms-overflow-style: none; scrollbar-width: none; }
 
   /* ── Schedule dot & line */
   .ed-sched-dot {
@@ -161,7 +167,7 @@ export const ED_GLOBAL_CSS = `
 
   /* ── Maps iframe */
   .ed-maps-iframe {
-    width: 100%; height: 100%; border: 0; border-radius: 14px;
+    width: 100%; height: 100%; border: 0;
     filter: invert(90%) hue-rotate(150deg) saturate(1.3) brightness(0.85);
   }
 
@@ -182,7 +188,7 @@ export const ED_GLOBAL_CSS = `
   @media (max-width: 768px) {
     .ed-hero-title  { font-size: clamp(24px,7vw,42px) !important; }
     .ed-desktop     { display: none !important; }
-    .ed-mobile      { display: flex !important; }
+    .ed-mobile      { display: block !important; }
   }
   @media (min-width: 769px) {
     .ed-mobile      { display: none !important; }

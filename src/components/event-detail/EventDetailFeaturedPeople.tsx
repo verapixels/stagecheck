@@ -100,11 +100,12 @@ export default function EventDetailFeaturedPeople({ event }: Props) {
 
               {/* Role */}
               <div style={{
-                fontSize: 11, color: 'var(--text-tertiary)',
-                textAlign: 'center', marginTop: -6,
-              }}>
-                {a.role || 'Artist'}
-              </div>
+  fontSize: 11, color: 'var(--text-tertiary)',
+  textAlign: 'center',
+  marginTop: -4,  // was -6, causing overlap
+}}>
+  {a.role || 'Artist'}
+</div>
             </div>
           ))}
         </div>

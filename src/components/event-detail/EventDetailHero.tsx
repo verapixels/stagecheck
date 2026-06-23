@@ -1,8 +1,4 @@
 // ─── EventDetailHero.tsx ─────────────────────────────────────────────────────
-// Left: full-bleed cover image with event info overlaid
-// Right: ticket sidebar is rendered separately (EventDetailSidebar)
-// This component renders ONLY the left portion of the hero 2-col layout.
-
 import {
   RiCalendarEventLine, RiTimeLine, RiMapPinLine,
   RiGroupLine, RiShareLine, RiHeartLine, RiHeartFill,
@@ -26,7 +22,13 @@ export default function EventDetailHero({
   const eventTypeLabel = getEventTypeLabel(event.eventType || '')
 
   return (
-    <div style={{ position: 'relative', borderRadius: 0, overflow: 'hidden', minHeight: 420 }}>
+    <div style={{
+      position: 'relative',
+      borderRadius: 18,
+      overflow: 'hidden',
+      minHeight: 500,
+      height: '100%',
+    }}>
       {/* Cover image */}
       {heroImg ? (
         <img
@@ -36,6 +38,7 @@ export default function EventDetailHero({
             width: '100%', height: '100%',
             objectFit: 'cover', display: 'block',
             position: 'absolute', inset: 0,
+            minHeight: 500,
           }}
         />
       ) : (
@@ -48,8 +51,11 @@ export default function EventDetailHero({
       {/* Dark gradient overlay — heavy at bottom */}
       <div style={{
         position: 'absolute', inset: 0,
-        background: 'linear-gradient(to top, rgba(6,8,16,1) 0%, rgba(6,8,16,0.6) 45%, rgba(6,8,16,0.1) 100%)',
+        background: 'linear-gradient(to top, rgba(6,8,16,1) 0%, rgba(6,8,16,0.55) 40%, rgba(6,8,16,0.05) 100%)',
       }} />
+
+      {/* Spacer so the card has height */}
+      <div style={{ minHeight: 500, position: 'relative' }} />
 
       {/* Top-left event type badges */}
       <div
@@ -111,14 +117,14 @@ export default function EventDetailHero({
       {/* Bottom content */}
       <div style={{
         position: 'absolute', bottom: 0, left: 0, right: 0,
-        padding: 'clamp(20px,5%,40px) clamp(20px,5%,32px) 28px',
+        padding: '0 clamp(20px,5%,32px) 32px',
       }}>
         {/* Event name */}
         <h1
           className="ed-hero-title ed-hero-anim ed-delay-2"
           style={{
             fontFamily: 'Inter, sans-serif',
-            fontSize: 'clamp(26px,4.5vw,52px)',
+            fontSize: 'clamp(28px,4.5vw,54px)',
             fontWeight: 900, lineHeight: 1.02,
             letterSpacing: '-1.5px', marginBottom: 10,
             color: '#fff',
@@ -149,7 +155,7 @@ export default function EventDetailHero({
         {/* Date / Time / Venue pills */}
         <div
           className="ed-hero-anim ed-delay-3"
-          style={{ display: 'flex', flexWrap: 'wrap', gap: '8px 16px', marginBottom: 16 }}
+          style={{ display: 'flex', flexWrap: 'wrap', gap: '8px 12px', marginBottom: 18 }}
         >
           {event.date && (
             <span className="ed-tag-pill">
@@ -160,8 +166,7 @@ export default function EventDetailHero({
           {event.startTime && (
             <span className="ed-tag-pill">
               <RiTimeLine size={13} color="var(--green)" />
-              {formatTime(event.startTime)}
-              {event.endTime ? ` GMT+1` : ''}
+              {formatTime(event.startTime)} GMT+1
             </span>
           )}
           {event.venue && (
@@ -176,12 +181,8 @@ export default function EventDetailHero({
         {/* Attending + Rating + Share */}
         <div
           className="ed-hero-anim ed-delay-4"
-          style={{
-            display: 'flex', alignItems: 'center',
-            gap: 24, flexWrap: 'wrap',
-          }}
+          style={{ display: 'flex', alignItems: 'center', gap: 24, flexWrap: 'wrap' }}
         >
-          {/* Attending */}
           {(event.attendingCount || 0) > 0 && (
             <div style={{
               display: 'flex', alignItems: 'center', gap: 7,
@@ -195,12 +196,8 @@ export default function EventDetailHero({
             </div>
           )}
 
-          {/* Rating */}
           {event.rating && (
-            <div style={{
-              display: 'flex', alignItems: 'center', gap: 6,
-              fontSize: 13,
-            }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 13 }}>
               <RiStarFill size={14} color="#fbbf24" />
               <span style={{ fontWeight: 700, color: '#fff' }}>
                 {event.rating.toFixed(1)}
@@ -213,7 +210,6 @@ export default function EventDetailHero({
             </div>
           )}
 
-          {/* Share */}
           <button
             onClick={onShare}
             style={{

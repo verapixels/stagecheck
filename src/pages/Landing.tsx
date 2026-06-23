@@ -76,35 +76,43 @@ export default function LandingPage() {
         const grid: TrendingEvent[] = []
         const hero: HeroEvent[] = []
 
-        snap.docs.forEach((doc, i) => {
-          const d = doc.data()
-          if (isPast(d.date)) return
-          const dt = toDate(d.date)
-          const dateLabel = dt.getTime() ? dt.toLocaleDateString('en-US', { month: 'short', day: 'numeric' }).toUpperCase() : ''
+         snap.docs.forEach((doc, i) => {
+  const d = doc.data()
+  console.log('EVENT DOC:', doc.id, {
+    name: d.name,
+    coverImage: d.coverImage,
+    media: d.media,
+    date: d.date,
+  })
+  if (isPast(d.date)) {
+    console.log('SKIPPED (past):', d.name, d.date)
+    return
+  }
+  const dt = toDate(d.date)
+  const dateLabel = dt.getTime() ? dt.toLocaleDateString('en-US', { month: 'short', day: 'numeric' }).toUpperCase() : ''
+ grid.push({
+  id: doc.id,
+  name: d.name ?? 'Unnamed Event',
+  dateLabel,
+  location: d.venue || d.location || 'TBA',
+  time: d.startTime || d.time || '',
+  coverImage: d.coverImage || d.media?.[0]?.url || '',
+  coverGradient: FALLBACK_GRADIENTS[i % FALLBACK_GRADIENTS.length],
+  typeLabel: d.eventType || '',
+  attendingCount: d.attendingCount ?? d.ticketsSold ?? 0,
+  summary: d.summary || '',
+  avatarImages: (d.featuredArtists || [])
+    .filter((a: any) => a.image && !a.image.includes('2a96cbd8b46e442fc41c2b86b821562f'))
+    .map((a: any) => a.image)
+    .slice(0, 3),
+})
 
- 
-          grid.push({
-            id: doc.id,
-            name: d.name ?? 'Unnamed Event',
-            dateLabel,
-            location: d.venue || d.location || 'TBA',
-            time: d.startTime || d.time || '',
-            coverImage: d.coverImage || '',
-            coverGradient: FALLBACK_GRADIENTS[i % FALLBACK_GRADIENTS.length],
-            typeLabel: d.eventType || '',
-            attendingCount: d.attendingCount ?? d.ticketsSold ?? 0,
-            summary: d.summary || '',
-            avatarImages: (d.featuredArtists || [])
-              .filter((a: any) => a.image && !a.image.includes('2a96cbd8b46e442fc41c2b86b821562f'))
-              .map((a: any) => a.image)
-              .slice(0, 3),
-          })
-
-          if (d.coverImage && hero.length < 7) {
+          const bannerImage = d.coverImage || d.media?.[0]?.url || ''
+          if (hero.length < 20) {
             hero.push({
               slug: doc.id,
               title: d.name ?? 'Unnamed Event',
-              bannerImage: d.coverImage,
+              bannerImage,
               categoryLabel: d.eventType || 'Event',
               dateMonth: dt.getTime() ? dt.toLocaleDateString('en-US', { month: 'short' }).toUpperCase() : '',
               dateDay: dt.getTime() ? String(dt.getDate()) : '',
@@ -118,7 +126,9 @@ export default function LandingPage() {
           }
         })
 
-        setEvents(grid.slice(0, 12))
+       setEvents(grid.slice(0, 12))
+setHeroEvents(hero)
+console.log('HERO ARRAY:', JSON.stringify(hero.map(h => ({ title: h.title, bannerImage: h.bannerImage }))))
         setHeroEvents(hero)
       } catch (err: any) {
         if (!cancelled) setEventsError('Could not load events — ' + (err?.message ?? 'unknown error'))
