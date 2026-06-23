@@ -549,8 +549,8 @@ export default function TicketingPage() {
   const [confirmModal, setConfirmModal]             = useState<ConfirmCheckinModal | null>(null)
 
   const confirmInputRef = useRef<HTMLInputElement>(null)
-  const drawerRef       = useRef<HTMLDivElement>(null)
-  const addonDrawerRef  = useRef<HTMLDivElement>(null)
+  const drawerRef = useRef<HTMLDivElement>(null)
+ const addonDrawerRef = useRef<HTMLDivElement>(null)
 
   /* ── Firestore listeners ── */
   useEffect(() => {
@@ -816,7 +816,7 @@ export default function TicketingPage() {
 
   /* ── Reusable form drawer ── */
   const renderFormDrawer = (opts: {
-    ref: React.RefObject<HTMLDivElement>
+    ref: React.RefObject<HTMLDivElement | null>
     show: boolean
     editingId: string | null
     form: typeof EMPTY_FORM
