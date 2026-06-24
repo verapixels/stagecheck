@@ -4,7 +4,9 @@ import {
   CheckSquare, LayoutDashboard, CalendarDays, Users, Music2,
   Shield, Package, Radio, MessageSquare, Ticket, Trophy,
   Film, BarChart3, Sparkles, Settings, LogOut, ChevronRight,
-  Menu, Mic2, GraduationCap, Heart, Star, Presentation
+  Menu, Mic2, GraduationCap, Heart, Star, Presentation,
+  GitBranch, Network, ClipboardList, UserCheck, Wallet, ScanLine,
+  PieChart,
 } from 'lucide-react'
 import { useAuth } from '../context/Authcontext'
 
@@ -26,15 +28,16 @@ export const EVENT_TYPE_LABELS: Record<string, {
   icon: React.ReactNode
   color: string
 }> = {
-  choir:      { performers: 'Choirs',     songs: 'Songs',       submissions: 'Song Submissions',    clash: 'Clash Detection', judging: 'Judging',          ticketing: 'Ticketing',    dashboardTitle: 'Choir Concert',      icon: <Music2 size={15} />,       color: '#22C55E' },
-  talent:     { performers: 'Performers', songs: 'Acts',        submissions: 'Act Submissions',     clash: 'Slot Conflicts',  judging: 'Judging & Scores', ticketing: 'Ticketing',    dashboardTitle: 'Talent Show',        icon: <Star size={15} />,         color: '#F59E0B' },
-  conference: { performers: 'Speakers',   songs: 'Sessions',    submissions: 'Session Submissions', clash: 'Topic Duplicates',judging: 'Programme',        ticketing: 'Registration', dashboardTitle: 'Conference',         icon: <Presentation size={15} />, color: '#3B82F6' },
-  competition:{ performers: 'Teams',      songs: 'Categories',  submissions: 'Entries',             clash: 'Rule Violations', judging: 'Judging & Scoring',ticketing: 'Ticketing',    dashboardTitle: 'School Competition', icon: <Trophy size={15} />,       color: '#8B5CF6' },
-  drama:      { performers: 'Cast',       songs: 'Dramas',      submissions: 'Drama Submissions',   clash: 'Stage Conflicts', judging: 'Judging',          ticketing: 'Ticketing',    dashboardTitle: 'Drama / Theatre',    icon: <Star size={15} />,         color: '#EC4899' },
-  worship:    { performers: 'Ministers',  songs: 'Song Sets',   submissions: 'Set Submissions',     clash: 'Song Clashes',    judging: 'Programme',        ticketing: 'Attendance',   dashboardTitle: 'Worship Night',      icon: <Heart size={15} />,        color: '#14B8A6' },
-  openmic:    { performers: 'Performers', songs: 'Acts',        submissions: 'Act Sign-ups',        clash: 'Slot Conflicts',  judging: 'Scoring',          ticketing: 'Ticketing',    dashboardTitle: 'Open Mic',           icon: <Mic2 size={15} />,         color: '#F97316' },
-  graduation: { performers: 'Awardees',   songs: 'Awards',      submissions: 'Awardee Entries',     clash: 'Protocol Checks', judging: 'Programme',        ticketing: 'Ticketing',    dashboardTitle: 'Award / Graduation', icon: <GraduationCap size={15} />,color: '#06B6D4' },
-  custom:     { performers: 'Performers', songs: 'Submissions', submissions: 'Submissions',         clash: 'Clash Detection', judging: 'Judging',          ticketing: 'Ticketing',    dashboardTitle: 'Custom Event',       icon: <Sparkles size={15} />,     color: '#A78BFA' },
+  choir:      { performers: 'Choirs',       songs: 'Songs',       submissions: 'Song Submissions',    clash: 'Clash Detection',  judging: 'Judging',           ticketing: 'Ticketing',    dashboardTitle: 'Choir Concert',      icon: <Music2 size={15} />,        color: '#22C55E' },
+  talent:     { performers: 'Performers',   songs: 'Acts',        submissions: 'Act Submissions',     clash: 'Slot Conflicts',   judging: 'Judging & Scores',  ticketing: 'Ticketing',    dashboardTitle: 'Talent Show',        icon: <Star size={15} />,          color: '#F59E0B' },
+  conference: { performers: 'Speakers',     songs: 'Sessions',    submissions: 'Session Submissions', clash: 'Topic Duplicates', judging: 'Programme',         ticketing: 'Registration', dashboardTitle: 'Conference',         icon: <Presentation size={15} />,  color: '#3B82F6' },
+  competition:{ performers: 'Teams',        songs: 'Categories',  submissions: 'Entries',             clash: 'Rule Violations',  judging: 'Judging & Scoring', ticketing: 'Ticketing',    dashboardTitle: 'School Competition', icon: <Trophy size={15} />,        color: '#8B5CF6' },
+  drama:      { performers: 'Cast',         songs: 'Dramas',      submissions: 'Drama Submissions',   clash: 'Stage Conflicts',  judging: 'Judging',           ticketing: 'Ticketing',    dashboardTitle: 'Drama / Theatre',    icon: <Star size={15} />,          color: '#EC4899' },
+  worship:    { performers: 'Ministers',    songs: 'Song Sets',   submissions: 'Set Submissions',     clash: 'Song Clashes',     judging: 'Programme',         ticketing: 'Attendance',   dashboardTitle: 'Worship Night',      icon: <Heart size={15} />,         color: '#14B8A6' },
+  openmic:    { performers: 'Performers',   songs: 'Acts',        submissions: 'Act Sign-ups',        clash: 'Slot Conflicts',   judging: 'Scoring',           ticketing: 'Ticketing',    dashboardTitle: 'Open Mic',           icon: <Mic2 size={15} />,          color: '#F97316' },
+  graduation: { performers: 'Awardees',     songs: 'Awards',      submissions: 'Awardee Entries',     clash: 'Protocol Checks',  judging: 'Programme',         ticketing: 'Ticketing',    dashboardTitle: 'Award / Graduation', icon: <GraduationCap size={15} />, color: '#06B6D4' },
+  network:    { performers: 'Registrants',  songs: 'Org Nodes',   submissions: 'Registrations',       clash: 'Conflicts',        judging: 'Analytics',         ticketing: 'Tickets',      dashboardTitle: 'Network Event',      icon: <GitBranch size={15} />,     color: '#6366F1' },
+  custom:     { performers: 'Performers',   songs: 'Submissions', submissions: 'Submissions',         clash: 'Clash Detection',  judging: 'Judging',           ticketing: 'Ticketing',    dashboardTitle: 'Custom Event',       icon: <Sparkles size={15} />,      color: '#A78BFA' },
 }
 
 interface SidebarProps {
@@ -52,23 +55,43 @@ function SidebarContent({ eventId, eventType, enabledModules, metaLoading, locat
   const typeLabels = EVENT_TYPE_LABELS[eventType] ?? EVENT_TYPE_LABELS.custom
   const e = eventId ? `/dashboard/event/${eventId}` : ''
   const displayName = user?.displayName || user?.email?.split('@')[0] || 'Organizer'
+  const isNetwork = eventType === 'network'
 
-  const EVENT_NAV_ITEMS: { icon: React.ReactNode; label: string; path: string; moduleId?: string }[] = [
-    { icon: <Users size={18} />,         label: typeLabels.performers, path: `${e}/submissions`                       },
-    { icon: <Music2 size={18} />,        label: typeLabels.songs,      path: `${e}/songs`,      moduleId: 'music'     },
-    { icon: <Shield size={18} />,        label: typeLabels.clash,      path: `${e}/clashes`,    moduleId: 'clash'     },
-    { icon: <Radio size={18} />,         label: 'Live Control',        path: `${e}/live`,       moduleId: 'live'      },
-    { icon: <Package size={18} />,       label: 'Resources',           path: `${e}/resources`,  moduleId: 'resources' },
-    { icon: <Trophy size={18} />,        label: typeLabels.judging,    path: `${e}/judging`,    moduleId: 'judging'   },
-    { icon: <Ticket size={18} />,        label: typeLabels.ticketing,  path: `${e}/ticketing`,  moduleId: 'ticketing' },
-    { icon: <MessageSquare size={18} />, label: 'Messages',            path: `${e}/messages`,   moduleId: 'messaging' },
-    { icon: <Film size={18} />,          label: 'Media Hub',           path: `${e}/media`,      moduleId: 'media'     },
-    { icon: <BarChart3 size={18} />,     label: 'Analytics',           path: `${e}/analytics`,  moduleId: 'analytics' },
-    { icon: <Sparkles size={18} />,      label: 'AI Insights',         path: `${e}/ai`                                },
+  // Standard event nav — ticketing is excluded for network events (replaced below)
+  const STANDARD_NAV_ITEMS: { icon: React.ReactNode; label: string; path: string; moduleId?: string }[] = [
+    { icon: <Users size={18} />,         label: typeLabels.performers, path: `${e}/submissions`                             },
+    { icon: <Music2 size={18} />,        label: typeLabels.songs,      path: `${e}/songs`,          moduleId: 'music'       },
+    { icon: <Shield size={18} />,        label: typeLabels.clash,      path: `${e}/clashes`,        moduleId: 'clash'       },
+    { icon: <Radio size={18} />,         label: 'Live Control',        path: `${e}/live`,           moduleId: 'live'        },
+    { icon: <Package size={18} />,       label: 'Resources',           path: `${e}/resources`,      moduleId: 'resources'   },
+    { icon: <Trophy size={18} />,        label: typeLabels.judging,    path: `${e}/judging`,        moduleId: 'judging'     },
+    // ticketing only shown for non-network events
+    ...(!isNetwork ? [{ icon: <Ticket size={18} />, label: typeLabels.ticketing, path: `${e}/ticketing`, moduleId: 'ticketing' }] : []),
+    { icon: <MessageSquare size={18} />, label: 'Messages',            path: `${e}/messages`,       moduleId: 'messaging'   },
+    { icon: <Film size={18} />,          label: 'Media Hub',           path: `${e}/media`,          moduleId: 'media'       },
+    { icon: <BarChart3 size={18} />,     label: 'Analytics',           path: `${e}/analytics`,      moduleId: 'analytics'   },
+    { icon: <Sparkles size={18} />,      label: 'AI Insights',         path: `${e}/ai`                                      },
   ]
 
-  const visibleEventItems = eventId
-    ? EVENT_NAV_ITEMS.filter(item =>
+  // Network-specific nav items
+  const NETWORK_NAV_ITEMS: { icon: React.ReactNode; label: string; path: string; moduleId?: string }[] = [
+    { icon: <LayoutDashboard size={18} />, label: 'Overview',          path: `${e}/network/dashboard`                                        },
+    { icon: <GitBranch size={18} />,       label: 'Org Builder',       path: `${e}/network/org-builder`,    moduleId: 'network-org'           },
+    { icon: <ClipboardList size={18} />,   label: 'Reg. Form',         path: `${e}/network/reg-form`,       moduleId: 'network-registration'  },
+    { icon: <Users size={18} />,           label: 'Registrations',     path: `${e}/network/registrations`,  moduleId: 'network-registration'  },
+    { icon: <Wallet size={18} />,          label: 'Tickets',           path: `${e}/network/tickets`,        moduleId: 'network-checkin'       },
+    { icon: <ScanLine size={18} />,        label: 'Check-in',          path: `${e}/network/checkin`,        moduleId: 'network-checkin'       },
+    { icon: <PieChart size={18} />,        label: 'Analytics',         path: `${e}/network/analytics`,      moduleId: 'network-analytics'     },
+  ]
+
+  const visibleStandardItems = eventId
+    ? STANDARD_NAV_ITEMS.filter(item =>
+        enabledModules === null ? true : !item.moduleId || enabledModules.includes(item.moduleId)
+      )
+    : []
+
+  const visibleNetworkItems = eventId && isNetwork
+    ? NETWORK_NAV_ITEMS.filter(item =>
         enabledModules === null ? true : !item.moduleId || enabledModules.includes(item.moduleId)
       )
     : []
@@ -84,15 +107,15 @@ function SidebarContent({ eventId, eventType, enabledModules, metaLoading, locat
         style={{
           display: 'flex', alignItems: 'center', gap: 10,
           padding: '9px 10px', borderRadius: 8, textDecoration: 'none',
-          color: active ? '#22C55E' : 'rgba(255,255,255,0.55)',
-          background: active ? 'rgba(34,197,94,0.1)' : 'transparent',
+          color: active ? (isNetwork ? '#818CF8' : '#22C55E') : 'rgba(255,255,255,0.55)',
+          background: active ? (isNetwork ? 'rgba(99,102,241,0.1)' : 'rgba(34,197,94,0.1)') : 'transparent',
           fontSize: 14, fontWeight: active ? 600 : 400,
           fontFamily: 'var(--font-body)', marginBottom: 2,
           transition: 'all 0.15s',
-          borderLeft: active ? '2px solid #22C55E' : '2px solid transparent',
+          borderLeft: active ? `2px solid ${isNetwork ? '#818CF8' : '#22C55E'}` : '2px solid transparent',
         }}
-        onMouseEnter={e => { if (!active) { e.currentTarget.style.background = 'rgba(255,255,255,0.05)'; e.currentTarget.style.color = '#fff' } }}
-        onMouseLeave={e => { if (!active) { e.currentTarget.style.background = 'transparent'; e.currentTarget.style.color = 'rgba(255,255,255,0.55)' } }}
+        onMouseEnter={ev => { if (!active) { ev.currentTarget.style.background = 'rgba(255,255,255,0.05)'; ev.currentTarget.style.color = '#fff' } }}
+        onMouseLeave={ev => { if (!active) { ev.currentTarget.style.background = 'transparent'; ev.currentTarget.style.color = 'rgba(255,255,255,0.55)' } }}
       >
         {item.icon}
         <span>{item.label}</span>
@@ -133,7 +156,6 @@ function SidebarContent({ eventId, eventType, enabledModules, metaLoading, locat
         </div>
       )}
 
-      {/* Nav — no overflowY, no ref, scroll is on the aside */}
       <nav style={{ flex: 1, padding: '12px 8px' }}>
 
         {/* MAIN */}
@@ -147,13 +169,27 @@ function SidebarContent({ eventId, eventType, enabledModules, metaLoading, locat
           ].map(navLink)}
         </div>
 
-        {/* EVENT TOOLS */}
-        {eventId && visibleEventItems.length > 0 && (
+        {/* NETWORK TOOLS — shown first for network events */}
+        {isNetwork && eventId && visibleNetworkItems.length > 0 && (
+          <div style={{ marginBottom: 20 }}>
+            <div style={{
+              fontSize: 10, fontWeight: 600, letterSpacing: '1.2px', textTransform: 'uppercase',
+              padding: '0 8px', marginBottom: 6,
+              color: 'rgba(129,140,248,0.5)',
+            }}>
+              Network Tools
+            </div>
+            {visibleNetworkItems.map(navLink)}
+          </div>
+        )}
+
+        {/* EVENT TOOLS — standard tools (hidden ticketing for network) */}
+        {eventId && visibleStandardItems.length > 0 && (
           <div style={{ marginBottom: 20 }}>
             <div style={{ fontSize: 10, fontWeight: 600, color: 'rgba(255,255,255,0.25)', letterSpacing: '1.2px', textTransform: 'uppercase', padding: '0 8px', marginBottom: 6 }}>
-              Event Tools
+              {isNetwork ? 'General Tools' : 'Event Tools'}
             </div>
-            {visibleEventItems.map(navLink)}
+            {visibleStandardItems.map(navLink)}
           </div>
         )}
 
@@ -247,7 +283,6 @@ export default function DashboardLayout({
   return (
     <div style={{ display: 'flex', minHeight: '100vh', background: '#0B1020' }}>
 
-      {/* Desktop sidebar — this is the ONE scrollable container, just like your AppSidebar */}
       <aside
         className="desktop-sidebar"
         style={{
@@ -256,13 +291,12 @@ export default function DashboardLayout({
           borderRight: '1px solid rgba(255,255,255,0.06)',
           position: 'fixed', top: 0, left: 0, bottom: 0,
           zIndex: 50,
-          overflowY: 'auto',   // scroll lives here and ONLY here
+          overflowY: 'auto',
         }}
       >
         <SidebarContent {...sidebarProps} />
       </aside>
 
-      {/* Mobile overlay sidebar */}
       {sidebarOpen && (
         <div style={{ position: 'fixed', inset: 0, zIndex: 100 }}>
           <div
@@ -273,19 +307,17 @@ export default function DashboardLayout({
             position: 'absolute', top: 0, left: 0, bottom: 0, width: 260,
             background: 'rgba(13,20,38,0.99)',
             borderRight: '1px solid rgba(255,255,255,0.08)',
-            overflowY: 'auto',  // scroll lives here for mobile too
+            overflowY: 'auto',
           }}>
             <SidebarContent {...sidebarProps} />
           </aside>
         </div>
       )}
 
-      {/* Main content */}
       <main
         className="dashboard-main"
         style={{ flex: 1, marginLeft: 240, minHeight: '100vh', display: 'flex', flexDirection: 'column' }}
       >
-        {/* Mobile topbar */}
         <div
           className="mobile-topbar"
           style={{ display: 'none', alignItems: 'center', gap: 12, padding: '14px 20px', borderBottom: '1px solid rgba(255,255,255,0.06)', background: 'rgba(13,20,38,0.95)', position: 'sticky', top: 0, zIndex: 40 }}
@@ -300,7 +332,6 @@ export default function DashboardLayout({
           {children}
         </div>
 
-        {/* Footer */}
         <div style={{ padding: '1rem 2.5rem', borderTop: '1px solid rgba(255,255,255,0.04)', display: 'flex', gap: 20 }}>
           {['Privacy Policy', 'Terms of Service', 'Help'].map(l => (
             <a key={l} href="#" style={{ fontSize: 12, color: 'rgba(255,255,255,0.2)', textDecoration: 'none', transition: 'color 0.2s' }}

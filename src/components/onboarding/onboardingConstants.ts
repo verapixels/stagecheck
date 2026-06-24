@@ -1,5 +1,5 @@
 import {
-  Music2, Star, Presentation, Trophy, Heart, GraduationCap, Sparkles, Mic2,
+  Music2, Star, Presentation, Trophy, Heart, GraduationCap, Sparkles, Mic2, GitBranch,
 } from 'lucide-react'
 import type { SubmissionField } from './onboardingTypes'
 
@@ -12,32 +12,38 @@ export const EVENT_TYPES = [
   { id: 'worship',     icon: Heart,         label: 'Worship Night',      desc: 'Worship sets, ministers and service flow',           color: '#14B8A6' },
   { id: 'openmic',     icon: Mic2,          label: 'Open Mic',           desc: 'Solo performers, sign-ups and slot management',     color: '#F97316' },
   { id: 'graduation',  icon: GraduationCap, label: 'Award / Graduation', desc: 'Ceremony scheduling, awardees and protocol',        color: '#06B6D4' },
+  { id: 'network',     icon: GitBranch,     label: 'Network Event',      desc: 'Hierarchical org structure with group registrations, scoped check-in and analytics per level', color: '#6366F1' },
   { id: 'custom',      icon: Sparkles,      label: 'Custom Event',       desc: 'Build your own event type from scratch',            color: '#A78BFA' },
 ] as const
 
 export const ALL_MODULES = [
-  { id: 'music',     label: 'Music Submissions',   desc: 'Song titles, audio uploads, duration',        color: '#22C55E' },
-  { id: 'judging',   label: 'Judging & Scoring',    desc: 'Judge panels, live scoring, rankings',         color: '#F59E0B' },
-  { id: 'ticketing', label: 'Ticketing',            desc: 'Ticket creation, QR codes, attendance',       color: '#EC4899' },
-  { id: 'resources', label: 'Resource Management',  desc: 'Mics, instruments, rooms, stage time',         color: '#8B5CF6' },
-  { id: 'live',      label: 'Live Stage Control',   desc: 'Real-time stage panel during the event',      color: '#F97316' },
-  { id: 'messaging', label: 'Communication',        desc: 'Announcements and performer messaging',       color: '#14B8A6' },
-  { id: 'media',     label: 'Media Hub',            desc: 'Upload videos, recordings, highlights',       color: '#3B82F6' },
-  { id: 'analytics', label: 'Analytics',            desc: 'Participation rates, metrics, reports',       color: '#06B6D4' },
-  { id: 'clash',     label: 'Clash Detection',      desc: 'Prevent duplicate songs, slots, performers',  color: '#22C55E' },
-  { id: 'voting',    label: 'Live Voting',          desc: 'Audience votes and live poll results',        color: '#A78BFA' },
+  { id: 'music',                label: 'Music Submissions',       desc: 'Song titles, audio uploads, duration',                  color: '#22C55E' },
+  { id: 'judging',              label: 'Judging & Scoring',       desc: 'Judge panels, live scoring, rankings',                  color: '#F59E0B' },
+  { id: 'ticketing',            label: 'Ticketing',               desc: 'Ticket creation, QR codes, attendance',                 color: '#EC4899' },
+  { id: 'resources',            label: 'Resource Management',     desc: 'Mics, instruments, rooms, stage time',                  color: '#8B5CF6' },
+  { id: 'live',                 label: 'Live Stage Control',      desc: 'Real-time stage panel during the event',               color: '#F97316' },
+  { id: 'messaging',            label: 'Communication',           desc: 'Announcements and performer messaging',                 color: '#14B8A6' },
+  { id: 'media',                label: 'Media Hub',               desc: 'Upload videos, recordings, highlights',                color: '#3B82F6' },
+  { id: 'analytics',            label: 'Analytics',               desc: 'Participation rates, metrics, reports',                 color: '#06B6D4' },
+  { id: 'clash',                label: 'Clash Detection',         desc: 'Prevent duplicate songs, slots, performers',            color: '#22C55E' },
+  { id: 'voting',               label: 'Live Voting',             desc: 'Audience votes and live poll results',                  color: '#A78BFA' },
+  { id: 'network-org',          label: 'Organisation Builder',    desc: 'Define hierarchy levels and populate org nodes',        color: '#6366F1' },
+  { id: 'network-registration', label: 'Network Registration',    desc: 'Public form with dependent org dropdowns',              color: '#818CF8' },
+  { id: 'network-checkin',      label: 'Network Check-in',        desc: 'Scoped QR check-in per org level',                     color: '#A5B4FC' },
+  { id: 'network-analytics',    label: 'Network Analytics',       desc: 'Metrics and breakdowns per org level',                  color: '#C7D2FE' },
 ] as const
 
 export const DEFAULT_MODULES: Record<string, string[]> = {
-  choir: ['music', 'clash', 'live', 'messaging', 'ticketing'],
-  talent: ['judging', 'live', 'ticketing', 'messaging', 'voting'],
+  choir:      ['music', 'clash', 'live', 'messaging', 'ticketing'],
+  talent:     ['judging', 'live', 'ticketing', 'messaging', 'voting'],
   conference: ['resources', 'live', 'messaging', 'analytics', 'media'],
-  competition: ['judging', 'clash', 'live', 'messaging', 'analytics'],
-  drama: ['resources', 'live', 'ticketing', 'messaging', 'media'],
-  worship: ['music', 'clash', 'live', 'messaging', 'resources'],
-  openmic: ['music', 'live', 'ticketing', 'messaging'],
+  competition:['judging', 'clash', 'live', 'messaging', 'analytics'],
+  drama:      ['resources', 'live', 'ticketing', 'messaging', 'media'],
+  worship:    ['music', 'clash', 'live', 'messaging', 'resources'],
+  openmic:    ['music', 'live', 'ticketing', 'messaging'],
   graduation: ['live', 'ticketing', 'messaging', 'media', 'analytics'],
-  custom: [],
+  network:    ['network-org', 'network-registration', 'network-checkin', 'network-analytics', 'messaging', 'media'],
+  custom:     [],
 }
 
 export const DEFAULT_SUBMISSION_FIELDS: Record<string, SubmissionField[]> = {
@@ -93,6 +99,14 @@ export const DEFAULT_SUBMISSION_FIELDS: Record<string, SubmissionField[]> = {
     { id: 'email', label: 'Contact Email', type: 'email', required: true, alwaysOn: true },
     { id: 'award', label: 'Award / Programme', type: 'text', required: true, alwaysOn: true },
     { id: 'photo', label: 'Awardee Photo', type: 'file', required: false, alwaysOn: false },
+  ],
+  network: [
+    { id: 'fullName',  label: 'Full Name',     type: 'text',   required: true,  alwaysOn: true },
+    { id: 'email',     label: 'Contact Email', type: 'email',  required: true,  alwaysOn: true },
+    { id: 'phone',     label: 'Phone Number',  type: 'tel',    required: false, alwaysOn: true },
+    { id: 'orgLevel1', label: 'Level 1 Unit',  type: 'select', required: true,  alwaysOn: true },
+    { id: 'orgLevel2', label: 'Level 2 Unit',  type: 'select', required: false, alwaysOn: false },
+    { id: 'orgLevel3', label: 'Level 3 Unit',  type: 'select', required: false, alwaysOn: false },
   ],
   custom: [
     { id: 'entryName', label: 'Entry / Participant Name', type: 'text', required: true, alwaysOn: true },

@@ -2,11 +2,16 @@
 import { useState, useEffect, useRef } from 'react'
 import { useNavigate, useLocation } from 'react-router-dom'
 import {
+  collection, getDocs, query, orderBy, limit,
+  addDoc, doc, setDoc, increment, serverTimestamp,
+} from 'firebase/firestore'
+import { db } from '../lib/firebase'
+import {
   RiSearchLine, RiMapPin2Line, RiCrosshairLine,
   RiArrowRightUpLine, RiArrowDownSLine,
   RiMenuLine, RiCloseLine, RiCalendarEventLine,
   RiInformationLine, RiQuestionLine, RiShieldLine,
-  RiFileTextLine, RiRefundLine,
+  RiFileTextLine, RiRefundLine, RiFireLine,
 } from 'react-icons/ri'
 
 interface SiteNavbarProps {
@@ -29,6 +34,9 @@ const RESOURCE_LINKS = [
   { label: 'Refund Policy', to: '/refund', icon: <RiRefundLine size={14} /> },
 ]
 
+// Fallback shown the first time, before the DB has any trending data
+const FALLBACK_TRENDING = ['tech events', 'lagos free events', 'music concerts', 'stage plays']
+
 export default function SiteNavbar({
   searchValue = '', onSearchChange, onSearchSubmit,
   locationLabel = 'Anywhere', onLocationChange,
@@ -42,9 +50,16 @@ export default function SiteNavbar({
   const [mobileSearchOpen, setMobileSearchOpen] = useState(false)
   const [cityInput, setCityInput] = useState('')
   const [locating, setLocating] = useState(false)
+  const [searchFocused, setSearchFocused] = useState(false)
+  const [mobSearchFocused, setMobSearchFocused] = useState(false)
+  const [trending, setTrending] = useState<string[]>(FALLBACK_TRENDING)
+  const [trendingLoaded, setTrendingLoaded] = useState(false)
+
   const locRef = useRef<HTMLDivElement>(null)
   const mobLocRef = useRef<HTMLDivElement>(null)
   const resRef = useRef<HTMLDivElement>(null)
+  const searchRef = useRef<HTMLDivElement>(null)
+  const mobSearchRef = useRef<HTMLDivElement>(null)
   const mobSearchInputRef = useRef<HTMLInputElement>(null)
 
   useEffect(() => {
@@ -68,6 +83,7 @@ export default function SiteNavbar({
     }
   }, [mobileSearchOpen])
 
+  // Close popups on outside click
   useEffect(() => {
     const onClick = (e: MouseEvent) => {
       if (
@@ -75,10 +91,45 @@ export default function SiteNavbar({
         mobLocRef.current && !mobLocRef.current.contains(e.target as Node)
       ) setLocOpen(false)
       if (resRef.current && !resRef.current.contains(e.target as Node)) setResOpen(false)
+      if (searchRef.current && !searchRef.current.contains(e.target as Node)) setSearchFocused(false)
+      if (mobSearchRef.current && !mobSearchRef.current.contains(e.target as Node)) setMobSearchFocused(false)
     }
     document.addEventListener('mousedown', onClick)
     return () => document.removeEventListener('mousedown', onClick)
   }, [])
+
+  // Fetch trending searches from Firestore once, lazily, the first time the dropdown is needed
+  const loadTrending = async () => {
+    if (trendingLoaded) return
+    setTrendingLoaded(true)
+    try {
+      const q = query(collection(db, 'trendingSearches'), orderBy('count', 'desc'), limit(6))
+      const snap = await getDocs(q)
+      const terms = snap.docs.map(d => (d.data() as any).term).filter(Boolean)
+      if (terms.length > 0) setTrending(terms)
+    } catch (e) {
+      console.error('Failed to load trending searches', e)
+      // keep fallback list
+    }
+  }
+
+  // Log a search so trending data improves over time (fire-and-forget, never blocks UI)
+  const logSearch = (term: string) => {
+    const clean = term.trim().toLowerCase()
+    if (!clean) return
+    addDoc(collection(db, 'searchLogs'), { term: clean, createdAt: serverTimestamp() }).catch(() => {})
+    const trendRef = doc(db, 'trendingSearches', clean)
+    setDoc(trendRef, { term: clean, count: increment(1), updatedAt: serverTimestamp() }, { merge: true }).catch(() => {})
+  }
+
+  const submitSearch = (term?: string) => {
+    const value = term ?? searchValue
+    if (term) onSearchChange?.(term)
+    logSearch(value)
+    onSearchSubmit?.()
+    setSearchFocused(false)
+    setMobSearchFocused(false)
+  }
 
   const useMyLocation = () => {
     setLocating(true)
@@ -126,6 +177,20 @@ export default function SiteNavbar({
     </div>
   )
 
+  const TrendingDropdown = ({ onPick }: { onPick: (term: string) => void }) => (
+    <div className="stg-trend-pop">
+      <div className="stg-trend-label">
+        <RiFireLine size={13} color="var(--green)" /> Trending Searches
+      </div>
+      {trending.map((t, i) => (
+        <button key={t + i} className="stg-trend-item" onClick={() => onPick(t)}>
+          <RiArrowRightUpLine size={13} color="rgba(255,255,255,0.3)" />
+          {t}
+        </button>
+      ))}
+    </div>
+  )
+
   return (
     <>
       <style>{`
@@ -136,8 +201,8 @@ export default function SiteNavbar({
           --border: rgba(255,255,255,0.07);
           --border-g: rgba(13,199,94,0.4);
           --text: #f0faf2;
-          --muted: rgba(255,255,255,0.55);
-          --muted2: rgba(255,255,255,0.3);
+          --muted: rgba(255,255,255,0.75);
+          --muted2: rgba(255,255,255,0.45);
           --font-body: 'Inter', sans-serif;
         }
 
@@ -193,6 +258,7 @@ export default function SiteNavbar({
         .stg-search-group {
           flex: 1; max-width: 460px;
           display: flex; align-items: center; gap: 8px;
+          position: relative;
         }
 
         .stg-loc-btn {
@@ -210,26 +276,51 @@ export default function SiteNavbar({
           max-width: 80px;
         }
 
+        /* ── Redesigned search input: solid card look, no "stretched pill" feel */
+        .stg-search-wrap { position: relative; flex: 1; min-width: 0; }
         .stg-search {
-          flex:1;
-          display:flex; align-items:center; gap:8px;
-          background:rgba(255,255,255,0.05); border:1px solid rgba(255,255,255,0.09);
-          border-radius:999px; padding:7px 7px 7px 14px;
-          transition: border-color .2s;
+          display:flex; align-items:center; gap:9px;
+          background: var(--bg-card);
+          border: 1.5px solid rgba(255,255,255,0.09);
+          border-radius: 12px; padding: 9px 12px;
+          transition: border-color .2s, box-shadow .2s;
         }
-        .stg-search:focus-within { border-color: rgba(13,199,94,0.4); }
+        .stg-search.focused {
+          border-color: var(--border-g);
+          box-shadow: 0 0 0 3px rgba(13,199,94,0.08);
+        }
         .stg-search input {
           flex:1; background:none; border:none; outline:none;
           color:var(--text); font-size:13px; font-family:var(--font-body); min-width:0;
         }
-        .stg-search input::placeholder { color:rgba(255,255,255,0.35); }
+        .stg-search input::placeholder { color:rgba(255,255,255,0.5); }
         .stg-search-btn {
-          width:28px; height:28px; border-radius:50%; flex-shrink:0;
+          width:28px; height:28px; border-radius:8px; flex-shrink:0;
           background:var(--green); border:none; color:#000;
           display:flex; align-items:center; justify-content:center; cursor:pointer;
           transition: filter .2s;
         }
         .stg-search-btn:hover { filter: brightness(1.1); }
+
+        .stg-trend-pop {
+          position:absolute; top:calc(100% + 8px); left:0; right:0;
+          background:#0d1220; border:1px solid var(--border); border-radius:14px;
+          padding:8px; box-shadow:0 20px 50px rgba(0,0,0,.7); z-index:60;
+          animation: stgFadeDown .18s cubic-bezier(.22,1,.36,1);
+        }
+        .stg-trend-label {
+          display:flex; align-items:center; gap:6px;
+          font-size:11px; font-weight:700; color:var(--green);
+          text-transform:uppercase; letter-spacing:0.07em;
+          padding:6px 10px 8px;
+        }
+        .stg-trend-item {
+          display:flex; align-items:center; gap:9px; width:100%;
+          text-align:left; padding:9px 10px; border-radius:9px;
+          background:none; border:none; color:var(--text); font-size:13px;
+          font-family:var(--font-body); cursor:pointer; transition:background .15s;
+        }
+        .stg-trend-item:hover { background:rgba(13,199,94,0.08); }
 
         .stg-loc-pop {
           position:absolute; top:calc(100% + 10px); left:0; width:236px;
@@ -237,6 +328,7 @@ export default function SiteNavbar({
           padding:14px; box-shadow:0 20px 50px rgba(0,0,0,.7);
           display:flex; flex-direction:column; gap:10px; z-index:60;
           animation: stgFadeDown .15s ease;
+          box-sizing: border-box;
         }
         .stg-loc-opt {
           display:flex; align-items:center; gap:10px; padding:10px 12px; border-radius:10px;
@@ -247,17 +339,18 @@ export default function SiteNavbar({
         .stg-loc-opt:hover { border-color:var(--border-g); background:rgba(13,199,94,0.04); }
         .stg-loc-divider { display:flex; align-items:center; gap:8px; font-size:11px; color:var(--muted2); }
         .stg-loc-divider::before, .stg-loc-divider::after { content:''; flex:1; height:1px; background:var(--border); }
-        .stg-loc-input-row { display:flex; gap:6px; }
+        .stg-loc-input-row { display:flex; gap:6px; min-width:0; }
         .stg-loc-input-row input {
-          flex:1; background:rgba(255,255,255,0.04); border:1px solid var(--border);
+          flex:1; min-width:0; background:rgba(255,255,255,0.04); border:1px solid var(--border);
           border-radius:8px; padding:8px 10px; color:var(--text);
           font-size:13px; font-family:var(--font-body); outline:none;
-          transition: border-color .2s;
+          transition: border-color .2s; box-sizing:border-box;
         }
         .stg-loc-input-row input:focus { border-color: var(--border-g); }
         .stg-loc-go {
           background:var(--green); border:none; border-radius:8px;
-          padding:0 12px; color:#000; cursor:pointer;
+          width:36px; height:36px; flex-shrink:0; box-sizing:border-box;
+          color:#000; cursor:pointer;
           display:flex; align-items:center; justify-content:center;
         }
 
@@ -299,25 +392,25 @@ export default function SiteNavbar({
         .stg-mob-loc-icon-wrap { display:none; position:relative; flex-shrink:0; }
 
         .stg-mob-search-overlay {
-  position: fixed; top: 0; left: 0; right: 0; z-index: 600;
-  background: rgba(4,8,20,.99);
-  backdrop-filter: blur(20px); -webkit-backdrop-filter: blur(20px);
-  border-bottom: 1px solid var(--border);
-  padding: calc(var(--nav-h) + 14px) clamp(16px,4%,48px) 18px;
-  animation: stgSlideDownFade .22s cubic-bezier(.22,1,.36,1);
-}
-        .stg-mob-search-row { display:flex; align-items:center; gap:10px; }
+          position: fixed; top: 0; left: 0; right: 0; z-index: 600;
+          background: rgba(4,8,20,.99);
+          backdrop-filter: blur(20px); -webkit-backdrop-filter: blur(20px);
+          border-bottom: 1px solid var(--border);
+          padding: calc(var(--nav-h) + 14px) clamp(16px,4%,48px) 18px;
+          animation: stgSlideDownFade .22s cubic-bezier(.22,1,.36,1);
+        }
+        .stg-mob-search-row { display:flex; align-items:center; gap:10px; position:relative; }
         .stg-mob-search-box {
-          flex:1; display:flex; align-items:center; gap:10px;
-          background:rgba(255,255,255,0.07); border:1.5px solid rgba(13,199,94,0.35);
-          border-radius:999px; padding:12px 16px;
+          flex:1; min-width:0; display:flex; align-items:center; gap:10px;
+          background: var(--bg-card); border:1.5px solid rgba(13,199,94,0.35);
+          border-radius:14px; padding:12px 16px;
           box-shadow: 0 0 0 4px rgba(13,199,94,0.06);
         }
         .stg-mob-search-box input {
-          flex:1; background:none; border:none; outline:none;
-          color:var(--text); font-size:15px; font-family:var(--font-body); min-width:0;
+          flex:1; min-width:0; background:none; border:none; outline:none;
+          color:var(--text); font-size:15px; font-family:var(--font-body);
         }
-        .stg-mob-search-box input::placeholder { color:rgba(255,255,255,0.35); }
+        .stg-mob-search-box input::placeholder { color:rgba(255,255,255,0.5); }
         .stg-mob-search-close {
           width:40px; height:40px; border-radius:50%; flex-shrink:0;
           background:rgba(255,255,255,0.07); border:1px solid rgba(255,255,255,0.1);
@@ -326,6 +419,7 @@ export default function SiteNavbar({
           transition: background .2s;
         }
         .stg-mob-search-close:hover { background:rgba(255,255,255,0.12); }
+        .stg-mob-search-overlay .stg-trend-pop { left:0; right:56px; top:calc(100% + 4px); position:absolute; }
 
         .stg-mob-overlay {
           position:fixed; inset:0; z-index:505;
@@ -429,10 +523,10 @@ export default function SiteNavbar({
           .stg-mob-loc-icon-wrap { display:flex !important; }
           .stg-nav-r { display:none !important; }
         }
-          .stg-mob-loc-icon-wrap .stg-loc-pop {
-  left: auto;
-  right: 0;
-}
+        .stg-mob-loc-icon-wrap .stg-loc-pop {
+          left: auto;
+          right: 0;
+        }
         @media (min-width: 641px) {
           .stg-mob-overlay { display:none !important; }
           .stg-mob-drawer  { display:none !important; }
@@ -485,17 +579,21 @@ export default function SiteNavbar({
             {locOpen && <LocationPopup />}
           </div>
 
-          <div className="stg-search">
-            <RiSearchLine size={13} color="rgba(255,255,255,0.4)" />
-            <input
-              placeholder="Search events, venues..."
-              value={searchValue}
-              onChange={e => onSearchChange?.(e.target.value)}
-              onKeyDown={e => e.key === 'Enter' && onSearchSubmit?.()}
-            />
-            <button className="stg-search-btn" onClick={onSearchSubmit}>
-              <RiSearchLine size={12} />
-            </button>
+          <div className="stg-search-wrap" ref={searchRef}>
+            <div className={`stg-search ${searchFocused ? 'focused' : ''}`}>
+              <RiSearchLine size={13} color="rgba(255,255,255,0.45)" />
+              <input
+                placeholder="Search events, venues..."
+                value={searchValue}
+                onFocus={() => { setSearchFocused(true); loadTrending() }}
+                onChange={e => onSearchChange?.(e.target.value)}
+                onKeyDown={e => e.key === 'Enter' && submitSearch()}
+              />
+              <button className="stg-search-btn" onClick={() => submitSearch()}>
+                <RiSearchLine size={12} />
+              </button>
+            </div>
+            {searchFocused && <TrendingDropdown onPick={(t) => submitSearch(t)} />}
           </div>
         </div>
 
@@ -529,16 +627,17 @@ export default function SiteNavbar({
       {/* Mobile search overlay */}
       {mobileSearchOpen && (
         <div className="stg-mob-search-overlay" style={{ top: 'var(--nav-h)' }}>
-          <div className="stg-mob-search-row">
+          <div className="stg-mob-search-row" ref={mobSearchRef}>
             <div className="stg-mob-search-box">
               <RiSearchLine size={16} color="var(--green)" />
               <input
                 ref={mobSearchInputRef}
                 placeholder="Search events, venues..."
                 value={searchValue}
+                onFocus={() => { setMobSearchFocused(true); loadTrending() }}
                 onChange={e => onSearchChange?.(e.target.value)}
                 onKeyDown={e => {
-                  if (e.key === 'Enter') { onSearchSubmit?.(); setMobileSearchOpen(false) }
+                  if (e.key === 'Enter') { submitSearch(); setMobileSearchOpen(false) }
                   if (e.key === 'Escape') setMobileSearchOpen(false)
                 }}
               />
@@ -546,6 +645,9 @@ export default function SiteNavbar({
             <button className="stg-mob-search-close" onClick={() => setMobileSearchOpen(false)}>
               <RiCloseLine size={18} />
             </button>
+            {mobSearchFocused && (
+              <TrendingDropdown onPick={(t) => { submitSearch(t); setMobileSearchOpen(false) }} />
+            )}
           </div>
         </div>
       )}

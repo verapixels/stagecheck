@@ -262,14 +262,17 @@ export default function EventDetailPage() {
         <EventDetailBreadcrumb event={event} />
 
         {/* ── HERO + SIDEBAR — side by side */}
-        <div style={{
-          maxWidth: 1160,
-          margin: '0 auto',
-          padding: '0 clamp(16px,4%,56px)',
-          display: 'flex',
-          gap: 20,
-          alignItems: 'stretch',    // ← both columns same height
-        }}>
+        <div
+          className="ed-hero-row"
+          style={{
+            maxWidth: 1160,
+            margin: '0 auto',
+            padding: '0 clamp(16px,4%,56px)',
+            display: 'flex',
+            gap: 20,
+            alignItems: 'stretch',    // ← both columns same height
+          }}
+        >
           {/* Hero (left) */}
           <div style={{ flex: 1, minWidth: 0 }}>
             <EventDetailHero
@@ -307,12 +310,15 @@ export default function EventDetailPage() {
         </div>
 
         {/* ── MAIN CONTENT GRID */}
-        <div style={{
-          maxWidth: 1160,
-          margin: '20px auto 0',
-          padding: '0 clamp(16px,4%,56px)',
-          paddingBottom: 120,
-        }}>
+        <div
+          className="ed-main-grid"
+          style={{
+            maxWidth: 1160,
+            margin: '20px auto 0',
+            padding: '0 clamp(16px,4%,56px)',
+            paddingBottom: 120,
+          }}
+        >
 
           {/* ROW 1: About (left 55%) + Featured People (right) */}
           <div

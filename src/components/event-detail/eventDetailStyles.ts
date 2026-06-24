@@ -178,13 +178,22 @@ export const ED_GLOBAL_CSS = `
   .ed-delay-3     { animation-delay: 0.22s; }
   .ed-delay-4     { animation-delay: 0.32s; }
 
-  /* ── Responsive */
+  /* ── Responsive ───────────────────────────────────────────── */
+
+  /* Tablet and below: stack hero/sidebar, collapse 2/3-col grids */
   @media (max-width: 960px) {
+    .ed-hero-row    { flex-direction: column !important; }
     .ed-main-grid   { flex-direction: column !important; }
     .ed-sidebar     { width: 100% !important; position: static !important; top: auto !important; }
     .ed-three-col   { flex-direction: column !important; }
     .ed-two-col     { flex-direction: column !important; }
+    .ed-three-col > div,
+    .ed-two-col > div {
+      flex: 1 1 100% !important;
+      width: 100% !important;
+    }
   }
+
   @media (max-width: 768px) {
     .ed-hero-title  { font-size: clamp(24px,7vw,42px) !important; }
     .ed-desktop     { display: none !important; }
@@ -192,5 +201,13 @@ export const ED_GLOBAL_CSS = `
   }
   @media (min-width: 769px) {
     .ed-mobile      { display: none !important; }
+  }
+
+  /* Small phones: tighten side padding everywhere */
+  @media (max-width: 480px) {
+    .ed-hero-row,
+    .ed-main-grid {
+      padding: 0 14px !important;
+    }
   }
 `

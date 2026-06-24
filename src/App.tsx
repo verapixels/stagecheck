@@ -65,6 +65,16 @@ import FeedbackPage from './pages/adminFeedbackPage'
 // Cookie consent banner
 import CookieBanner from './components/Cookiebanner'
 
+// Network pages
+import NetworkDashboardPage from './pages/NetworkDashboardPage'
+import NetworkOrgBuilderPage from './pages/NetworkOrgBuilderPage'
+import NetworkRegistrationFormPage from './pages/NetworkRegistrationFormPage'
+import NetworkRegistrationsPage from './pages/NetworkRegistrationsPage'
+import NetworkTicketManagementPage from './pages/NetworkTicketManagementPage'
+import NetworkCheckinPage from './pages/NetworkCheckinPage'
+import NetworkAnalyticsPage from './pages/NetworkAnalyticsPage'
+import PublicNetworkRegPage from './pages/PublicNetworkRegPage'
+
 function ScrollRestorer() {
   const { pathname } = useLocation()
   useEffect(() => { window.scrollTo(0, 0) }, [pathname])
@@ -153,6 +163,7 @@ export default function App() {
           <Route path="/event/:eventId/tickets" element={<GetTicketsPage />} /> 
           <Route path="/submit/:eventSlug/:eventId" element={<SubmitPage />} />
           <Route path="/feedback/:tokenId" element={<FeedbackPage />} />
+          <Route path="/register/:eventId" element={<PublicNetworkRegPage />} />
 
           {/* ── PROTECTED — MAIN ── */}
           <Route path="/onboarding" element={<ProtectedRoute><Onboarding /></ProtectedRoute>} />
@@ -175,6 +186,17 @@ export default function App() {
           <Route path="/dashboard/event/:eventId/media"        element={<EventRoute><MediaPage /></EventRoute>} />
           <Route path="/dashboard/event/:eventId/analytics"    element={<EventRoute><AnalyticsPage /></EventRoute>} />
           <Route path="/dashboard/event/:eventId/ai"           element={<EventRoute><AIInsightsPage /></EventRoute>} />
+
+
+            {/* ── NETWORK EVENT ROUTES ── */}
+<Route path="/dashboard/event/:eventId/network/dashboard"      element={<EventRoute><NetworkDashboardPage /></EventRoute>} />
+<Route path="/dashboard/event/:eventId/network/org-builder"    element={<EventRoute><NetworkOrgBuilderPage /></EventRoute>} />
+<Route path="/dashboard/event/:eventId/network/reg-form"       element={<EventRoute><NetworkRegistrationFormPage /></EventRoute>} />
+<Route path="/dashboard/event/:eventId/network/registrations"  element={<EventRoute><NetworkRegistrationsPage /></EventRoute>} />
+<Route path="/dashboard/event/:eventId/network/tickets"        element={<EventRoute><NetworkTicketManagementPage /></EventRoute>} />
+<Route path="/dashboard/event/:eventId/network/checkin"        element={<EventRoute><NetworkCheckinPage /></EventRoute>} />
+<Route path="/dashboard/event/:eventId/network/analytics"      element={<EventRoute><NetworkAnalyticsPage /></EventRoute>} />
+
 
           {/* ── SUPERADMIN ── */}
           <Route element={<SuperAdminRoute><SuperAdminLayout /></SuperAdminRoute>}>
