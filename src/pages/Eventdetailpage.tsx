@@ -1,6 +1,6 @@
 // ─── EventDetailPage.tsx ──────────────────────────────────────────────────────
 
-import { useEffect, useState, useRef, useCallback } from 'react'
+import { useEffect, useState, useRef } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import {
   doc, getDoc, collection, getDocs, addDoc,
@@ -17,73 +17,81 @@ import { ED_GLOBAL_CSS } from '../components/event-detail/eventDetailStyles'
 import type { EventData, TicketType, AttendeeForm, DrawerStep } from '../components/event-detail/eventDetailTypes'
 import { formatDate, formatTime, getEventTypeLabel } from '../components/event-detail/eventDetailHelpers'
 
-import Navbar          from '../components/Navbar'
-import EventDetailBreadcrumb      from '../components/event-detail/EventDetailBreadcrumb'
-import EventDetailHero            from '../components/event-detail/EventDetailHero'
-import EventDetailSidebar         from '../components/event-detail/EventDetailSidebar'
-import EventDetailAbout           from '../components/event-detail/EventDetailAbout'
-import EventDetailFeaturedPeople  from '../components/event-detail/EventDetailFeaturedPeople'
-import EventDetailVenue           from '../components/event-detail/EventDetailVenue'
-import EventDetailSchedule        from '../components/event-detail/EventDetailSchedule'
-import EventDetailGallery         from '../components/event-detail/EventDetailGallery'
-import EventDetailFAQ             from '../components/event-detail/EventDetailFAQ'
-import EventDetailRelated         from '../components/event-detail/EventDetailRelated'
-import EventDetailTicketDrawer    from '../components/event-detail/EventDetailTicketDrawer'
-import EventDetailReportModal     from '../components/event-detail/EventDetailReportModal'
-import EventDetailMobileCTA       from '../components/event-detail/EventDetailMobileCTA'
-import TicketingLoadingTransition from '../components/ticketing/TicketingLoadingTransition'
+import { useAuth } from '../context/Authcontext'
+import { toggleSaveEvent, isEventSaved } from '../lib/useUserSavedEvents'
+import { saveTicketToUser } from '../lib/useUserTickets'
+
+import Navbar                         from '../components/Navbar'
+import EventDetailBreadcrumb          from '../components/event-detail/EventDetailBreadcrumb'
+import EventDetailHero                from '../components/event-detail/EventDetailHero'
+import EventDetailSidebar             from '../components/event-detail/EventDetailSidebar'
+import EventDetailAbout               from '../components/event-detail/EventDetailAbout'
+import EventDetailFeaturedPeople      from '../components/event-detail/EventDetailFeaturedPeople'
+import EventDetailVenue               from '../components/event-detail/EventDetailVenue'
+import EventDetailSchedule            from '../components/event-detail/EventDetailSchedule'
+import EventDetailGallery             from '../components/event-detail/EventDetailGallery'
+import EventDetailFAQ                 from '../components/event-detail/EventDetailFAQ'
+import EventDetailRelated             from '../components/event-detail/EventDetailRelated'
+import EventDetailTicketDrawer        from '../components/event-detail/EventDetailTicketDrawer'
+import EventDetailReportModal         from '../components/event-detail/EventDetailReportModal'
+import EventDetailMobileCTA           from '../components/event-detail/EventDetailMobileCTA'
+import TicketingLoadingTransition     from '../components/ticketing/TicketingLoadingTransition'
 
 const CF_BASE = 'https://us-central1-stagecheck-699c7.cloudfunctions.net'
 
 export default function EventDetailPage() {
   const { eventId } = useParams<{ eventId: string }>()
-  const navigate = useNavigate()
+  const navigate    = useNavigate()
+  const { user }    = useAuth()
 
-  const [event, setEvent]               = useState<EventData | null>(null)
-  const [tickets, setTickets]           = useState<TicketType[]>([])
+  const [event, setEvent]                 = useState<EventData | null>(null)
+  const [tickets, setTickets]             = useState<TicketType[]>([])
   const [relatedEvents, setRelatedEvents] = useState<EventData[]>([])
-  const [loading, setLoading]           = useState(true)
+  const [loading, setLoading]             = useState(true)
 
-  const [drawerOpen, setDrawerOpen]     = useState(false)
-  const [step, setStep]                 = useState<DrawerStep>('select-ticket')
-  const [selectedTicket, setSelectedTicket] = useState<TicketType | null>(null)
-  const [qty, setQty]                   = useState(1)
-  const [attendee, setAttendee]         = useState<AttendeeForm>({ name: '', email: '', phone: '', altPhone: '' })
-  const [formErrors, setFormErrors]     = useState<Partial<AttendeeForm>>({})
-  const [paying, setPaying]             = useState(false)
-  const [payError, setPayError]         = useState('')
-  const [processing, setProcessing]     = useState(false)
-  const [ticketCode, setTicketCode]     = useState('')
-  const [qrDataUrl, setQrDataUrl]       = useState('')
+  const [drawerOpen, setDrawerOpen]           = useState(false)
+  const [step, setStep]                       = useState<DrawerStep>('select-ticket')
+  const [selectedTicket, setSelectedTicket]   = useState<TicketType | null>(null)
+  const [qty, setQty]                         = useState(1)
+  const [attendee, setAttendee]               = useState<AttendeeForm>({ name: '', email: '', phone: '', altPhone: '' })
+  const [formErrors, setFormErrors]           = useState<Partial<AttendeeForm>>({})
+  const [paying, setPaying]                   = useState(false)
+  const [payError, setPayError]               = useState('')
+  const [processing, setProcessing]           = useState(false)
+  const [ticketCode, setTicketCode]           = useState('')
+  const [qrDataUrl, setQrDataUrl]             = useState('')
 
-  const [liked, setLiked]               = useState(false)
-  const [copied, setCopied]             = useState(false)
-  const [scrolled, setScrolled]         = useState(false)
-  const [reportModal, setReportModal]   = useState(false)
-  const [reportIssue, setReportIssue]   = useState('')
-  const [reportCustom, setReportCustom] = useState('')
-  const [reportEmail, setReportEmail]   = useState('')
+  const [liked, setLiked]                     = useState(false)
+  const [copied, setCopied]                   = useState(false)
+  const [scrolled, setScrolled]               = useState(false)
+  const [reportModal, setReportModal]         = useState(false)
+  const [reportIssue, setReportIssue]         = useState('')
+  const [reportCustom, setReportCustom]       = useState('')
+  const [reportEmail, setReportEmail]         = useState('')
   const [reportSubmitting, setReportSubmitting] = useState(false)
-  const [reportSuccess, setReportSuccess] = useState(false)
+  const [reportSuccess, setReportSuccess]     = useState(false)
   const [navigatingToTickets, setNavigatingToTickets] = useState(false)
 
   const paymentInProgress = useRef(false)
-  const ticketRef = useRef<HTMLDivElement>(null)
+  const ticketRef         = useRef<HTMLDivElement>(null)
 
+  // Load Paystack script
   useEffect(() => {
     if (document.getElementById('paystack-inline-script')) return
     const s = document.createElement('script')
-    s.id = 'paystack-inline-script'
+    s.id  = 'paystack-inline-script'
     s.src = 'https://js.paystack.co/v1/inline.js'
     document.body.appendChild(s)
   }, [])
 
+  // Scroll listener
   useEffect(() => {
     const fn = () => setScrolled(window.scrollY > 80)
     window.addEventListener('scroll', fn, { passive: true })
     return () => window.removeEventListener('scroll', fn)
   }, [])
 
+  // Load event + tickets + related
   useEffect(() => {
     if (!eventId) return
     async function load() {
@@ -93,15 +101,15 @@ export default function EventDetailPage() {
           const data = { id: snap.id, ...snap.data() } as EventData
           setEvent(data)
           try {
-            const rq = query(collection(db, 'events'), limit(12))
+            const rq    = query(collection(db, 'events'), limit(12))
             const rSnap = await getDocs(rq)
-            const now = new Date()
+            const now   = new Date()
             setRelatedEvents(
               rSnap.docs
                 .filter(d => {
                   if (d.id === eventId) return false
                   try {
-                    const raw = d.data().date
+                    const raw    = d.data().date
                     const evDate = raw?.toDate ? raw.toDate() : new Date(raw)
                     return evDate >= now
                   } catch { return true }
@@ -119,7 +127,13 @@ export default function EventDetailPage() {
     load()
   }, [eventId])
 
-  const allMedia = event
+  // Sync liked/saved state
+  useEffect(() => {
+    if (!user?.uid || !eventId) return
+    isEventSaved(user.uid, eventId).then(setLiked)
+  }, [user?.uid, eventId])
+
+  const allMedia  = event
     ? [...(event.coverImage ? [{ url: event.coverImage, type: 'image' }] : []), ...(event.media || [])]
     : []
   const allImages = allMedia.filter(m => m.type === 'image')
@@ -136,14 +150,21 @@ export default function EventDetailPage() {
 
   const validateAttendee = () => {
     const e: Partial<AttendeeForm> = {}
-    if (!attendee.name.trim()) e.name = 'Full name is required'
+    if (!attendee.name.trim())  e.name  = 'Full name is required'
     if (!attendee.email.trim() || !/\S+@\S+\.\S+/.test(attendee.email)) e.email = 'Valid email required'
     if (!attendee.phone.trim()) e.phone = 'Phone number is required'
     setFormErrors(e)
     return Object.keys(e).length === 0
   }
 
-  const handlePaymentSuccess = async (reference: string) => {
+  const handleLike = async () => {
+    if (!user?.uid || !event) return
+    const nowSaved = await toggleSaveEvent(user.uid, event)
+    setLiked(nowSaved)
+  }
+
+  // ── FIX: accepts (reference, code) — matches onPaymentSuccess prop type ──
+  const handlePaymentSuccess = async (reference: string, code: string = '') => {
     if (paymentInProgress.current) return
     paymentInProgress.current = true
     if (!eventId || !selectedTicket || !event) { paymentInProgress.current = false; return }
@@ -152,25 +173,51 @@ export default function EventDetailPage() {
       await updateDoc(doc(db, 'events', eventId, 'tickets', selectedTicket.id), {
         sold: (selectedTicket.sold || 0) + qty,
       })
-      const code = reference.startsWith('free_') ? ticketCode || `SC-FREE-${Date.now()}` : ticketCode
-      const finalCode = code || `SC-${Date.now()}`
+      // Use code passed from TicketingOrderSummary; fall back to existing state or generate one
+      const finalCode = code || ticketCode || (reference.startsWith('free_') ? `SC-FREE-${Date.now()}` : `SC-${Date.now()}`)
       setTicketCode(finalCode)
+
       const qr = await QRCode.toDataURL(
         JSON.stringify({ code: finalCode, event: event.name, attendee: attendee.name, ticket: selectedTicket.name }),
         { width: 200, margin: 1, color: { dark: '#0dc75e', light: '#060e1c' } }
       )
       setQrDataUrl(qr)
       setStep('success')
+
+      if (user?.uid) {
+        let dateStr = ''
+        try {
+          const raw = event.date
+          const d   = raw?.toDate ? raw.toDate() : new Date(raw)
+          dateStr   = d.toISOString().split('T')[0]
+        } catch { /* ignore */ }
+
+        saveTicketToUser(user.uid, {
+          eventId:       eventId!,
+          eventName:     event.name,
+          eventImage:    event.coverImage || '',
+          eventDate:     dateStr,
+          eventTime:     event.startTime ? formatTime(event.startTime) : '',
+          eventLocation: event.venue || event.address || '',
+          eventCategory: (event as any).type || (event as any).category || '',
+          ticketCode:    finalCode,
+          ticketType:    selectedTicket.name,
+          qty,
+          attendeeName:  attendee.name,
+          attendeeEmail: attendee.email,
+        }).catch(console.error)
+      }
+
       fetch(`${CF_BASE}/sendTicketConfirmation`, {
-        method: 'POST',
+        method:  'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          attendeeName: attendee.name, attendeeEmail: attendee.email,
-          phone: attendee.phone, ticketCode: finalCode,
-          ticketType: selectedTicket.name, ticketQty: qty,
-          eventName: event.name, eventDate: formatDate(event.date),
-          eventTime: event.startTime ? formatTime(event.startTime) : '',
-          venueName: event.venue || '', venueAddress: event.address || '',
+          attendeeName:   attendee.name,   attendeeEmail: attendee.email,
+          phone:          attendee.phone,  ticketCode:    finalCode,
+          ticketType:     selectedTicket.name, ticketQty: qty,
+          eventName:      event.name,      eventDate:     formatDate(event.date),
+          eventTime:      event.startTime ? formatTime(event.startTime) : '',
+          venueName:      event.venue || '', venueAddress: event.address || '',
           organizerEmail: event.organizerEmail || event.organizer?.email || '',
         }),
       }).catch(console.error)
@@ -196,15 +243,15 @@ export default function EventDetailPage() {
     if (!ticketRef.current) return
     import('html2canvas').then(({ default: html2canvas }) => {
       html2canvas(ticketRef.current!, { backgroundColor: '#060e1c', scale: 2 }).then(canvas => {
-        const a = document.createElement('a')
-        a.download = `StageCheck-Ticket-${ticketCode}.png`
-        a.href = canvas.toDataURL('image/png')
+        const a      = document.createElement('a')
+        a.download   = `StageCheck-Ticket-${ticketCode}.png`
+        a.href       = canvas.toDataURL('image/png')
         a.click()
       })
     }).catch(() => {
-      const a = document.createElement('a')
+      const a    = document.createElement('a')
       a.download = `ticket-${ticketCode}.png`
-      a.href = qrDataUrl
+      a.href     = qrDataUrl
       a.click()
     })
   }
@@ -215,10 +262,11 @@ export default function EventDetailPage() {
     try {
       const reason = reportIssue === 'Other (describe below)' ? reportCustom : reportIssue
       await addDoc(collection(db, 'reports'), {
-        eventId: eventId || '', eventName: event?.name || '',
-        reason, message: reportCustom, reporterEmail: reportEmail,
+        eventId:      eventId || '', eventName: event?.name || '',
+        reason,       message:      reportCustom,
+        reporterEmail: reportEmail,
         reporterName: reportEmail ? reportEmail.split('@')[0] : 'Anonymous',
-        status: 'pending', createdAt: serverTimestamp(),
+        status:       'pending',    createdAt: serverTimestamp(),
       })
       setReportSuccess(true)
     } catch (e) { console.error(e) }
@@ -229,6 +277,8 @@ export default function EventDetailPage() {
     setNavigatingToTickets(true)
     setTimeout(() => navigate(`/event/${eventId}/tickets`), 900)
   }
+
+  // ── Loading / not-found ────────────────────────────────────────────────────
 
   if (loading) return (
     <div style={{ minHeight: '100vh', background: '#000612', display: 'flex', alignItems: 'center', justifyContent: 'center', flexDirection: 'column', gap: 16 }}>
@@ -250,6 +300,8 @@ export default function EventDetailPage() {
     </div>
   )
 
+  // ── Render ─────────────────────────────────────────────────────────────────
+
   return (
     <>
       <link rel="preconnect" href="https://fonts.googleapis.com" />
@@ -261,128 +313,56 @@ export default function EventDetailPage() {
         <Navbar />
         <EventDetailBreadcrumb event={event} />
 
-        {/* ── HERO + SIDEBAR — side by side */}
+        {/* HERO + SIDEBAR */}
         <div
           className="ed-hero-row"
-          style={{
-            maxWidth: 1160,
-            margin: '0 auto',
-            padding: '0 clamp(16px,4%,56px)',
-            display: 'flex',
-            gap: 20,
-            alignItems: 'stretch',    // ← both columns same height
-          }}
+          style={{ maxWidth: 1160, margin: '0 auto', padding: '0 clamp(16px,4%,56px)', display: 'flex', gap: 20, alignItems: 'stretch' }}
         >
-          {/* Hero (left) */}
           <div style={{ flex: 1, minWidth: 0 }}>
             <EventDetailHero
-              event={event}
-              heroImg={heroImg}
-              liked={liked}
-              copied={copied}
-              onLike={() => setLiked(v => !v)}
-              onShare={handleShare}
+              event={event} heroImg={heroImg} liked={liked} copied={copied}
+              onLike={handleLike} onShare={handleShare}
             />
           </div>
 
-          {/* Sidebar (right, sticky) */}
-          <div
-            className="ed-sidebar ed-desktop"
-            style={{
-              width: 320,
-              flexShrink: 0,
-              position: 'sticky',
-              top: 88,
-              alignSelf: 'flex-start', // sticky needs this
-            }}
-          >
+          <div className="ed-sidebar ed-desktop" style={{ width: 320, flexShrink: 0, position: 'sticky', top: 88, alignSelf: 'flex-start' }}>
             <EventDetailSidebar
-              tickets={tickets}
-              selectedTicket={selectedTicket}
-              qty={qty}
+              tickets={tickets} selectedTicket={selectedTicket} qty={qty}
               onSelectTicket={t => { setSelectedTicket(t); setQty(1) }}
-              onQtyChange={setQty}
-              onGetTickets={handleGetTickets}
-              minPrice={minPrice}
-              isFree={isFree}
+              onQtyChange={setQty} onGetTickets={handleGetTickets}
+              minPrice={minPrice} isFree={isFree}
             />
           </div>
         </div>
 
-        {/* ── MAIN CONTENT GRID */}
-        <div
-          className="ed-main-grid"
-          style={{
-            maxWidth: 1160,
-            margin: '20px auto 0',
-            padding: '0 clamp(16px,4%,56px)',
-            paddingBottom: 120,
-          }}
-        >
+        {/* MAIN CONTENT */}
+        <div className="ed-main-grid" style={{ maxWidth: 1160, margin: '20px auto 0', padding: '0 clamp(16px,4%,56px)', paddingBottom: 120 }}>
 
-          {/* ROW 1: About (left 55%) + Featured People (right) */}
-          <div
-            className="ed-two-col"
-            style={{ display: 'flex', gap: 16, marginBottom: 16, alignItems: 'flex-start' }}
-          >
-            <div style={{ flex: '0 0 55%', minWidth: 0 }}>
-              <EventDetailAbout event={event} />
-            </div>
-            <div style={{ flex: 1, minWidth: 0 }}>
-              <EventDetailFeaturedPeople event={event} />
-            </div>
+          <div className="ed-two-col" style={{ display: 'flex', gap: 16, marginBottom: 16, alignItems: 'flex-start' }}>
+            <div style={{ flex: '0 0 55%', minWidth: 0 }}><EventDetailAbout event={event} /></div>
+            <div style={{ flex: 1, minWidth: 0 }}><EventDetailFeaturedPeople event={event} /></div>
           </div>
 
-          {/* ROW 2: Venue | Schedule | Gallery — 3 equal cols */}
           {(event.venue || (event.agenda || []).length > 0 || allImages.length > 1) && (
-            <div
-              className="ed-three-col"
-              style={{ display: 'flex', gap: 16, marginBottom: 16, alignItems: 'flex-start' }}
-            >
-              <div style={{ flex: 1, minWidth: 0 }}>
-                <EventDetailVenue event={event} mapsEmbedUrl={mapsEmbedUrl} />
-              </div>
-              <div style={{ flex: 1, minWidth: 0 }}>
-                <EventDetailSchedule event={event} />
-              </div>
-              <div style={{ flex: 1, minWidth: 0 }}>
-                <EventDetailGallery images={allImages.slice(1)} />
-              </div>
+            <div className="ed-three-col" style={{ display: 'flex', gap: 16, marginBottom: 16, alignItems: 'flex-start' }}>
+              <div style={{ flex: 1, minWidth: 0 }}><EventDetailVenue event={event} mapsEmbedUrl={mapsEmbedUrl} /></div>
+              <div style={{ flex: 1, minWidth: 0 }}><EventDetailSchedule event={event} /></div>
+              <div style={{ flex: 1, minWidth: 0 }}><EventDetailGallery images={allImages.slice(1)} /></div>
             </div>
           )}
 
-          {/* ROW 3: FAQ (left 40%) + Related Events (right) */}
           {((event.faq || []).length > 0 || relatedEvents.length > 0) && (
-            <div
-              className="ed-two-col"
-              style={{ display: 'flex', gap: 16, marginBottom: 16, alignItems: 'flex-start' }}
-            >
-              <div style={{ flex: '0 0 40%', minWidth: 0 }}>
-                <EventDetailFAQ event={event} />
-              </div>
-              <div style={{ flex: 1, minWidth: 0 }}>
-                <EventDetailRelated events={relatedEvents} />
-              </div>
+            <div className="ed-two-col" style={{ display: 'flex', gap: 16, marginBottom: 16, alignItems: 'flex-start' }}>
+              <div style={{ flex: '0 0 40%', minWidth: 0 }}><EventDetailFAQ event={event} /></div>
+              <div style={{ flex: 1, minWidth: 0 }}><EventDetailRelated events={relatedEvents} /></div>
             </div>
           )}
 
-          {/* Report link */}
+          {/* Report */}
           <div style={{ textAlign: 'center', padding: '18px 0 8px' }}>
             <button
-              onClick={() => {
-                setReportModal(true)
-                setReportSuccess(false)
-                setReportIssue('')
-                setReportCustom('')
-                setReportEmail('')
-              }}
-              style={{
-                background: 'none', border: 'none',
-                color: 'rgba(248,113,113,0.5)', fontSize: 12,
-                cursor: 'pointer', fontFamily: 'Inter, sans-serif',
-                display: 'inline-flex', alignItems: 'center', gap: 6,
-                padding: '8px 16px', transition: 'color 0.15s',
-              }}
+              onClick={() => { setReportModal(true); setReportSuccess(false); setReportIssue(''); setReportCustom(''); setReportEmail('') }}
+              style={{ background: 'none', border: 'none', color: 'rgba(248,113,113,0.5)', fontSize: 12, cursor: 'pointer', fontFamily: 'Inter, sans-serif', display: 'inline-flex', alignItems: 'center', gap: 6, padding: '8px 16px', transition: 'color 0.15s' }}
               onMouseEnter={e => (e.currentTarget.style.color = '#f87171')}
               onMouseLeave={e => (e.currentTarget.style.color = 'rgba(248,113,113,0.5)')}
             >
@@ -390,44 +370,32 @@ export default function EventDetailPage() {
             </button>
           </div>
 
-          {/* Powered by footer */}
+          {/* Footer */}
           <div style={{ textAlign: 'center', paddingBottom: 20 }}>
-            <div style={{
-              display: 'inline-flex', alignItems: 'center', gap: 6,
-              fontSize: 11, color: 'rgba(255,255,255,0.2)',
-            }}>
+            <div style={{ display: 'inline-flex', alignItems: 'center', gap: 6, fontSize: 11, color: 'rgba(255,255,255,0.2)' }}>
               <RiShieldCheckLine size={12} color="var(--green)" />
               StageCheck by{' '}
-              <a href="https://www.verapixels.com" target="_blank" rel="noopener noreferrer"
-                style={{ color: 'var(--green)', textDecoration: 'none', fontWeight: 600 }}>
+              <a href="https://www.verapixels.com" target="_blank" rel="noopener noreferrer" style={{ color: 'var(--green)', textDecoration: 'none', fontWeight: 600 }}>
                 Verapixels
               </a>
             </div>
           </div>
         </div>
 
-        {/* ── MOBILE SIDEBAR (below hero) */}
+        {/* MOBILE SIDEBAR */}
         <div className="ed-mobile" style={{ display: 'none', padding: '0 16px 16px' }}>
           <EventDetailSidebar
-            tickets={tickets}
-            selectedTicket={selectedTicket}
-            qty={qty}
+            tickets={tickets} selectedTicket={selectedTicket} qty={qty}
             onSelectTicket={t => { setSelectedTicket(t); setQty(1) }}
-            onQtyChange={setQty}
-            onGetTickets={handleGetTickets}
-            minPrice={minPrice}
-            isFree={isFree}
+            onQtyChange={setQty} onGetTickets={handleGetTickets}
+            minPrice={minPrice} isFree={isFree}
           />
         </div>
 
-        {/* ── MOBILE STICKY CTA */}
+        {/* MOBILE STICKY CTA */}
         <EventDetailMobileCTA
-          event={event}
-          heroImg={heroImg}
-          minPrice={minPrice}
-          isFree={isFree}
-          visible={scrolled}
-          onGetTickets={handleGetTickets}
+          event={event} heroImg={heroImg} minPrice={minPrice}
+          isFree={isFree} visible={scrolled} onGetTickets={handleGetTickets}
         />
       </div>
 
@@ -435,18 +403,11 @@ export default function EventDetailPage() {
 
       {drawerOpen && (
         <EventDetailTicketDrawer
-          event={event}
-          tickets={tickets}
-          step={step}
-          selectedTicket={selectedTicket}
-          qty={qty}
-          attendee={attendee}
-          formErrors={formErrors}
-          paying={paying}
-          payError={payError}
-          processing={processing}
-          ticketCode={ticketCode}
-          qrDataUrl={qrDataUrl}
+          event={event} tickets={tickets} step={step}
+          selectedTicket={selectedTicket} qty={qty}
+          attendee={attendee} formErrors={formErrors}
+          paying={paying} payError={payError}
+          processing={processing} ticketCode={ticketCode} qrDataUrl={qrDataUrl}
           onClose={() => setDrawerOpen(false)}
           onStep={setStep}
           onSelectTicket={t => { setSelectedTicket(t); setQty(1) }}
@@ -462,17 +423,10 @@ export default function EventDetailPage() {
 
       {reportModal && (
         <EventDetailReportModal
-          event={event}
-          issue={reportIssue}
-          custom={reportCustom}
-          email={reportEmail}
-          submitting={reportSubmitting}
-          success={reportSuccess}
-          onIssue={setReportIssue}
-          onCustom={setReportCustom}
-          onEmail={setReportEmail}
-          onSubmit={handleReport}
-          onClose={() => setReportModal(false)}
+          event={event} issue={reportIssue} custom={reportCustom} email={reportEmail}
+          submitting={reportSubmitting} success={reportSuccess}
+          onIssue={setReportIssue} onCustom={setReportCustom} onEmail={setReportEmail}
+          onSubmit={handleReport} onClose={() => setReportModal(false)}
         />
       )}
     </>

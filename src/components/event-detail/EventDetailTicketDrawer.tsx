@@ -35,7 +35,7 @@ interface Props {
   onQtyChange: (q: number) => void
   onAttendeeChange: (f: Partial<AttendeeForm>) => void
   onValidateAttendee: () => boolean
-  onPaymentSuccess: (ref: string) => void
+  onPaymentSuccess: (ref: string, code: string) => void
   onPayError: (msg: string) => void
   onPaying: (v: boolean) => void
   onDownload: () => void
@@ -242,8 +242,8 @@ export default function EventDetailTicketDrawer({
                 onPaying(false)
                 return
               }
-              onPaymentSuccess(data.ticketCode)
-              onPaying(false)
+              onPaymentSuccess(response.reference, data.ticketCode || '')
+                onPaying(false)
             } catch {
               onPayError('Could not confirm payment. Reference: ' + response.reference)
               onPaying(false)
@@ -270,7 +270,7 @@ export default function EventDetailTicketDrawer({
         </div>
         {totalAmount === 0 ? (
           <button
-            onClick={() => { if (!processing) onPaymentSuccess('free_' + Date.now()) }}
+            onClick={() => { if (!processing) onPaymentSuccess('free_' + Date.now(), '') }}
             disabled={processing}
             style={{ width: '100%', padding: '14px', background: processing ? 'rgba(13,199,94,0.5)' : '#0dc75e', border: 'none', color: '#000', borderRadius: 11, fontWeight: 800, fontSize: 14, cursor: processing ? 'not-allowed' : 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8 }}
           >

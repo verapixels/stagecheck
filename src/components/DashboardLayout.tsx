@@ -53,11 +53,10 @@ interface SidebarProps {
 
 function SidebarContent({ eventId, eventType, enabledModules, metaLoading, location, onNavClick, onSignOut, user }: SidebarProps) {
   const typeLabels = EVENT_TYPE_LABELS[eventType] ?? EVENT_TYPE_LABELS.custom
-  const e = eventId ? `/dashboard/event/${eventId}` : ''
+  const e = eventId ? `/manage/event/${eventId}` : ''
   const displayName = user?.displayName || user?.email?.split('@')[0] || 'Organizer'
   const isNetwork = eventType === 'network'
 
-  // Standard event nav — ticketing is excluded for network events (replaced below)
   const STANDARD_NAV_ITEMS: { icon: React.ReactNode; label: string; path: string; moduleId?: string }[] = [
     { icon: <Users size={18} />,         label: typeLabels.performers, path: `${e}/submissions`                             },
     { icon: <Music2 size={18} />,        label: typeLabels.songs,      path: `${e}/songs`,          moduleId: 'music'       },
@@ -65,7 +64,6 @@ function SidebarContent({ eventId, eventType, enabledModules, metaLoading, locat
     { icon: <Radio size={18} />,         label: 'Live Control',        path: `${e}/live`,           moduleId: 'live'        },
     { icon: <Package size={18} />,       label: 'Resources',           path: `${e}/resources`,      moduleId: 'resources'   },
     { icon: <Trophy size={18} />,        label: typeLabels.judging,    path: `${e}/judging`,        moduleId: 'judging'     },
-    // ticketing only shown for non-network events
     ...(!isNetwork ? [{ icon: <Ticket size={18} />, label: typeLabels.ticketing, path: `${e}/ticketing`, moduleId: 'ticketing' }] : []),
     { icon: <MessageSquare size={18} />, label: 'Messages',            path: `${e}/messages`,       moduleId: 'messaging'   },
     { icon: <Film size={18} />,          label: 'Media Hub',           path: `${e}/media`,          moduleId: 'media'       },
@@ -73,7 +71,6 @@ function SidebarContent({ eventId, eventType, enabledModules, metaLoading, locat
     { icon: <Sparkles size={18} />,      label: 'AI Insights',         path: `${e}/ai`                                      },
   ]
 
-  // Network-specific nav items
   const NETWORK_NAV_ITEMS: { icon: React.ReactNode; label: string; path: string; moduleId?: string }[] = [
     { icon: <LayoutDashboard size={18} />, label: 'Overview',          path: `${e}/network/dashboard`                                        },
     { icon: <GitBranch size={18} />,       label: 'Org Builder',       path: `${e}/network/org-builder`,    moduleId: 'network-org'           },
@@ -82,6 +79,7 @@ function SidebarContent({ eventId, eventType, enabledModules, metaLoading, locat
     { icon: <Wallet size={18} />,          label: 'Tickets',           path: `${e}/network/tickets`,        moduleId: 'network-checkin'       },
     { icon: <ScanLine size={18} />,        label: 'Check-in',          path: `${e}/network/checkin`,        moduleId: 'network-checkin'       },
     { icon: <PieChart size={18} />,        label: 'Analytics',         path: `${e}/network/analytics`,      moduleId: 'network-analytics'     },
+    { icon: <UserCheck size={18} />,       label: 'Team',              path: `${e}/network/team`,           moduleId: 'network-checkin'       },
   ]
 
   const visibleStandardItems = eventId
@@ -164,12 +162,12 @@ function SidebarContent({ eventId, eventType, enabledModules, metaLoading, locat
             Main
           </div>
           {[
-            { icon: <LayoutDashboard size={18} />, label: 'Dashboard', path: '/dashboard' },
-            { icon: <CalendarDays size={18} />,    label: 'Events',    path: '/dashboard/events' },
+            { icon: <LayoutDashboard size={18} />, label: 'Dashboard', path: '/manage' },
+            { icon: <CalendarDays size={18} />,    label: 'Events',    path: '/manage/events' },
           ].map(navLink)}
         </div>
 
-        {/* NETWORK TOOLS — shown first for network events */}
+        {/* NETWORK TOOLS */}
         {isNetwork && eventId && visibleNetworkItems.length > 0 && (
           <div style={{ marginBottom: 20 }}>
             <div style={{
@@ -183,7 +181,7 @@ function SidebarContent({ eventId, eventType, enabledModules, metaLoading, locat
           </div>
         )}
 
-        {/* EVENT TOOLS — standard tools (hidden ticketing for network) */}
+        {/* EVENT TOOLS */}
         {eventId && visibleStandardItems.length > 0 && (
           <div style={{ marginBottom: 20 }}>
             <div style={{ fontSize: 10, fontWeight: 600, color: 'rgba(255,255,255,0.25)', letterSpacing: '1.2px', textTransform: 'uppercase', padding: '0 8px', marginBottom: 6 }}>
@@ -205,7 +203,7 @@ function SidebarContent({ eventId, eventType, enabledModules, metaLoading, locat
       {/* Settings + user row */}
       <div style={{ padding: '12px 8px', flexShrink: 0 }}>
         <Link
-          to="/dashboard/settings"
+          to="/manage/settings"
           style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '9px 10px', borderRadius: 8, textDecoration: 'none', color: 'rgba(255,255,255,0.45)', fontSize: 14, fontFamily: 'var(--font-body)', marginBottom: 2, transition: 'all 0.15s' }}
           onMouseEnter={e => { e.currentTarget.style.background = 'rgba(255,255,255,0.05)'; e.currentTarget.style.color = '#fff' }}
           onMouseLeave={e => { e.currentTarget.style.background = 'transparent'; e.currentTarget.style.color = 'rgba(255,255,255,0.45)' }}

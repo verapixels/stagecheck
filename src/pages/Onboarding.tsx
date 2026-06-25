@@ -207,8 +207,8 @@ export default function Onboarding() {
         attendingCount: 0, rating: 0, reviewCount: 0,
         slug: form.eventName.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, ''),
       })
-      if (enabledModules.includes('ticketing')) navigate(`/dashboard/event/${docRef.id}/ticketing`)
-      else navigate(`/dashboard/event/${docRef.id}`)
+      if (enabledModules.includes('ticketing')) navigate(`/manage/event/${docRef.id}/ticketing`)
+      else navigate(`/manage/event/${docRef.id}`)
     } catch (e: any) {
       console.error('Error creating event:', e)
       setError('Something went wrong. Please try again.')

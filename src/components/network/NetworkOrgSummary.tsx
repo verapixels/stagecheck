@@ -34,7 +34,7 @@ export default function NetworkOrgSummary({ levels, eventId }: Props) {
           </span>
         </div>
         <Link
-          to={`/dashboard/event/${eventId}/network/org-builder`}
+          to={`/manage/event/${eventId}/network/org-builder`}
           style={{ display: 'flex', alignItems: 'center', gap: 4, fontSize: 12, color: '#818CF8', textDecoration: 'none', fontWeight: 600 }}
         >
           Manage <ChevronRight size={12} />
@@ -47,7 +47,7 @@ export default function NetworkOrgSummary({ levels, eventId }: Props) {
             No org levels defined yet
           </p>
           <Link
-            to={`/dashboard/event/${eventId}/network/org-builder`}
+            to={`/manage/event/${eventId}/network/org-builder`}
             style={{
               display: 'inline-flex', alignItems: 'center', gap: 6, marginTop: 12,
               fontSize: 12, fontWeight: 700, color: '#6366F1',

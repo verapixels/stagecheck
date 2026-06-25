@@ -187,13 +187,13 @@ export default function EventsPage() {
       ) : viewMode === 'grid' ? (
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))', gap: 16 }}>
           {filtered.map(ev => (
-            <EventCard key={ev.id} event={ev} onClick={() => navigate(`/dashboard/event/${ev.id}`)} />
+            <EventCard key={ev.id} event={ev} onClick={() => navigate(`/manage/event/${ev.id}`)} />
           ))}
         </div>
       ) : (
         <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
           {filtered.map(ev => (
-            <EventRow key={ev.id} event={ev} onClick={() => navigate(`/dashboard/event/${ev.id}`)} />
+            <EventRow key={ev.id} event={ev} onClick={() => navigate(`/manage/event/${ev.id}`)} />
           ))}
         </div>
       )}
