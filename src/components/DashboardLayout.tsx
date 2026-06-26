@@ -9,6 +9,7 @@ import {
   PieChart,
 } from 'lucide-react'
 import { useAuth } from '../context/Authcontext'
+import { useTeamRole } from '../lib/Useteamrole'
 
 export const PLAN_LIMITS = {
   starter:    { label: 'Starter',    color: '#64748B', events: 5,   performers: 50,   tickets: 50,    resources: 5   },
@@ -49,9 +50,10 @@ interface SidebarProps {
   onNavClick: () => void
   onSignOut: () => void
   user: { displayName?: string | null; email?: string | null } | null
+  isSubAdmin: boolean
 }
 
-function SidebarContent({ eventId, eventType, enabledModules, metaLoading, location, onNavClick, onSignOut, user }: SidebarProps) {
+function SidebarContent({ eventId, eventType, enabledModules, metaLoading, location, onNavClick, onSignOut, user, isSubAdmin }: SidebarProps) {
   const typeLabels = EVENT_TYPE_LABELS[eventType] ?? EVENT_TYPE_LABELS.custom
   const e = eventId ? `/manage/event/${eventId}` : ''
   const displayName = user?.displayName || user?.email?.split('@')[0] || 'Organizer'
@@ -80,6 +82,11 @@ function SidebarContent({ eventId, eventType, enabledModules, metaLoading, locat
     { icon: <ScanLine size={18} />,        label: 'Check-in',          path: `${e}/network/checkin`,        moduleId: 'network-checkin'       },
     { icon: <PieChart size={18} />,        label: 'Analytics',         path: `${e}/network/analytics`,      moduleId: 'network-analytics'     },
     { icon: <UserCheck size={18} />,       label: 'Team',              path: `${e}/network/team`,           moduleId: 'network-checkin'       },
+  ]
+
+  // Sub-admins only see the Check-in page
+  const SUB_ADMIN_NAV_ITEMS = [
+    { icon: <ScanLine size={18} />, label: 'Check-in', path: `${e}/network/checkin` },
   ]
 
   const visibleStandardItems = eventId
@@ -122,6 +129,72 @@ function SidebarContent({ eventId, eventType, enabledModules, metaLoading, locat
     )
   }
 
+  // ── Sub-admin sidebar (stripped down) ──────────────────────────────────────
+  if (isSubAdmin && eventId) {
+    return (
+      <div style={{ display: 'flex', flexDirection: 'column', minHeight: '100%' }}>
+        {/* Logo */}
+        <div style={{ padding: '20px 16px 16px', borderBottom: '1px solid rgba(255,255,255,0.06)', flexShrink: 0 }}>
+          <Link to="/" style={{ textDecoration: 'none', display: 'flex', alignItems: 'center', gap: 10 }}>
+            <div style={{ width: 28, height: 28, background: '#6366F1', borderRadius: 7, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+              <CheckSquare size={15} color="#fff" strokeWidth={2.5} />
+            </div>
+            <span style={{ fontFamily: 'var(--font-display)', fontWeight: 700, fontSize: 17, color: '#fff' }}>StageCheck</span>
+          </Link>
+        </div>
+
+        {/* Role badge */}
+        <div style={{ padding: '12px 16px', borderBottom: '1px solid rgba(255,255,255,0.06)', flexShrink: 0 }}>
+          <div style={{
+            display: 'flex', alignItems: 'center', gap: 8,
+            background: 'rgba(99,102,241,0.1)', border: '1px solid rgba(99,102,241,0.25)',
+            borderRadius: 8, padding: '8px 10px',
+          }}>
+            <Shield size={14} color="#818CF8" />
+            <div>
+              <div style={{ fontSize: 10, color: 'rgba(255,255,255,0.4)', marginBottom: 1 }}>Your Role</div>
+              <div style={{ fontSize: 13, fontWeight: 700, color: '#818CF8', fontFamily: 'var(--font-display)' }}>
+                Check-in Admin
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <nav style={{ flex: 1, padding: '12px 8px' }}>
+          <div style={{ marginBottom: 20 }}>
+            <div style={{ fontSize: 10, fontWeight: 600, color: 'rgba(129,140,248,0.5)', letterSpacing: '1.2px', textTransform: 'uppercase', padding: '0 8px', marginBottom: 6 }}>
+              My Tools
+            </div>
+            {SUB_ADMIN_NAV_ITEMS.map(navLink)}
+          </div>
+        </nav>
+
+        {/* User row */}
+        <div style={{ padding: '12px 8px', flexShrink: 0 }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '10px', borderRadius: 8, border: '1px solid rgba(255,255,255,0.07)', background: 'rgba(255,255,255,0.03)' }}>
+            <div style={{ width: 32, height: 32, borderRadius: '50%', background: 'linear-gradient(135deg, #6366F1, #818CF8)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 13, fontWeight: 700, color: '#fff', flexShrink: 0 }}>
+              {displayName.charAt(0).toUpperCase()}
+            </div>
+            <div style={{ flex: 1, minWidth: 0 }}>
+              <div style={{ fontSize: 13, color: '#fff', fontWeight: 500, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{displayName}</div>
+              <div style={{ fontSize: 10, color: 'rgba(255,255,255,0.3)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{user?.email}</div>
+            </div>
+            <button
+              onClick={onSignOut}
+              title="Sign out"
+              style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'rgba(255,255,255,0.3)', padding: 4, display: 'flex', flexShrink: 0, transition: 'color 0.2s' }}
+              onMouseEnter={e => e.currentTarget.style.color = '#F87171'}
+              onMouseLeave={e => e.currentTarget.style.color = 'rgba(255,255,255,0.3)'}
+            >
+              <LogOut size={15} />
+            </button>
+          </div>
+        </div>
+      </div>
+    )
+  }
+
+  // ── Full organizer sidebar ─────────────────────────────────────────────────
   return (
     <div style={{ display: 'flex', flexDirection: 'column', minHeight: '100%' }}>
 
@@ -258,6 +331,10 @@ export default function DashboardLayout({
   const navigate = useNavigate()
   const [sidebarOpen, setSidebarOpen] = useState(false)
 
+  // Detect if current user is a sub-admin (team member, not organizer)
+  const { member, loading: roleLoading } = useTeamRole(eventId || undefined)
+  const isSubAdmin = !!member && !roleLoading
+
   const handleSignOut = useCallback(async () => {
     await signOut()
     navigate('/')
@@ -276,6 +353,7 @@ export default function DashboardLayout({
     onNavClick: handleNavClick,
     onSignOut: handleSignOut,
     user,
+    isSubAdmin,
   }
 
   return (

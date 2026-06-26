@@ -96,36 +96,39 @@ export default function EventDetailPage() {
     if (!eventId) return
     async function load() {
       try {
-        const snap = await getDoc(doc(db, 'events', eventId!))
-        if (snap.exists()) {
-          const data = { id: snap.id, ...snap.data() } as EventData
-          setEvent(data)
+     const snap = await getDoc(doc(db, 'events', eventId!))
+if (snap.exists()) {
+  const data = { id: snap.id, ...snap.data() } as EventData
+  setEvent(data)
+  try {
+    const rq    = query(collection(db, 'events'), limit(12))
+    const rSnap = await getDocs(rq)
+    const now   = new Date()
+    setRelatedEvents(
+      rSnap.docs
+        .filter(d => {
+          if (d.id === eventId) return false
           try {
-            const rq    = query(collection(db, 'events'), limit(12))
-            const rSnap = await getDocs(rq)
-            const now   = new Date()
-            setRelatedEvents(
-              rSnap.docs
-                .filter(d => {
-                  if (d.id === eventId) return false
-                  try {
-                    const raw    = d.data().date
-                    const evDate = raw?.toDate ? raw.toDate() : new Date(raw)
-                    return evDate >= now
-                  } catch { return true }
-                })
-                .slice(0, 4)
-                .map(d => ({ id: d.id, ...d.data() } as EventData))
-            )
-          } catch { /* non-critical */ }
-        }
-        const tSnap = await getDocs(collection(db, 'events', eventId!, 'tickets'))
-        setTickets(tSnap.docs.map(d => ({ id: d.id, ...d.data() } as TicketType)))
-      } catch (e) { console.error(e) }
-      finally { setLoading(false) }
-    }
-    load()
-  }, [eventId])
+            const raw    = d.data().date
+            const evDate = raw?.toDate ? raw.toDate() : new Date(raw)
+            return evDate >= now
+          } catch { return true }
+        })
+        .slice(0, 4)
+        .map(d => ({ id: d.id, ...d.data() } as EventData))
+    )
+  } catch { /* non-critical */ }
+
+  // ── CHANGED: pick the right subcollection based on event type ──
+  const ticketCol = (data as any).eventType === 'network' ? 'networkTickets' : 'tickets'
+  const tSnap = await getDocs(collection(db, 'events', eventId!, ticketCol))
+  setTickets(tSnap.docs.map(d => ({ id: d.id, ...d.data() } as TicketType)))
+}
+} catch (e) { console.error(e) }
+finally { setLoading(false) }
+}
+load()
+}, [eventId])
 
   // Sync liked/saved state
   useEffect(() => {
@@ -207,20 +210,19 @@ export default function EventDetailPage() {
           attendeeEmail: attendee.email,
         }).catch(console.error)
       }
-
       fetch(`${CF_BASE}/sendTicketConfirmation`, {
-        method:  'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          attendeeName:   attendee.name,   attendeeEmail: attendee.email,
-          phone:          attendee.phone,  ticketCode:    finalCode,
-          ticketType:     selectedTicket.name, ticketQty: qty,
-          eventName:      event.name,      eventDate:     formatDate(event.date),
-          eventTime:      event.startTime ? formatTime(event.startTime) : '',
-          venueName:      event.venue || '', venueAddress: event.address || '',
-          organizerEmail: event.organizerEmail || event.organizer?.email || '',
-        }),
-      }).catch(console.error)
+  method:  'POST',
+  headers: { 'Content-Type': 'application/json' },
+  body: JSON.stringify({
+    attendeeName:   attendee.name,   attendeeEmail: attendee.email,
+    phone:          attendee.phone,  ticketCode:    finalCode,
+    ticketType:     selectedTicket.name, ticketQty: qty,
+    eventName:      event.name,      eventDate:     formatDate(event.date),
+    eventTime:      event.startTime ? formatTime(event.startTime) : '',
+    venueName:      event.venue || '', venueAddress: event.address || '',
+    eventImage:     event.coverImage || '',
+  }),
+}).catch(console.error)
     } catch (e) {
       console.error(e)
       paymentInProgress.current = false
@@ -273,10 +275,21 @@ export default function EventDetailPage() {
     setReportSubmitting(false)
   }
 
-  const handleGetTickets = () => {
-    setNavigatingToTickets(true)
-    setTimeout(() => navigate(`/event/${eventId}/tickets`), 900)
-  }
+ const handleGetTickets = () => {
+  setNavigatingToTickets(true)
+  const isNetwork = (event as any)?.eventType === 'network'
+  const path = isNetwork
+    ? `/event/${eventId}/network/tickets`
+    : `/event/${eventId}/tickets`
+  
+  // Pass selected ticket + qty as location state
+  setTimeout(() => navigate(path, {
+    state: {
+      preSelectedTicketId: selectedTicket?.id || null,
+      preSelectedQty: qty || 1,
+    }
+  }), 900)
+}
 
   // ── Loading / not-found ────────────────────────────────────────────────────
 

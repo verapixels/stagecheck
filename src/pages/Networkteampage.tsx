@@ -132,9 +132,9 @@ export default function NetworkTeamPage() {
   const activeCount    = members.length
   const pendingCount   = pendingInvites.length
 
-  const organizerName  = event?.organizerName || user?.displayName || 'Organizer'
-  const eventName      = event?.eventName || ''
-  const eventImage     = event?.coverImage || ''
+  const organizerName  = event?.organizerName || event?.createdByName || user?.displayName || 'Organizer'
+  const eventName      = event?.eventName || event?.name || event?.title || eventId || ''
+  const eventImage     = event?.coverImage || event?.bannerImage || event?.media?.[0]?.url || ''
 
   return (
     <DashboardLayout

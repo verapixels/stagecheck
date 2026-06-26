@@ -21,11 +21,16 @@ import Onboarding from './pages/Onboarding'
 import EventManagerHome from './pages/EventManagerHome'
 import EventDashboard from './pages/Eventdashboard'
 import EventsPage from './pages/EventsPage'
+import SettingsPage from './pages/SettingsPage'
 
 // Protected — user dashboard
 import Dashboard from './pages/Dashboard'
 import InvitationsPage from './pages/InvitationsPage'
-import SettingsPage from './pages/SettingsPage'
+import MyTickets from './pages/userMyTickets'
+import SavedEvents from './pages/userSavedevents'
+import UserSettings from './pages/userSettings'
+import HelpSupport from './pages/userHelpsupport'
+import PaymentMethods from './pages/userPaymentmethod'
 import JoinPage from './pages/JoinPage'
 
 // Public event detail
@@ -79,6 +84,8 @@ import NetworkCheckinPage from './pages/NetworkCheckinPage'
 import NetworkAnalyticsPage from './pages/NetworkAnalyticsPage'
 import NetworkTeamPage from './pages/Networkteampage'
 import PublicNetworkRegPage from './pages/PublicNetworkRegPage'
+import AcceptInvitationPage from './pages/Acceptinvitationpage'
+import PublicNetworkTicketPage from './pages/PublicNetworkTicketPage'
 
 function ScrollRestorer() {
   const { pathname } = useLocation()
@@ -166,19 +173,19 @@ export default function App() {
           <Route path="/join/:joinCode" element={<JoinPage />} />
           <Route path="/event/:eventId" element={<EventDetailPage />} />
           <Route path="/event/:eventId/tickets" element={<GetTicketsPage />} />
+          <Route path="/event/:eventId/network/tickets" element={<PublicNetworkTicketPage />} /> 
           <Route path="/submit/:eventSlug/:eventId" element={<SubmitPage />} />
           <Route path="/feedback/:tokenId" element={<FeedbackPage />} />
           <Route path="/register/:eventId" element={<PublicNetworkRegPage />} />
 
-          {/* ── PROTECTED — USER DASHBOARD ── */}
+           {/* ── PROTECTED — USER DASHBOARD ── */}
           <Route path="/dashboard" element={<ProtectedRoute><Dashboard /></ProtectedRoute>} />
           <Route path="/dashboard/invitations" element={<ProtectedRoute><InvitationsPage /></ProtectedRoute>} />
-          <Route path="/dashboard/settings" element={<ProtectedRoute><SettingsPage /></ProtectedRoute>} />
-          <Route path="/dashboard/tickets" element={<ProtectedRoute><Dashboard /></ProtectedRoute>} />
-          <Route path="/dashboard/saved" element={<ProtectedRoute><Dashboard /></ProtectedRoute>} />
-          <Route path="/dashboard/profile" element={<ProtectedRoute><Dashboard /></ProtectedRoute>} />
-          <Route path="/dashboard/payment-methods" element={<ProtectedRoute><Dashboard /></ProtectedRoute>} />
-          <Route path="/dashboard/help" element={<ProtectedRoute><Dashboard /></ProtectedRoute>} />
+          <Route path="/dashboard/settings" element={<ProtectedRoute><UserSettings /></ProtectedRoute>} />
+          <Route path="/dashboard/tickets" element={<ProtectedRoute><MyTickets /></ProtectedRoute>} />
+          <Route path="/dashboard/saved" element={<ProtectedRoute><SavedEvents /></ProtectedRoute>} />
+          <Route path="/dashboard/payment-methods" element={<ProtectedRoute><PaymentMethods /></ProtectedRoute>} />
+          <Route path="/dashboard/help" element={<ProtectedRoute><HelpSupport /></ProtectedRoute>} />
 
           {/* ── PROTECTED — EVENT MANAGEMENT (organizer) ── */}
           <Route path="/onboarding" element={<ProtectedRoute><Onboarding /></ProtectedRoute>} />
@@ -219,6 +226,8 @@ export default function App() {
             <Route path="/superadmin/analytics" element={<AdminAnalytics />} />
             <Route path="/superadmin/settings" element={<AdminSettingsPage />} />
           </Route>
+
+          <Route path="/accept-invitation/:invitationId" element={<AcceptInvitationPage />} />
 
           {/* ── CATCH ALL ── */}
           <Route path="*" element={<Navigate to="/" replace />} />

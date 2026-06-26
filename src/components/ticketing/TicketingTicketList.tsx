@@ -56,7 +56,7 @@ export default function TicketingTicketList({
                 position: 'relative',
                 transition: 'border-color 0.2s, background 0.2s',
               }}>
-                <div style={{ height: 3, background: `linear-gradient(90deg, ${accent}, ${accent}60)` }} />
+                
                 <div style={{
                   padding: 18, display: 'flex', alignItems: 'flex-start',
                   justifyContent: 'space-between', gap: 16, flexWrap: 'wrap',

@@ -1,7 +1,8 @@
+// src/context/Authcontext.tsx
 import { createContext, useContext, useEffect, useState } from 'react'
 import type { ReactNode } from 'react'
-import { 
-  onAuthStateChanged, signInWithEmailAndPassword, 
+import {
+  onAuthStateChanged, signInWithEmailAndPassword,
   createUserWithEmailAndPassword, signOut,
   GoogleAuthProvider, signInWithPopup,
   updateProfile,
@@ -9,6 +10,7 @@ import {
 import type { User } from 'firebase/auth'
 import { doc, setDoc, serverTimestamp } from 'firebase/firestore'
 import { auth, db } from '../lib/firebase'
+import { linkGuestTicketsToUser } from '../lib/useUserTickets'
 
 interface AuthContextType {
   user: User | null
@@ -40,7 +42,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     try {
       const cred = await createUserWithEmailAndPassword(auth, email, password)
       await updateProfile(cred.user, { displayName: fullName })
-      
+
       // Create Firestore user doc
       await setDoc(doc(db, 'users', cred.user.uid), {
         displayName: fullName,
@@ -52,65 +54,81 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         photoURL: '',
       })
 
+      // Link any tickets they bought as a guest before signing up
+      await linkGuestTicketsToUser(cred.user.uid, email)
+
       return { error: null }
     } catch (error) {
       return { error }
     }
   }
 
-const signIn = async (email: string, password: string) => {
-  try {
-    const cred = await signInWithEmailAndPassword(auth, email, password)
-    
-    await setDoc(doc(db, 'users', cred.user.uid), {
-      email: cred.user.email ?? email,
-      displayName: cred.user.displayName ?? email.split('@')[0],
-      photoURL: cred.user.photoURL ?? '',
-      suspended: false,
-      lastLogin: serverTimestamp(),
-    }, { merge: true })
+  const signIn = async (email: string, password: string) => {
+    try {
+      const cred = await signInWithEmailAndPassword(auth, email, password)
 
-    return { error: null }
-  } catch (error) {
-    return { error }
+      await setDoc(doc(db, 'users', cred.user.uid), {
+        email: cred.user.email ?? email,
+        displayName: cred.user.displayName ?? email.split('@')[0],
+        photoURL: cred.user.photoURL ?? '',
+        suspended: false,
+        lastLogin: serverTimestamp(),
+      }, { merge: true })
+
+      // Link any guest tickets purchased with this email
+      await linkGuestTicketsToUser(cred.user.uid, email)
+
+      return { error: null }
+    } catch (error) {
+      return { error }
+    }
   }
-}
 
   const signInWithGoogle = async (isLogin = false) => {
-  try {
-    const provider = new GoogleAuthProvider()
-    const result = await signInWithPopup(auth, provider)
+    try {
+      const provider = new GoogleAuthProvider()
+      const result = await signInWithPopup(auth, provider)
 
-    const isNewUser = result.user.metadata.creationTime === result.user.metadata.lastSignInTime
+      const isNewUser = result.user.metadata.creationTime === result.user.metadata.lastSignInTime
 
-    if (isLogin && isNewUser) {
-      await result.user.delete()
-      await signOut(auth)
-      return { error: { code: 'auth/user-not-found', message: 'No account found for this Google email. Please sign up first.' } }
+      if (isLogin && isNewUser) {
+        await result.user.delete()
+        await signOut(auth)
+        return {
+          error: {
+            code: 'auth/user-not-found',
+            message: 'No account found for this Google email. Please sign up first.',
+          },
+        }
+      }
+
+      // Always update Firestore
+      await setDoc(doc(db, 'users', result.user.uid), {
+        email: result.user.email ?? '',
+        displayName: result.user.displayName ?? '',
+        photoURL: result.user.photoURL ?? '',
+        suspended: false,
+        lastLogin: serverTimestamp(),
+      }, { merge: true })
+
+      // Link any guest tickets purchased with this email
+      if (result.user.email) {
+        await linkGuestTicketsToUser(result.user.uid, result.user.email)
+      }
+
+      return { error: null }
+    } catch (error) {
+      return { error }
     }
-
-    // Always update Firestore
-    await setDoc(doc(db, 'users', result.user.uid), {
-      email: result.user.email ?? '',
-      displayName: result.user.displayName ?? '',
-      photoURL: result.user.photoURL ?? '',
-      suspended: false,
-      lastLogin: serverTimestamp(),
-    }, { merge: true })
-
-    return { error: null }
-  } catch (error) {
-    return { error }
   }
-}
-     
+
   const handleSignOut = async () => {
     await signOut(auth)
   }
 
   return (
-    <AuthContext.Provider value={{ 
-      user, loading, signUp, signIn, signInWithGoogle, signOut: handleSignOut 
+    <AuthContext.Provider value={{
+      user, loading, signUp, signIn, signInWithGoogle, signOut: handleSignOut,
     }}>
       {children}
     </AuthContext.Provider>

@@ -1,11 +1,13 @@
 // src/lib/useUserTickets.ts
-import { useEffect, useState } from 'react'
+import { useEffect, useState, useMemo } from 'react'
 import {
-  collection, query, orderBy, onSnapshot,
-  doc, getDoc, setDoc, serverTimestamp,   // ← all static imports, no dynamic import
+  collection, query, onSnapshot,
+  doc, getDoc, setDoc, serverTimestamp,
+  collectionGroup, where, getDocs,
 } from 'firebase/firestore'
-import { db } from './firebase'             // ← single shared db instance
+import { db } from './firebase'
 
+// ─── TicketDoc: raw shape stored in Firestore ────────────────────────────────
 export interface TicketDoc {
   id: string
   eventId: string
@@ -20,26 +22,118 @@ export interface TicketDoc {
   qty?: number
   attendeeName?: string
   attendeeEmail?: string
-  purchasedAt?: string
+  purchasedAt?: any
+  status?: 'upcoming' | 'used' | 'cancelled'
 }
 
-export function useUserTickets(uid?: string) {
-  const [tickets, setTickets] = useState<TicketDoc[]>([])
-  const [loading, setLoading] = useState(true)
+// ─── UserTicket: richer shape expected by MyTickets.tsx ──────────────────────
+export interface UserTicket {
+  id: string
+  eventId: string
+  eventName: string
+  eventImage?: string
+  eventDate: string
+  eventTime?: string
+  venue?: string
+  city?: string
+  eventCategory?: string
+  ticketType?: string
+  ticketNumber: string
+  ticketCode?: string
+  quantity: number
+  qty?: number
+  attendeeName?: string
+  attendeeEmail?: string
+  purchasedAt?: any
+  purchasedOn?: string
+  orderId?: string
+  paymentMethod?: string
+  pricePaid?: number
+  qrCode?: string
+  status: 'upcoming' | 'used' | 'cancelled'
+  source?: 'ticket' | 'network'
+}
 
+// ─── Derive status from eventDate ────────────────────────────────────────────
+function deriveStatus(eventDate?: string): 'upcoming' | 'used' | 'cancelled' {
+  if (!eventDate) return 'upcoming'
+  const ev = new Date(eventDate)
+  return ev >= new Date() ? 'upcoming' : 'used'
+}
+
+// ─── Map raw TicketDoc → UserTicket ─────────────────────────────────────────
+function toUserTicket(t: TicketDoc): UserTicket {
+  const purchasedOn = t.purchasedAt?.toDate
+    ? t.purchasedAt.toDate().toISOString()
+    : t.purchasedAt
+      ? String(t.purchasedAt)
+      : undefined
+
+  return {
+    ...t,
+    eventDate:    t.eventDate    || '',
+    venue:        t.eventLocation || '',
+    ticketNumber: t.ticketCode   || t.id,
+    quantity:     t.qty          || 1,
+    purchasedOn,
+    status:       t.status       || deriveStatus(t.eventDate),
+    source:       'ticket',
+  }
+}
+
+// ─── Map network registration → UserTicket ───────────────────────────────────
+function networkRegToUserTicket(d: any, eventId: string, eventData: any): UserTicket {
+  const purchasedOn = d.submittedAt?.toDate
+    ? d.submittedAt.toDate().toISOString()
+    : undefined
+
+  const eventDateStr = eventData?.date
+    ? (typeof eventData.date === 'string'
+        ? eventData.date
+        : eventData.date?.toDate
+          ? eventData.date.toDate().toISOString().split('T')[0]
+          : String(eventData.date))
+    : ''
+
+  return {
+    id:            d.id,
+    eventId,
+    eventName:     eventData?.name      || eventData?.eventName || 'Network Event',
+    eventImage:    eventData?.coverImage || '',
+    eventDate:     eventDateStr,
+    eventTime:     eventData?.startTime  || '',
+    venue:         eventData?.venue      || eventData?.address   || '',
+    ticketNumber:  d.ticketCode          || d.id,
+    ticketCode:    d.ticketCode,
+    ticketType:    d.ticketTypes?.[0]?.name || 'Network Ticket',
+    quantity:      d.ticketTypes?.reduce((s: number, t: any) => s + (t.qty || 1), 0) || 1,
+    attendeeName:  d.fullName            || d.name || '',
+    attendeeEmail: d.email               || '',
+    purchasedAt:   d.submittedAt,
+    purchasedOn,
+    orderId:       d.paymentRef          || '',
+    pricePaid:     d.totalPaid           || 0,
+    status:        deriveStatus(eventDateStr),
+    source:        'network',
+  }
+}
+
+// ─── Hook ────────────────────────────────────────────────────────────────────
+export function useUserTickets(uid?: string, email?: string) {
+  const [rawTickets, setRawTickets]   = useState<TicketDoc[]>([])
+  const [networkTickets, setNetwork]  = useState<UserTicket[]>([])
+  const [loading, setLoading]         = useState(true)
+
+  // ── Regular tickets from users/{uid}/tickets ──
   useEffect(() => {
     if (!uid) {
-      setTickets([])
+      setRawTickets([])
       setLoading(false)
       return
     }
 
-    const ref = collection(db, 'users', uid, 'tickets')
-
-    // ── FIX 1: removed orderBy('purchasedAt') — it requires a Firestore
-    // composite index that may not exist, causing the listener to silently
-    // return 0 results. We sort client-side instead (see below).
-    const q = query(ref)
+    const ref  = collection(db, 'users', uid, 'tickets')
+    const q    = query(ref)
 
     const unsub = onSnapshot(
       q,
@@ -49,7 +143,6 @@ export function useUserTickets(uid?: string) {
           ...(d.data() as Omit<TicketDoc, 'id'>),
         }))
 
-        // Hydrate any ticket missing display fields from its event doc
         const hydrated = await Promise.all(
           raw.map(async t => {
             if (t.eventName && t.eventDate) return t
@@ -79,19 +172,16 @@ export function useUserTickets(uid?: string) {
           })
         )
 
-        // ── FIX 2: sort client-side by purchasedAt descending so newest tickets
-        // appear first, without needing a Firestore index.
         hydrated.sort((a, b) => {
           const aTime = (a as any).purchasedAt?.seconds ?? 0
           const bTime = (b as any).purchasedAt?.seconds ?? 0
           return bTime - aTime
         })
 
-        setTickets(hydrated)
+        setRawTickets(hydrated)
         setLoading(false)
       },
       err => {
-        // ── FIX 3: log the actual error so you can see it in the console
         console.error('[useUserTickets] Firestore error:', err)
         setLoading(false)
       }
@@ -100,17 +190,63 @@ export function useUserTickets(uid?: string) {
     return unsub
   }, [uid])
 
-  return { tickets, loading }
+  // ── Network registrations via collectionGroup query on email ──
+  useEffect(() => {
+    if (!email) {
+      setNetwork([])
+      return
+    }
+
+    getDocs(
+      query(
+        collectionGroup(db, 'networkRegistrations'),
+        where('email', '==', email)
+      )
+    ).then(async snap => {
+      if (snap.empty) { setNetwork([]); return }
+
+      const results = await Promise.all(
+        snap.docs.map(async d => {
+          const eventId  = d.ref.parent.parent?.id || ''
+          let eventData: any = {}
+          if (eventId) {
+            try {
+              const evSnap = await getDoc(doc(db, 'events', eventId))
+              if (evSnap.exists()) eventData = evSnap.data()
+            } catch { /* ignore */ }
+          }
+          return networkRegToUserTicket({ id: d.id, ...d.data() }, eventId, eventData)
+        })
+      )
+
+      results.sort((a, b) => {
+        const aTime = (a.purchasedAt as any)?.seconds ?? 0
+        const bTime = (b.purchasedAt as any)?.seconds ?? 0
+        return bTime - aTime
+      })
+
+      setNetwork(results)
+    }).catch(err => console.error('[useUserTickets] network query error:', err))
+  }, [email])
+
+  const tickets   = useMemo(() => {
+    const all = [...rawTickets.map(toUserTicket), ...networkTickets]
+    all.sort((a, b) => {
+      const aTime = (a.purchasedAt as any)?.seconds ?? 0
+      const bTime = (b.purchasedAt as any)?.seconds ?? 0
+      return bTime - aTime
+    })
+    return all
+  }, [rawTickets, networkTickets])
+
+  const upcoming  = useMemo(() => tickets.filter(t => t.status === 'upcoming'),  [tickets])
+  const used      = useMemo(() => tickets.filter(t => t.status === 'used'),      [tickets])
+  const cancelled = useMemo(() => tickets.filter(t => t.status === 'cancelled'), [tickets])
+
+  return { tickets, loading, upcoming, used, cancelled }
 }
 
-/**
- * Saves a ticket to users/{uid}/tickets after a successful payment.
- *
- * ── FIX 4: replaced dynamic `await import(...)` with the static imports at the
- * top of this file. The dynamic import created a second firebase app instance
- * that didn't carry the user's auth state, so setDoc() would hit a permissions
- * error and silently fail.
- */
+// ─── Save a ticket doc after purchase ────────────────────────────────────────
 export async function saveTicketToUser(
   uid: string,
   data: {
@@ -132,5 +268,43 @@ export async function saveTicketToUser(
   await setDoc(ref, {
     ...data,
     purchasedAt: serverTimestamp(),
-  })
+  }, { merge: true })
+}
+
+export async function linkGuestTicketsToUser(uid: string, email: string): Promise<void> {
+  try {
+    const q = query(
+      collectionGroup(db, 'attendees'),
+      where('email', '==', email)
+    )
+    const snap = await getDocs(q)
+    if (snap.empty) return
+
+    await Promise.all(
+      snap.docs.map(async (d) => {
+        const data    = d.data()
+        const eventId = d.ref.parent.parent?.id
+        if (!eventId || !data.ticketCode) return
+
+        await saveTicketToUser(uid, {
+          eventId,
+          eventName:     data.eventName     || '',
+          eventImage:    data.eventImage    || data.coverImage || '',
+          eventDate:     data.eventDate     || '',
+          eventTime:     data.eventTime     || '',
+          eventLocation: data.eventVenue    || data.eventLocation || '',
+          eventCategory: data.eventCategory || '',
+          ticketCode:    data.ticketCode,
+          ticketType:    data.ticketType    || '',
+          qty:           data.quantity      || data.qty || 1,
+          attendeeName:  data.name          || data.attendeeName || '',
+          attendeeEmail: data.email         || '',
+        })
+      })
+    )
+
+    console.log(`[linkGuestTicketsToUser] Linked ${snap.size} ticket(s) to uid=${uid}`)
+  } catch (err) {
+    console.error('[linkGuestTicketsToUser] failed:', err)
+  }
 }

@@ -4,33 +4,27 @@ import fetch from 'node-fetch'
 
 const resendApiKey = defineSecret('RESEND_API_KEY')
 const FROM_EMAIL = 'StageCheck <hello@verapixels.com>'
+const SUPPORT_EMAIL = 'support@stagecheck.com.ng'
 
 const LOGO_URL =
-  'https://res.cloudinary.com/dr0qtfjjf/image/upload/q_auto/f_auto/v1780966404/ChatGPT_Image_Jun_8_2026_10_17_50_PM_phtfqg.png'
-
-const RIBBON_URL =
-  'https://res.cloudinary.com/dr0qtfjjf/image/upload/q_auto/f_auto/v1780966404/ChatGPT_Image_Jun_8_2026_10_17_50_PM_phtfqg.png'
+  'https://res.cloudinary.com/dr0qtfjjf/image/upload/v1780966404/ChatGPT_Image_Jun_8_2026_10_17_50_PM_phtfqg.png'
 
 const SOCIALS = {
-  facebook:  'https://facebook.com/yourpage',
-  instagram: 'https://instagram.com/yourhandle',
-  twitter:   'https://x.com/yourhandle',
-  youtube:   'https://youtube.com/@yourhandle',
-  tiktok:    'https://tiktok.com/@yourhandle',
+  facebook:  'https://facebook.com/stagecheckapp',
+  instagram: 'https://instagram.com/stagecheckapp',
+  twitter:   'https://x.com/stagecheckapp',
+  youtube:   'https://youtube.com/@stagecheckapp',
+  tiktok:    'https://tiktok.com/@stagecheckapp',
 }
 
-// Email-safe hosted PNG icons (white on transparent, will tint green via background circle)
-// Using Simple Icons CDN which serves reliable PNGs
 const ICON_FACEBOOK  = 'https://cdn.simpleicons.org/facebook/0dc75e'
 const ICON_INSTAGRAM = 'https://cdn.simpleicons.org/instagram/0dc75e'
 const ICON_X         = 'https://cdn.simpleicons.org/x/0dc75e'
-const ICON_YOUTUBE   = 'https://cdn.simpleicons.org/youtube/0dc75e'
 const ICON_TIKTOK    = 'https://cdn.simpleicons.org/tiktok/0dc75e'
 
-function qrImageUrl(data: string, size = 200): string {
+function qrImageUrl(data: string, size = 240): string {
   return `https://api.qrserver.com/v1/create-qr-code/?size=${size}x${size}&data=${encodeURIComponent(data)}&color=000000&bgcolor=ffffff&qzone=2&format=png`
 }
-
 
 function buildTicketEmail(params: {
   attendeeName: string
@@ -43,291 +37,225 @@ function buildTicketEmail(params: {
   eventTime: string
   venueName: string
   venueAddress: string
-  organizerEmail?: string
+  eventImage?: string
 }): string {
   const {
     attendeeName, phone, ticketCode, ticketType,
     ticketQty, eventName, eventDate, eventTime,
-    venueName, venueAddress, organizerEmail,
+    venueName, venueAddress, eventImage,
   } = params
 
-  const qrData = JSON.stringify({ code: ticketCode, event: eventName, attendee: attendeeName, ticket: ticketType })
-  const qrUrl  = qrImageUrl(qrData, 180)
+  const qrData = JSON.stringify({ code: ticketCode, event: eventName, attendee: attendeeName })
+  const qrUrl  = qrImageUrl(qrData, 240)
   const firstName = attendeeName.split(' ')[0] || attendeeName
+  const banner = eventImage || LOGO_URL
 
   const socialIcons = [
-    { href: SOCIALS.facebook,  src: ICON_FACEBOOK,  alt: 'Facebook' },
     { href: SOCIALS.instagram, src: ICON_INSTAGRAM, alt: 'Instagram' },
     { href: SOCIALS.twitter,   src: ICON_X,         alt: 'X' },
-    { href: SOCIALS.youtube,   src: ICON_YOUTUBE,   alt: 'YouTube' },
+    { href: SOCIALS.facebook,  src: ICON_FACEBOOK,  alt: 'Facebook' },
     { href: SOCIALS.tiktok,    src: ICON_TIKTOK,    alt: 'TikTok' },
   ].map(s => `
     <td style="padding:0 5px;">
       <a href="${s.href}" target="_blank" style="display:inline-block;text-decoration:none;">
-        <table cellpadding="0" cellspacing="0" border="0">
-          <tr>
-            <td style="width:40px;height:40px;border-radius:20px;background:rgba(13,199,94,0.15);border:1.5px solid rgba(13,199,94,0.35);text-align:center;vertical-align:middle;">
-              <img src="${s.src}" alt="${s.alt}" width="18" height="18"
-                   style="width:18px;height:18px;display:inline-block;vertical-align:middle;border:0;"/>
-            </td>
-          </tr>
-        </table>
+        <table cellpadding="0" cellspacing="0" border="0"><tr>
+          <td style="width:32px;height:32px;border-radius:16px;background:rgba(13,199,94,0.12);text-align:center;vertical-align:middle;">
+            <img src="${s.src}" alt="${s.alt}" width="14" height="14" style="width:14px;height:14px;display:inline-block;vertical-align:middle;border:0;"/>
+          </td>
+        </tr></table>
       </a>
     </td>`).join('')
 
-
-  // Use simple colored square bullets instead of icon images for the detail rows
-  // (most reliable across all email clients)
-  const bullet = `<td style="width:10px;height:10px;vertical-align:middle;padding-right:12px;">
-    <div style="width:8px;height:8px;border-radius:50%;background:#0dc75e;"></div>
-  </td>`
+  const detailRow = (glyph: string, label: string, value: string, subValue = '') => `
+    <tr>
+      <td style="padding:14px 20px;border-bottom:1px solid rgba(255,255,255,0.06);">
+        <table cellpadding="0" cellspacing="0" border="0" width="100%"><tr>
+          <td style="width:34px;vertical-align:top;padding-right:12px;">
+            <table cellpadding="0" cellspacing="0" border="0"><tr>
+              <td style="width:34px;height:34px;border-radius:10px;background:rgba(13,199,94,0.12);text-align:center;vertical-align:middle;">
+                <span style="font-size:14px;color:#0dc75e;font-weight:700;font-family:Arial,sans-serif;">${glyph}</span>
+              </td>
+            </tr></table>
+          </td>
+          <td style="vertical-align:middle;">
+            <div style="font-size:10px;font-weight:700;letter-spacing:0.8px;text-transform:uppercase;color:rgba(255,255,255,0.35);margin-bottom:2px;font-family:Arial,sans-serif;">${label}</div>
+            <div style="font-size:14px;font-weight:700;color:#ffffff;font-family:Arial,sans-serif;">${value}</div>
+            ${subValue ? `<div style="font-size:12px;color:rgba(255,255,255,0.45);margin-top:2px;font-family:Arial,sans-serif;">${subValue}</div>` : ''}
+          </td>
+        </tr></table>
+      </td>
+    </tr>`
 
   return `<!DOCTYPE html>
 <html lang="en">
 <head>
   <meta charset="UTF-8"/>
   <meta name="viewport" content="width=device-width,initial-scale=1.0"/>
+  <meta name="color-scheme" content="dark">
+  <meta name="supported-color-schemes" content="dark">
   <title>Your Ticket · ${eventName}</title>
+  <style>
+    [data-ogsc] img, [data-ogsb] img { background: transparent !important; }
+    u + .body img { background: transparent !important; }
+  </style>
 </head>
-<body style="margin:0;padding:0;background:#030d1a;font-family:Arial,Helvetica,sans-serif;-webkit-font-smoothing:antialiased;">
-<table width="100%" cellpadding="0" cellspacing="0" border="0" style="background:#030d1a;min-height:100vh;">
+<body style="margin:0;padding:0;background:#030d1a;font-family:Arial,Helvetica,sans-serif;">
+<table width="100%" cellpadding="0" cellspacing="0" border="0" style="background:#030d1a;">
   <tr>
-    <td align="center" style="padding:32px 12px 60px;">
-
+    <td align="center" style="padding:24px 12px 48px;">
       <table width="100%" cellpadding="0" cellspacing="0" border="0"
-             style="max-width:600px;background:#061220;border-radius:20px;border:1px solid rgba(13,199,94,0.2);overflow:hidden;box-shadow:0 32px 80px rgba(0,0,0,0.7);">
+             style="max-width:520px;background:#0a1424;border-radius:18px;border:1px solid rgba(13,199,94,0.15);overflow:hidden;">
 
-        <!-- top green bar -->
-        <tr><td style="height:4px;background:linear-gradient(90deg,#0dc75e,#14B8A6,#0dc75e);font-size:0;line-height:0;">&nbsp;</td></tr>
-
-        <!-- ── HEADER: logo + confirmed badge ── -->
+        <!-- HEADER -->
         <tr>
-          <td style="padding:24px 32px 0;">
-            <table width="100%" cellpadding="0" cellspacing="0" border="0">
-              <tr>
-                <td style="vertical-align:middle;">
-                  <img src="${LOGO_URL}" alt="StageCheck" height="32"
-                       style="height:32px;width:auto;display:block;border:0;"/>
-                </td>
-                <td align="right" style="vertical-align:middle;">
-                  <table cellpadding="0" cellspacing="0" border="0">
-                    <tr>
-                      <td style="background:rgba(13,199,94,0.1);border:1px solid rgba(13,199,94,0.35);border-radius:20px;padding:5px 12px;">
-                        <span style="font-size:12px;color:rgba(255,255,255,0.7);font-family:Arial,sans-serif;">Your Ticket is </span>
-                        <span style="font-size:12px;color:#0dc75e;font-weight:bold;font-family:Arial,sans-serif;">Confirmed &#10003;</span>
-                      </td>
-                    </tr>
-                  </table>
-                </td>
-              </tr>
-            </table>
+          <td style="padding:20px 22px 0;background:#0a1424;">
+            <table width="100%" cellpadding="0" cellspacing="0" border="0"><tr>
+              <td style="vertical-align:middle;background:#0a1424;">
+                <img src="${LOGO_URL}" alt="StageCheck" height="24" style="height:24px;width:auto;display:block;border:0;background:#0a1424;"/>
+              </td>
+              <td align="right" style="vertical-align:middle;">
+                <table cellpadding="0" cellspacing="0" border="0"><tr>
+                  <td style="background:rgba(13,199,94,0.12);border-radius:20px;padding:5px 12px;">
+                    <span style="font-size:11px;color:#0dc75e;font-weight:700;font-family:Arial,sans-serif;">&#10003; Ticket Confirmed</span>
+                  </td>
+                </tr></table>
+              </td>
+            </tr></table>
           </td>
         </tr>
 
-        <!-- ── HERO: You're All Set + ribbon ── -->
+        <!-- BANNER -->
         <tr>
-          <td style="padding:20px 32px 0;">
-            <table width="100%" cellpadding="0" cellspacing="0" border="0">
-              <tr>
-                <td style="vertical-align:top;padding-right:10px;">
-                  <div style="font-size:38px;font-weight:900;color:#ffffff;line-height:1.05;letter-spacing:-1px;font-family:Arial,sans-serif;">
-                    You're<br/>
-                    <span style="color:#0dc75e;">All Set!</span>
-                  </div>
-                  <p style="margin:12px 0 0;font-size:14px;color:rgba(255,255,255,0.6);line-height:1.6;font-family:Arial,sans-serif;">
-                    Hey <strong style="color:#0dc75e;">${firstName}</strong>,<br/>
-                    We can't wait to see you at the event!
-                  </p>
-                </td>
-                <td style="vertical-align:top;width:130px;text-align:right;">
-                  <img src="${RIBBON_URL}" alt="" width="120"
-                       style="width:120px;height:auto;display:inline-block;border:0;border-radius:10px;opacity:0.85;"/>
-                </td>
-              </tr>
-            </table>
+          <td style="padding:16px 22px 0;">
+            <div style="position:relative;border-radius:14px;overflow:hidden;background:#0a1628;">
+              <img src="${banner}" alt="${eventName}" width="476"
+                   style="width:100%;max-width:476px;height:160px;object-fit:cover;display:block;border:0;border-radius:14px;"/>
+              <table width="100%" cellpadding="0" cellspacing="0" border="0"
+                     style="position:absolute;bottom:0;left:0;right:0;background:linear-gradient(transparent,rgba(3,13,26,0.95));">
+                <tr>
+                  <td style="padding:30px 16px 14px;">
+                    <div style="font-size:20px;font-weight:900;color:#ffffff;font-family:Arial,sans-serif;">${eventName}</div>
+                    <div style="margin-top:6px;font-size:12px;color:#0dc75e;font-weight:600;font-family:Arial,sans-serif;">
+                      ${eventDate}${eventTime ? `&nbsp;&middot;&nbsp;${eventTime}` : ''}
+                    </div>
+                  </td>
+                </tr>
+              </table>
+            </div>
           </td>
         </tr>
 
-        <!-- ── TICKET CARD ── -->
+        <!-- HERO TEXT -->
         <tr>
-          <td style="padding:20px 32px 0;">
+          <td style="padding:24px 22px 4px;text-align:center;">
+            <div style="font-size:28px;font-weight:900;color:#ffffff;letter-spacing:-0.5px;font-family:Arial,sans-serif;">
+              You're <span style="color:#0dc75e;">All Set!</span>
+            </div>
+            <p style="margin:8px 0 0;font-size:13px;color:rgba(255,255,255,0.5);line-height:1.6;font-family:Arial,sans-serif;">
+              Your ticket has been successfully confirmed.<br/>
+              We can't wait to see you at the event, ${firstName}!
+            </p>
+          </td>
+        </tr>
+
+        <!-- TICKET DETAILS -->
+        <tr>
+          <td style="padding:18px 22px 0;">
             <table width="100%" cellpadding="0" cellspacing="0" border="0"
-                   style="background:rgba(255,255,255,0.04);border:1px solid rgba(13,199,94,0.2);border-radius:14px;">
-              <tr>
-                <td style="padding:20px 20px;">
-                  <table width="100%" cellpadding="0" cellspacing="0" border="0">
-                    <tr>
-
-                      <!-- Left: detail rows -->
-                      <td style="vertical-align:top;padding-right:16px;">
-
-                        <!-- Attendee Name -->
-                        <table cellpadding="0" cellspacing="0" border="0" style="margin-bottom:13px;width:100%;">
-                          <tr>
-                            ${bullet}
-                            <td style="vertical-align:middle;">
-                              <div style="font-size:10px;color:rgba(255,255,255,0.35);text-transform:uppercase;letter-spacing:0.08em;font-weight:bold;margin-bottom:2px;font-family:Arial,sans-serif;">Attendee Name</div>
-                              <div style="font-size:14px;font-weight:bold;color:#0dc75e;font-family:Arial,sans-serif;">${attendeeName}</div>
-                            </td>
-                          </tr>
-                        </table>
-
-                        <!-- Phone -->
-                        <table cellpadding="0" cellspacing="0" border="0" style="margin-bottom:13px;width:100%;">
-                          <tr>
-                            ${bullet}
-                            <td style="vertical-align:middle;">
-                              <div style="font-size:10px;color:rgba(255,255,255,0.35);text-transform:uppercase;letter-spacing:0.08em;font-weight:bold;margin-bottom:2px;font-family:Arial,sans-serif;">Phone Number</div>
-                              <div style="font-size:14px;font-weight:bold;color:#0dc75e;font-family:Arial,sans-serif;">${phone}</div>
-                            </td>
-                          </tr>
-                        </table>
-
-                        <!-- Ticket Number -->
-                        <table cellpadding="0" cellspacing="0" border="0" style="margin-bottom:13px;width:100%;">
-                          <tr>
-                            ${bullet}
-                            <td style="vertical-align:middle;">
-                              <div style="font-size:10px;color:rgba(255,255,255,0.35);text-transform:uppercase;letter-spacing:0.08em;font-weight:bold;margin-bottom:2px;font-family:Arial,sans-serif;">Ticket Number</div>
-                              <div style="font-size:13px;font-weight:bold;color:#0dc75e;letter-spacing:0.07em;font-family:'Courier New',monospace;">${ticketCode}</div>
-                            </td>
-                          </tr>
-                        </table>
-
-                        <!-- Date & Time -->
-                        <table cellpadding="0" cellspacing="0" border="0" style="margin-bottom:13px;width:100%;">
-                          <tr>
-                            ${bullet}
-                            <td style="vertical-align:middle;">
-                              <div style="font-size:10px;color:rgba(255,255,255,0.35);text-transform:uppercase;letter-spacing:0.08em;font-weight:bold;margin-bottom:2px;font-family:Arial,sans-serif;">Date &amp; Time</div>
-                              <div style="font-size:13px;font-weight:bold;color:#0dc75e;font-family:Arial,sans-serif;">${eventDate}${eventTime ? ' &middot; ' + eventTime : ''}</div>
-                            </td>
-                          </tr>
-                        </table>
-
-                        <!-- Venue -->
-                        <table cellpadding="0" cellspacing="0" border="0" style="margin-bottom:13px;width:100%;">
-                          <tr>
-                            ${bullet}
-                            <td style="vertical-align:top;">
-                              <div style="font-size:10px;color:rgba(255,255,255,0.35);text-transform:uppercase;letter-spacing:0.08em;font-weight:bold;margin-bottom:2px;font-family:Arial,sans-serif;">Venue</div>
-                              <div style="font-size:13px;font-weight:bold;color:#ffffff;font-family:Arial,sans-serif;">${venueName}</div>
-                              ${venueAddress ? `<div style="font-size:12px;color:rgba(255,255,255,0.5);margin-top:2px;font-family:Arial,sans-serif;">${venueAddress}</div>` : ''}
-                            </td>
-                          </tr>
-                        </table>
-
-                        <!-- Important -->
-                        <table cellpadding="0" cellspacing="0" border="0" style="width:100%;">
-                          <tr>
-                            ${bullet}
-                            <td style="vertical-align:top;">
-                              <div style="font-size:10px;color:rgba(255,255,255,0.35);text-transform:uppercase;letter-spacing:0.08em;font-weight:bold;margin-bottom:2px;font-family:Arial,sans-serif;">Important</div>
-                              <div style="font-size:12px;color:rgba(255,255,255,0.55);line-height:1.55;font-family:Arial,sans-serif;">
-                                Please arrive early and bring your QR code for a smooth check-in.
-                              </div>
-                            </td>
-                          </tr>
-                        </table>
-
-                      </td>
-
-                      <!-- Right: ticket count + QR -->
-                      <td style="vertical-align:top;width:150px;text-align:center;">
-                        <!-- ticket count pill -->
-                        <table cellpadding="0" cellspacing="0" border="0" style="margin:0 auto 12px;">
-                          <tr>
-                            <td style="background:rgba(13,199,94,0.15);border:1.5px solid rgba(13,199,94,0.4);border-radius:20px;padding:6px 14px;text-align:center;">
-                              <span style="font-size:12px;font-weight:bold;color:#0dc75e;font-family:Arial,sans-serif;">&#x2022; ${ticketQty} TICKET${ticketQty > 1 ? 'S' : ''}</span>
-                            </td>
-                          </tr>
-                        </table>
-
-                        <!-- QR -->
-                        <table cellpadding="0" cellspacing="0" border="0" style="margin:0 auto 10px;background:#060e1c;border:2px solid rgba(13,199,94,0.3);border-radius:12px;">
-                          <tr>
-                            <td style="padding:8px;">
-                              <img src="${qrUrl}" alt="QR Code" width="130" height="130"
-                                   style="width:130px;height:130px;display:block;border:0;border-radius:6px;"/>
-                            </td>
-                          </tr>
-                        </table>
-
-                        <div style="font-size:12px;font-style:italic;color:rgba(255,255,255,0.5);font-family:Arial,sans-serif;">
-                          &#x2197; Scan to Check-In
-                        </div>
-                      </td>
-
-                    </tr>
-                  </table>
-                </td>
-              </tr>
+                   style="background:rgba(255,255,255,0.03);border-radius:14px;overflow:hidden;">
+              ${detailRow('&#127915;', 'Ticket Type', `${ticketType} &middot; ${ticketQty} Ticket${ticketQty > 1 ? 's' : ''}`)}
+              ${detailRow('&#128100;', 'Attendee', attendeeName, phone || '')}
+              ${detailRow('&#128197;', 'Date &amp; Time', eventDate, eventTime || '')}
+              ${detailRow('&#128205;', 'Venue', venueName, venueAddress || '')}
             </table>
           </td>
         </tr>
 
-        <!-- ── REPLY CTA ── -->
+        <!-- ENTRY PASS -->
         <tr>
-          <td style="padding:22px 32px 0;text-align:center;">
-            <table cellpadding="0" cellspacing="0" border="0" style="margin:0 auto;">
-              <tr>
-                <td style="background:#0dc75e;border-radius:10px;padding:13px 28px;text-align:center;">
-                  <a href="mailto:${organizerEmail || 'hello@verapixels.com'}"
-                     style="font-size:14px;font-weight:bold;color:#000000;text-decoration:none;font-family:Arial,sans-serif;">
-                    &#x21A9; Reply to this email
-                  </a>
-                </td>
-              </tr>
+          <td style="padding:18px 22px 0;">
+            <table width="100%" cellpadding="0" cellspacing="0" border="0"
+                   style="background:rgba(13,199,94,0.06);border-radius:14px;">
+              <tr><td style="padding:22px;text-align:center;">
+                <div style="font-size:13px;font-weight:700;color:#0dc75e;margin-bottom:4px;font-family:Arial,sans-serif;">Your Entry Pass</div>
+                <div style="font-size:11px;color:rgba(255,255,255,0.4);margin-bottom:18px;font-family:Arial,sans-serif;">Show this QR code at the entrance</div>
+                <table cellpadding="0" cellspacing="0" border="0" style="margin:0 auto 14px;"><tr>
+                  <td style="background:#ffffff;border-radius:12px;padding:10px;">
+                    <img src="${qrUrl}" alt="QR Code" width="200" height="200" style="width:200px;height:200px;display:block;border:0;"/>
+                  </td>
+                </tr></table>
+                <div style="font-size:10px;font-weight:700;letter-spacing:1px;text-transform:uppercase;color:rgba(255,255,255,0.35);margin-bottom:4px;font-family:Arial,sans-serif;">Ticket Number</div>
+                <div style="font-size:16px;font-weight:900;color:#0dc75e;letter-spacing:1.5px;font-family:'Courier New',monospace;">${ticketCode}</div>
+              </td></tr>
             </table>
-            <p style="margin:10px 0 0;font-size:12px;color:rgba(255,255,255,0.3);font-family:Arial,sans-serif;">We're here to help!</p>
           </td>
         </tr>
 
-        <!-- divider -->
-        <tr><td style="padding:22px 32px 0;"><table width="100%" cellpadding="0" cellspacing="0" border="0"><tr><td style="height:1px;background:rgba(255,255,255,0.07);font-size:0;line-height:0;">&nbsp;</td></tr></table></td></tr>
-
-        <!-- ── SOCIAL ICONS ── -->
+        <!-- CTA -->
         <tr>
-          <td style="padding:20px 32px 0;text-align:center;">
-            <p style="margin:0 0 14px;font-size:12px;font-weight:bold;color:rgba(255,255,255,0.35);letter-spacing:0.6px;font-family:Arial,sans-serif;text-transform:uppercase;">Stay Connected</p>
-            <table cellpadding="0" cellspacing="0" border="0" style="margin:0 auto;">
-              <tr>${socialIcons}</tr>
+          <td style="padding:18px 22px 0;">
+            <table width="100%" cellpadding="0" cellspacing="0" border="0" style="background:#0dc75e;border-radius:12px;">
+              <tr><td style="padding:14px 20px;text-align:center;">
+                <a href="mailto:${SUPPORT_EMAIL}" style="font-size:14px;font-weight:900;color:#000000;text-decoration:none;font-family:Arial,sans-serif;">
+                  Contact Support &nbsp;&#8250;
+                </a>
+              </td></tr>
             </table>
+            <p style="margin:8px 0 0;font-size:11px;color:rgba(255,255,255,0.25);text-align:center;font-family:Arial,sans-serif;">
+              Access your ticket details, manage your order and more.
+            </p>
           </td>
         </tr>
 
-        <!-- divider -->
-        <tr><td style="padding:20px 32px 0;"><table width="100%" cellpadding="0" cellspacing="0" border="0"><tr><td style="height:1px;background:rgba(255,255,255,0.07);font-size:0;line-height:0;">&nbsp;</td></tr></table></td></tr>
-
-        <!-- ── FOOTER ── -->
+        <!-- IMPORTANT INFO -->
         <tr>
-          <td style="padding:18px 32px 28px;">
-            <table width="100%" cellpadding="0" cellspacing="0" border="0">
-              <tr>
-                <td style="vertical-align:top;">
-                  <img src="${LOGO_URL}" alt="StageCheck" height="22" style="height:22px;width:auto;display:block;margin-bottom:8px;border:0;opacity:0.5;"/>
-                  <p style="margin:0;font-size:11px;color:rgba(255,255,255,0.2);line-height:1.6;font-family:Arial,sans-serif;">
-                    &copy; 2025 StageCheck. All rights reserved.<br/>
-                    Making events seamless, secure and unforgettable.
-                  </p>
-                </td>
-                <td style="vertical-align:top;text-align:right;">
-                  <p style="margin:0 0 4px;font-size:11px;color:rgba(255,255,255,0.3);font-family:Arial,sans-serif;">
-                    Need help? <a href="mailto:hello@verapixels.com" style="color:#0dc75e;text-decoration:none;font-weight:bold;">Contact us</a>
-                  </p>
-                  <p style="margin:0;font-size:11px;color:rgba(255,255,255,0.2);line-height:1.7;font-family:Arial,sans-serif;">
-                    hello@stagecheck.com<br/>
-                    +234 701 000 0000
-                  </p>
-                </td>
-              </tr>
+          <td style="padding:18px 22px 0;">
+            <table width="100%" cellpadding="0" cellspacing="0" border="0" style="background:rgba(255,255,255,0.02);border-radius:14px;">
+              <tr><td style="padding:16px 18px;">
+                <div style="font-size:13px;font-weight:700;color:#ffffff;margin-bottom:10px;font-family:Arial,sans-serif;">Important Information</div>
+                ${['Please arrive at least 30 minutes early.', 'Bring your QR code for a smooth check-in.', 'This ticket is non-transferable.'].map(tip => `
+                <table cellpadding="0" cellspacing="0" border="0" style="margin-bottom:6px;"><tr>
+                  <td style="color:#0dc75e;font-size:13px;padding-right:8px;vertical-align:top;">&#10003;</td>
+                  <td style="font-size:12px;color:rgba(255,255,255,0.55);font-family:Arial,sans-serif;line-height:1.5;">${tip}</td>
+                </tr></table>`).join('')}
+              </td></tr>
             </table>
           </td>
         </tr>
 
-        <!-- bottom bar -->
-        <tr><td style="height:4px;background:linear-gradient(90deg,#14B8A6,#0dc75e,#14B8A6);font-size:0;line-height:0;">&nbsp;</td></tr>
+        <!-- NEED HELP -->
+        <tr>
+          <td style="padding:12px 22px 0;">
+            <table width="100%" cellpadding="0" cellspacing="0" border="0" style="background:rgba(255,255,255,0.02);border-radius:14px;">
+              <tr><td style="padding:14px 18px;">
+                <div style="font-size:12px;font-weight:700;color:#ffffff;margin-bottom:2px;font-family:Arial,sans-serif;">Need help?</div>
+                <div style="font-size:11px;color:rgba(255,255,255,0.45);font-family:Arial,sans-serif;">
+                  Contact <a href="mailto:${SUPPORT_EMAIL}" style="color:#0dc75e;text-decoration:none;font-weight:700;">StageCheck Support</a>
+                </div>
+              </td></tr>
+            </table>
+          </td>
+        </tr>
 
+        <!-- FOOTER -->
+        <tr>
+          <td style="padding:20px 22px 22px;background:#0a1424;">
+            <table width="100%" cellpadding="0" cellspacing="0" border="0"><tr>
+              <td style="vertical-align:top;background:#0a1424;">
+                <img src="${LOGO_URL}" alt="StageCheck" height="20" style="height:20px;width:auto;display:block;margin-bottom:6px;border:0;opacity:0.5;background:#0a1424;"/>
+                <p style="margin:0;font-size:10px;color:rgba(255,255,255,0.2);line-height:1.5;font-family:Arial,sans-serif;">
+                  Making events seamless, secure<br/>and unforgettable.
+                </p>
+              </td>
+              <td align="right" style="vertical-align:top;">
+                <table cellpadding="0" cellspacing="0" border="0"><tr>${socialIcons}</tr></table>
+              </td>
+            </tr></table>
+            <p style="margin:14px 0 0;font-size:10px;color:rgba(255,255,255,0.15);text-align:center;font-family:Arial,sans-serif;">
+              &copy; 2025 StageCheck. All rights reserved.
+            </p>
+          </td>
+        </tr>
       </table>
     </td>
   </tr>
@@ -358,7 +286,7 @@ export const sendTicketConfirmation = onRequest(
       eventTime,
       venueName,
       venueAddress,
-      organizerEmail,
+      eventImage,
     } = req.body as {
       attendeeName: string
       attendeeEmail: string
@@ -371,7 +299,7 @@ export const sendTicketConfirmation = onRequest(
       eventTime: string
       venueName: string
       venueAddress: string
-      organizerEmail?: string
+      eventImage?: string
     }
 
     if (!attendeeName || !attendeeEmail || !ticketCode || !eventName) {
@@ -390,7 +318,7 @@ export const sendTicketConfirmation = onRequest(
       eventTime,
       venueName,
       venueAddress,
-      organizerEmail,
+      eventImage,
     })
 
     try {
@@ -403,15 +331,13 @@ export const sendTicketConfirmation = onRequest(
         body: JSON.stringify({
           from: FROM_EMAIL,
           to: [attendeeEmail],
-          reply_to: organizerEmail || undefined,
+          reply_to: SUPPORT_EMAIL,
           subject: `Your ticket for ${eventName} · StageCheck`,
           html,
         }),
       })
 
       const body = await r.json()
-      console.log('Resend response:', r.status, JSON.stringify(body))
-
       if (!r.ok) {
         res.status(500).json({ error: 'Failed to send email', details: body })
         return

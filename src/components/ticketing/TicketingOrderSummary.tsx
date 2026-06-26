@@ -51,7 +51,7 @@ export default function TicketingOrderSummary({
   const [code, setCode] = useState('')
   const [paying, setPaying] = useState(false)
   const [tooltip, setTooltip] = useState<'platform' | 'service' | null>(null)
-  const tooltipTimer = useRef<ReturnType<typeof setTimeout>>()
+  const tooltipTimer = useRef<ReturnType<typeof setTimeout>>(undefined)
 
   const lines      = tickets.filter(t => (quantities[t.id] || 0) > 0)
   const addOnLines = addOns.filter(a => (addOnQuantities[a.id] || 0) > 0)

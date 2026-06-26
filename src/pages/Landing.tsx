@@ -1,11 +1,4 @@
 // src/pages/LandingPage.tsx
-//
-// Public marketing homepage. Assembles the named landing components —
-// it does no layout/markup of its own beyond stitching them together and
-// owning the shared state they need (search text, location, fetched
-// events/testimonials, and the richer per-event fields the hero carousel
-// needs that the events grid doesn't).
-
 import { useEffect, useState, useCallback } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { collection, getDocs, query, orderBy, limit } from 'firebase/firestore'
@@ -51,9 +44,6 @@ function formatTime(time?: string) {
 export default function LandingPage() {
   const navigate = useNavigate()
 
-  const [search, setSearch] = useState('')
-  const [location, setLocation] = useState('Anywhere')
-
   const [events, setEvents] = useState<TrendingEvent[]>([])
   const [heroEvents, setHeroEvents] = useState<HeroEvent[]>([])
   const [eventsLoading, setEventsLoading] = useState(true)
@@ -76,43 +66,34 @@ export default function LandingPage() {
         const grid: TrendingEvent[] = []
         const hero: HeroEvent[] = []
 
-         snap.docs.forEach((doc, i) => {
-  const d = doc.data()
-  console.log('EVENT DOC:', doc.id, {
-    name: d.name,
-    coverImage: d.coverImage,
-    media: d.media,
-    date: d.date,
-  })
-  if (isPast(d.date)) {
-    console.log('SKIPPED (past):', d.name, d.date)
-    return
-  }
-  const dt = toDate(d.date)
-  const dateLabel = dt.getTime() ? dt.toLocaleDateString('en-US', { month: 'short', day: 'numeric' }).toUpperCase() : ''
- grid.push({
-  id: doc.id,
-  name: d.name ?? 'Unnamed Event',
-  dateLabel,
-  location: d.venue || d.location || 'TBA',
-  time: d.startTime || d.time || '',
-  coverImage: d.coverImage || d.media?.[0]?.url || '',
-  coverGradient: FALLBACK_GRADIENTS[i % FALLBACK_GRADIENTS.length],
-  typeLabel: d.eventType || '',
-  attendingCount: d.attendingCount ?? d.ticketsSold ?? 0,
-  summary: d.summary || '',
-  avatarImages: (d.featuredArtists || [])
-    .filter((a: any) => a.image && !a.image.includes('2a96cbd8b46e442fc41c2b86b821562f'))
-    .map((a: any) => a.image)
-    .slice(0, 3),
-})
+        snap.docs.forEach((doc, i) => {
+          const d = doc.data()
+          if (isPast(d.date)) return
+          const dt = toDate(d.date)
+          const dateLabel = dt.getTime() ? dt.toLocaleDateString('en-US', { month: 'short', day: 'numeric' }).toUpperCase() : ''
 
-          const bannerImage = d.coverImage || d.media?.[0]?.url || ''
+          grid.push({
+            id: doc.id,
+            name: d.name ?? 'Unnamed Event',
+            dateLabel,
+            location: d.venue || d.location || 'TBA',
+            time: d.startTime || d.time || '',
+            coverImage: d.coverImage || d.media?.[0]?.url || '',
+            coverGradient: FALLBACK_GRADIENTS[i % FALLBACK_GRADIENTS.length],
+            typeLabel: d.eventType || '',
+            attendingCount: d.attendingCount ?? d.ticketsSold ?? 0,
+            summary: d.summary || '',
+            avatarImages: (d.featuredArtists || [])
+              .filter((a: any) => a.image && !a.image.includes('2a96cbd8b46e442fc41c2b86b821562f'))
+              .map((a: any) => a.image)
+              .slice(0, 3),
+          })
+
           if (hero.length < 20) {
             hero.push({
               slug: doc.id,
               title: d.name ?? 'Unnamed Event',
-              bannerImage,
+              bannerImage: d.coverImage || d.media?.[0]?.url || '',
               categoryLabel: d.eventType || 'Event',
               dateMonth: dt.getTime() ? dt.toLocaleDateString('en-US', { month: 'short' }).toUpperCase() : '',
               dateDay: dt.getTime() ? String(dt.getDate()) : '',
@@ -126,9 +107,7 @@ export default function LandingPage() {
           }
         })
 
-       setEvents(grid.slice(0, 12))
-setHeroEvents(hero)
-console.log('HERO ARRAY:', JSON.stringify(hero.map(h => ({ title: h.title, bannerImage: h.bannerImage }))))
+        setEvents(grid.slice(0, 12))
         setHeroEvents(hero)
       } catch (err: any) {
         if (!cancelled) setEventsError('Could not load events — ' + (err?.message ?? 'unknown error'))
@@ -162,10 +141,6 @@ console.log('HERO ARRAY:', JSON.stringify(hero.map(h => ({ title: h.title, banne
     loadTestimonials()
     return () => { cancelled = true }
   }, [])
-
-  const handleSearchSubmit = useCallback(() => {
-    navigate(`/events?q=${encodeURIComponent(search)}&loc=${encodeURIComponent(location)}`)
-  }, [navigate, search, location])
 
   const handleGetTickets = useCallback((id: string) => navigate(`/event/${id}`), [navigate])
 
@@ -209,13 +184,8 @@ console.log('HERO ARRAY:', JSON.stringify(hero.map(h => ({ title: h.title, banne
       `}</style>
 
       <div className="stg-page">
-        <SiteNavbar
-          searchValue={search}
-          onSearchChange={setSearch}
-          onSearchSubmit={handleSearchSubmit}
-          locationLabel={location}
-          onLocationChange={setLocation}
-        />
+        {/* SiteNavbar manages its own search state internally */}
+        <SiteNavbar />
 
         <HeroSection events={heroEvents} stats={DEFAULT_HERO_STATS} />
 

@@ -6,41 +6,70 @@ import fetch from 'node-fetch'
 if (!admin.apps.length) admin.initializeApp()
 
 const resendApiKey = defineSecret('RESEND_API_KEY')
-const FROM_EMAIL = 'StageCheck <hello@verapixels.com>'
-const APP_URL = 'https://stagecheck.verapixels.com' // ← update if needed
+const FROM_EMAIL   = 'StageCheck <hello@verapixels.com>'
+
+// ── Update this when you go live on your domain ───────────────────────────────
+const APP_URL = 'https://stagecheck.com.ng'
 
 const LOGO_URL =
-  'https://res.cloudinary.com/dr0qtfjjf/image/upload/q_auto/f_auto/v1780966404/ChatGPT_Image_Jun_8_2026_10_17_50_PM_phtfqg.png'
+  'https://res.cloudinary.com/dr0qtfjjf/image/upload/q_auto,f_auto,w_160/v1780966404/ChatGPT_Image_Jun_8_2026_10_17_50_PM_phtfqg.png'
 
-// ─── Scope label helper ───────────────────────────────────────────────────────
-function buildScopeLabel(scope: 'all' | string[], scopeNames: string[]): string {
-  if (scope === 'all') return 'Full Access — you can check in all attendees.'
-  if (!scopeNames.length) return 'Scoped access to specific areas.'
-  return `Scoped access to: <strong style="color:#fff;">${scopeNames.join(', ')}</strong>`
+// Social links — update these
+const SOCIALS = {
+  facebook:  'https://facebook.com/stagecheckapp',
+  instagram: 'https://instagram.com/stagecheckapp',
+  twitter:   'https://x.com/stagecheckapp',
+  youtube:   'https://youtube.com/@stagecheckapp',
+  tiktok:    'https://tiktok.com/@stagecheckapp',
 }
 
-// ─── Email template ───────────────────────────────────────────────────────────
-function buildInvitationEmail({
-  eventName,
-  eventImage,
-  organizerName,
-  invitedEmail,
-  role,
-  scope,
-  scopeNames,
-  acceptUrl,
-}: {
+// Simple Icons CDN — reliable, renders on mobile
+const ICON_FACEBOOK  = 'https://cdn.simpleicons.org/facebook/0dc75e'
+const ICON_INSTAGRAM = 'https://cdn.simpleicons.org/instagram/0dc75e'
+const ICON_X         = 'https://cdn.simpleicons.org/x/0dc75e'
+const ICON_YOUTUBE   = 'https://cdn.simpleicons.org/youtube/0dc75e'
+const ICON_TIKTOK    = 'https://cdn.simpleicons.org/tiktok/0dc75e'
+
+const socialIconsHtml = [
+  { href: SOCIALS.facebook,  src: ICON_FACEBOOK,  alt: 'Facebook'  },
+  { href: SOCIALS.instagram, src: ICON_INSTAGRAM, alt: 'Instagram' },
+  { href: SOCIALS.twitter,   src: ICON_X,         alt: 'X / Twitter' },
+  { href: SOCIALS.youtube,   src: ICON_YOUTUBE,   alt: 'YouTube'   },
+  { href: SOCIALS.tiktok,    src: ICON_TIKTOK,    alt: 'TikTok'    },
+].map(s => `
+  <td style="padding:0 5px;">
+    <a href="${s.href}" target="_blank" style="display:inline-block;text-decoration:none;">
+      <table cellpadding="0" cellspacing="0" border="0"><tr>
+        <td style="width:40px;height:40px;border-radius:20px;background:rgba(13,199,94,0.15);border:1.5px solid rgba(13,199,94,0.35);text-align:center;vertical-align:middle;">
+          <img src="${s.src}" alt="${s.alt}" width="18" height="18"
+               style="width:18px;height:18px;display:inline-block;vertical-align:middle;border:0;"/>
+        </td>
+      </tr></table>
+    </a>
+  </td>`).join('')
+
+// ── Scope label ───────────────────────────────────────────────────────────────
+function buildScopeHtml(scope: any, scopeNames: string[]): string {
+  if (!scope || scope === 'all') {
+    return `<span style="color:#0dc75e;font-weight:bold;">Full Access</span> — you can check in all attendees.`
+  }
+  const names = scopeNames.length ? scopeNames : []
+  if (!names.length) return 'Scoped access to specific areas.'
+  return `Scoped to: <strong style="color:#ffffff;">${names.join(', ')}</strong>`
+}
+
+// ── Email HTML ────────────────────────────────────────────────────────────────
+function buildInvitationEmail(params: {
   eventName: string
-  eventImage?: string
+  eventImage?: string | null
   organizerName: string
   invitedEmail: string
-  role: string
-  scope: 'all' | string[]
+  scope: any
   scopeNames: string[]
   acceptUrl: string
 }): string {
-  const scopeLabel = buildScopeLabel(scope, scopeNames)
-  const roleLabel  = role === 'checkin_admin' ? 'Check-in Admin' : role
+  const { eventName, eventImage, organizerName, invitedEmail, scope, scopeNames, acceptUrl } = params
+  const scopeHtml = buildScopeHtml(scope, scopeNames)
 
   return `<!DOCTYPE html>
 <html lang="en">
@@ -48,109 +77,180 @@ function buildInvitationEmail({
   <meta charset="UTF-8"/>
   <meta name="viewport" content="width=device-width,initial-scale=1.0"/>
   <title>You've been invited · StageCheck</title>
-  <style>
-    * { box-sizing: border-box; }
-    body { margin:0; padding:0; background:#000612; font-family:'Inter',system-ui,sans-serif; -webkit-font-smoothing:antialiased; }
-    a { color:#6366F1; text-decoration:none; }
-  </style>
 </head>
-<body style="margin:0;padding:0;background:#000612;">
-  <table width="100%" cellpadding="0" cellspacing="0" border="0" style="background:#000612;min-height:100vh;">
-    <tr>
-      <td align="center" style="padding:40px 16px 60px;">
-        <table width="100%" cellpadding="0" cellspacing="0" border="0"
-               style="max-width:560px;background:linear-gradient(160deg,#0d1829 0%,#070e1c 100%);border-radius:20px;border:1px solid rgba(255,255,255,0.07);overflow:hidden;box-shadow:0 32px 80px rgba(0,0,0,0.6);">
-          <!-- Top bar -->
-          <tr><td style="height:3px;background:linear-gradient(90deg,#6366F1,#818CF8,#6366F1);"></td></tr>
+<body style="margin:0;padding:0;background:#030d1a;font-family:Arial,Helvetica,sans-serif;-webkit-font-smoothing:antialiased;">
+<table width="100%" cellpadding="0" cellspacing="0" border="0" style="background:#030d1a;min-height:100vh;">
+  <tr>
+    <td align="center" style="padding:32px 12px 60px;">
 
-          <!-- Header -->
-          <tr>
-            <td style="padding:28px 36px 20px;">
-              <table width="100%" cellpadding="0" cellspacing="0" border="0">
-                <tr>
-                  <td><img src="${LOGO_URL}" alt="StageCheck" height="32" style="height:32px;width:auto;display:block;"/></td>
-                  <td align="right">
-                    <span style="display:inline-block;background:rgba(99,102,241,0.12);border:1px solid rgba(99,102,241,0.3);border-radius:20px;padding:5px 14px;font-size:11px;font-weight:700;color:#818CF8;letter-spacing:0.6px;text-transform:uppercase;">
-                      Team Invitation
-                    </span>
-                  </td>
-                </tr>
-              </table>
-            </td>
-          </tr>
+      <table width="100%" cellpadding="0" cellspacing="0" border="0"
+             style="max-width:600px;background:#061220;border-radius:20px;border:1px solid rgba(13,199,94,0.2);overflow:hidden;box-shadow:0 32px 80px rgba(0,0,0,0.7);">
 
-          <tr><td style="padding:0 36px;"><div style="height:1px;background:rgba(255,255,255,0.06);"></div></td></tr>
+        <!-- Top green bar -->
+        <tr><td style="height:4px;background:linear-gradient(90deg,#0dc75e,#14B8A6,#0dc75e);font-size:0;line-height:0;">&nbsp;</td></tr>
 
-          ${eventImage ? `
-          <!-- Event banner -->
-          <tr>
-            <td style="padding:0;">
-              <img src="${eventImage}" alt="${eventName}" style="width:100%;height:180px;object-fit:cover;display:block;"/>
-            </td>
-          </tr>` : ''}
+        <!-- Header: logo + badge -->
+        <tr>
+          <td style="padding:24px 32px 0;">
+            <table width="100%" cellpadding="0" cellspacing="0" border="0">
+              <tr>
+                <td style="vertical-align:middle;">
+                  <img src="${LOGO_URL}" alt="StageCheck" width="140" height="32"
+                       style="height:32px;width:auto;max-width:160px;display:block;border:0;"/>
+                </td>
+                <td align="right" style="vertical-align:middle;">
+                  <table cellpadding="0" cellspacing="0" border="0"><tr>
+                    <td style="background:rgba(13,199,94,0.1);border:1px solid rgba(13,199,94,0.35);border-radius:20px;padding:5px 14px;">
+                      <span style="font-size:11px;font-weight:bold;color:#0dc75e;font-family:Arial,sans-serif;letter-spacing:0.5px;text-transform:uppercase;">Team Invitation</span>
+                    </td>
+                  </tr></table>
+                </td>
+              </tr>
+            </table>
+          </td>
+        </tr>
 
-          <!-- Body -->
-          <tr>
-            <td style="padding:28px 36px 8px;">
-              <p style="margin:0 0 6px;font-size:13px;color:rgba(255,255,255,0.4);">Hi there,</p>
-              <h1 style="margin:0 0 16px;font-size:22px;font-weight:800;color:#fff;line-height:1.2;">
-                You've been invited to join a team
-              </h1>
-              <p style="margin:0 0 22px;font-size:14px;color:rgba(255,255,255,0.55);line-height:1.7;">
-                <strong style="color:rgba(255,255,255,0.85);">${organizerName}</strong> has invited you to help manage
-                <strong style="color:#fff;">${eventName}</strong> on StageCheck.
-              </p>
+        <!-- Divider -->
+        <tr><td style="padding:20px 32px 0;"><table width="100%" cellpadding="0" cellspacing="0" border="0"><tr><td style="height:1px;background:rgba(255,255,255,0.07);font-size:0;line-height:0;">&nbsp;</td></tr></table></td></tr>
 
-              <!-- Role card -->
-              <table cellpadding="0" cellspacing="0" border="0" style="width:100%;background:rgba(99,102,241,0.07);border:1px solid rgba(99,102,241,0.18);border-radius:14px;margin-bottom:22px;">
-                <tr>
-                  <td style="padding:18px 22px;">
-                    <div style="font-size:10px;font-weight:700;letter-spacing:0.9px;text-transform:uppercase;color:rgba(255,255,255,0.3);margin-bottom:6px;">Your Role</div>
-                    <div style="font-size:16px;font-weight:800;color:#818CF8;margin-bottom:10px;">${roleLabel}</div>
-                    <div style="height:1px;background:rgba(255,255,255,0.06);margin-bottom:10px;"></div>
-                    <div style="font-size:10px;font-weight:700;letter-spacing:0.9px;text-transform:uppercase;color:rgba(255,255,255,0.3);margin-bottom:6px;">Access Scope</div>
-                    <div style="font-size:13px;color:rgba(255,255,255,0.6);line-height:1.5;">${scopeLabel}</div>
-                  </td>
-                </tr>
-              </table>
+        ${eventImage ? `
+        <!-- Event banner -->
+        <tr>
+          <td style="padding:20px 32px 0;">
+            <img src="${eventImage}" alt="${eventName}" width="536"
+                 style="width:100%;max-width:536px;height:auto;border-radius:12px;display:block;border:0;"/>
+          </td>
+        </tr>` : ''}
 
-              <p style="margin:0 0 22px;font-size:13px;color:rgba(255,255,255,0.4);line-height:1.6;">
-                Click the button below to accept. If you don't have a StageCheck account yet, you'll be able to create one first — your invitation will be waiting for you.
-              </p>
-            </td>
-          </tr>
+        <!-- Hero text -->
+        <tr>
+          <td style="padding:24px 32px 0;">
+            <div style="font-size:36px;font-weight:900;color:#ffffff;line-height:1.05;letter-spacing:-1px;font-family:Arial,sans-serif;">
+              You've Been<br/>
+              <span style="color:#0dc75e;">Invited!</span>
+            </div>
+            <p style="margin:12px 0 0;font-size:14px;color:rgba(255,255,255,0.6);line-height:1.7;font-family:Arial,sans-serif;">
+              Hey there,<br/>
+              <strong style="color:#0dc75e;">${organizerName}</strong> has invited you to join the team managing
+              <strong style="color:#ffffff;">${eventName}</strong> on StageCheck.
+            </p>
+          </td>
+        </tr>
 
-          <!-- CTA -->
-          <tr>
-            <td style="padding:0 36px 28px;text-align:center;">
-              <a href="${acceptUrl}" style="display:inline-block;background:linear-gradient(135deg,#6366F1,#4F46E5);color:#fff;font-size:15px;font-weight:800;padding:14px 40px;border-radius:12px;text-decoration:none;letter-spacing:0.02em;box-shadow:0 6px 24px rgba(99,102,241,0.35);">
-                Accept Invitation
-              </a>
-              <p style="margin:14px 0 0;font-size:11px;color:rgba(255,255,255,0.25);">
-                Or copy this link: <a href="${acceptUrl}" style="color:#818CF8;word-break:break-all;">${acceptUrl}</a>
-              </p>
-            </td>
-          </tr>
+        <!-- Role card -->
+        <tr>
+          <td style="padding:20px 32px 0;">
+            <table width="100%" cellpadding="0" cellspacing="0" border="0"
+                   style="background:rgba(13,199,94,0.06);border:1px solid rgba(13,199,94,0.2);border-radius:14px;">
+              <tr>
+                <td style="padding:20px 22px;">
 
-          <tr><td style="padding:0 36px;"><div style="height:1px;background:rgba(255,255,255,0.06);"></div></td></tr>
+                  <!-- Role -->
+                  <div style="font-size:10px;font-weight:bold;letter-spacing:0.9px;text-transform:uppercase;color:rgba(255,255,255,0.35);margin-bottom:5px;font-family:Arial,sans-serif;">Your Role</div>
+                  <div style="font-size:18px;font-weight:900;color:#0dc75e;margin-bottom:14px;font-family:Arial,sans-serif;">Check-in Admin</div>
 
-          <!-- Footer -->
-          <tr>
-            <td style="padding:20px 36px 28px;text-align:center;">
-              <p style="margin:0 0 6px;font-size:12px;font-weight:700;color:rgba(255,255,255,0.2);">
-                Powered by <span style="color:#6366F1;">StageCheck</span>
-              </p>
-              <p style="margin:0;font-size:11px;color:rgba(255,255,255,0.18);line-height:1.6;">
-                This invitation was sent to <strong style="color:rgba(255,255,255,0.28);">${invitedEmail}</strong>.<br/>
-                If this was a mistake, you can safely ignore this email.
-              </p>
-            </td>
-          </tr>
-          <tr><td style="height:3px;background:linear-gradient(90deg,#818CF8,#6366F1,#818CF8);"></td></tr>
-        </table>
-      </td>
-    </tr>
-  </table>
+                  <!-- Divider -->
+                  <table width="100%" cellpadding="0" cellspacing="0" border="0" style="margin-bottom:14px;">
+                    <tr><td style="height:1px;background:rgba(255,255,255,0.07);font-size:0;line-height:0;">&nbsp;</td></tr>
+                  </table>
+
+                  <!-- Scope -->
+                  <div style="font-size:10px;font-weight:bold;letter-spacing:0.9px;text-transform:uppercase;color:rgba(255,255,255,0.35);margin-bottom:5px;font-family:Arial,sans-serif;">Access Scope</div>
+                  <div style="font-size:13px;color:rgba(255,255,255,0.65);line-height:1.6;font-family:Arial,sans-serif;">${scopeHtml}</div>
+
+                </td>
+              </tr>
+            </table>
+          </td>
+        </tr>
+
+        <!-- Info text -->
+        <tr>
+          <td style="padding:16px 32px 0;">
+            <p style="margin:0;font-size:13px;color:rgba(255,255,255,0.45);line-height:1.7;font-family:Arial,sans-serif;">
+              Click the button below to accept. If you don't have a StageCheck account yet,
+              you'll be guided to create one first — your invitation will be waiting.
+            </p>
+          </td>
+        </tr>
+
+        <!-- CTA button -->
+        <tr>
+          <td style="padding:22px 32px 0;text-align:center;">
+            <table cellpadding="0" cellspacing="0" border="0" style="margin:0 auto;">
+              <tr>
+                <td style="background:#0dc75e;border-radius:12px;padding:14px 36px;text-align:center;">
+                  <a href="${acceptUrl}"
+                     style="font-size:15px;font-weight:bold;color:#000000;text-decoration:none;font-family:Arial,sans-serif;letter-spacing:0.02em;">
+                    &#x2192; Accept Invitation
+                  </a>
+                </td>
+              </tr>
+            </table>
+            <p style="margin:12px 0 0;font-size:11px;color:rgba(255,255,255,0.25);font-family:Arial,sans-serif;">
+              Or copy this link:<br/>
+              <a href="${acceptUrl}" style="color:#0dc75e;word-break:break-all;">${acceptUrl}</a>
+            </p>
+          </td>
+        </tr>
+
+        <!-- Divider -->
+        <tr><td style="padding:22px 32px 0;"><table width="100%" cellpadding="0" cellspacing="0" border="0"><tr><td style="height:1px;background:rgba(255,255,255,0.07);font-size:0;line-height:0;">&nbsp;</td></tr></table></td></tr>
+
+        <!-- Social icons -->
+        <tr>
+          <td style="padding:20px 32px 0;text-align:center;">
+            <p style="margin:0 0 14px;font-size:11px;font-weight:bold;color:rgba(255,255,255,0.3);letter-spacing:0.7px;text-transform:uppercase;font-family:Arial,sans-serif;">Stay Connected</p>
+            <table cellpadding="0" cellspacing="0" border="0" style="margin:0 auto;">
+              <tr>${socialIconsHtml}</tr>
+            </table>
+          </td>
+        </tr>
+
+        <!-- Divider -->
+        <tr><td style="padding:20px 32px 0;"><table width="100%" cellpadding="0" cellspacing="0" border="0"><tr><td style="height:1px;background:rgba(255,255,255,0.07);font-size:0;line-height:0;">&nbsp;</td></tr></table></td></tr>
+
+        <!-- Footer -->
+        <tr>
+          <td style="padding:18px 32px 28px;">
+            <table width="100%" cellpadding="0" cellspacing="0" border="0">
+              <tr>
+                <td style="vertical-align:top;">
+                  <img src="${LOGO_URL}" alt="StageCheck" height="22"
+                       style="height:22px;width:auto;display:block;margin-bottom:8px;border:0;opacity:0.5;"/>
+                  <p style="margin:0;font-size:11px;color:rgba(255,255,255,0.2);line-height:1.6;font-family:Arial,sans-serif;">
+                    &copy; 2025 StageCheck. All rights reserved.<br/>
+                    Making events seamless, secure and unforgettable.
+                  </p>
+                </td>
+                <td style="vertical-align:top;text-align:right;">
+                  <p style="margin:0 0 4px;font-size:11px;color:rgba(255,255,255,0.3);font-family:Arial,sans-serif;">
+                    Need help? <a href="mailto:hello@verapixels.com" style="color:#0dc75e;text-decoration:none;font-weight:bold;">Contact us</a>
+                  </p>
+                  <p style="margin:0;font-size:11px;color:rgba(255,255,255,0.2);line-height:1.7;font-family:Arial,sans-serif;">
+                    hello@stagecheck.com.ng<br/>
+                    stagecheck.com.ng
+                  </p>
+                </td>
+              </tr>
+            </table>
+          </td>
+        </tr>
+
+        <!-- Bottom bar -->
+        <tr><td style="height:4px;background:linear-gradient(90deg,#14B8A6,#0dc75e,#14B8A6);font-size:0;line-height:0;">&nbsp;</td></tr>
+
+      </table>
+
+      <!-- Powered by -->
+      <p style="margin:20px 0 0;font-size:11px;color:rgba(255,255,255,0.2);font-family:Arial,sans-serif;">
+        This invitation was sent to <strong style="color:rgba(255,255,255,0.35);">${invitedEmail}</strong>.
+        If this was a mistake, you can safely ignore this email.
+      </p>
+
+    </td>
+  </tr>
+</table>
 </body>
 </html>`
 }
@@ -164,7 +264,7 @@ export const sendInvitation = onRequest(
     res.set('Access-Control-Allow-Origin', '*')
     res.set('Access-Control-Allow-Headers', 'Content-Type, Authorization')
     if (req.method === 'OPTIONS') { res.status(204).send(''); return }
-    if (req.method !== 'POST') { res.status(405).json({ error: 'Method not allowed' }); return }
+    if (req.method !== 'POST')   { res.status(405).json({ error: 'Method not allowed' }); return }
 
     const {
       invitedEmail,
@@ -174,52 +274,53 @@ export const sendInvitation = onRequest(
       organizerName,
       organizerUid,
       role,
-      scope,        // 'all' | string[]  (array of nodeIds)
-      scopeNames,   // human-readable names matching the nodeIds
+      scope,
+      scopeNames,
     } = req.body as {
       invitedEmail: string
       eventId: string
-      eventName: string
+      eventName?: string
       eventImage?: string
       organizerName: string
       organizerUid: string
       role: string
-      scope: 'all' | string[]
+      scope: any
       scopeNames: string[]
     }
 
-    if (!invitedEmail || !eventId || !eventName || !organizerUid) {
-      res.status(400).json({ error: 'Missing required fields' }); return
+    if (!invitedEmail || !eventId || !organizerUid) {
+      res.status(400).json({ error: 'Missing required fields: invitedEmail, eventId, organizerUid' })
+      return
     }
 
+    const safeEventName = eventName?.trim() || 'this event'
+
     try {
-      // 1. Create the invitation doc in Firestore
+      // 1. Create invitation doc
       const invRef = await admin.firestore().collection('invitations').add({
-        invitedEmail,
+        invitedEmail: invitedEmail.toLowerCase(),
         eventId,
-        eventName,
+        eventName: safeEventName,
         eventImage: eventImage || null,
         organizerName,
         organizerUid,
         role,
-        scope,       // 'all' or array of nodeIds
-        scopeNames,  // human-readable
+        scope,
+        scopeNames: scopeNames || [],
         status: 'pending',
         invitedAt: admin.firestore.FieldValue.serverTimestamp(),
       })
 
-      const invitationId = invRef.id
-      const acceptUrl    = `${APP_URL}/accept-invitation/${invitationId}`
+      const acceptUrl = `${APP_URL}/accept-invitation/${invRef.id}`
 
-      // 2. Send email via Resend
+      // 2. Send email
       const html = buildInvitationEmail({
-        eventName,
+        eventName: safeEventName,
         eventImage,
         organizerName,
         invitedEmail,
-        role,
         scope,
-        scopeNames,
+        scopeNames: scopeNames || [],
         acceptUrl,
       })
 
@@ -232,20 +333,21 @@ export const sendInvitation = onRequest(
         body: JSON.stringify({
           from: FROM_EMAIL,
           to: [invitedEmail],
-          subject: `You've been invited to manage ${eventName} · StageCheck`,
+          subject: `You've been invited to manage ${safeEventName} · StageCheck`,
           html,
         }),
       })
 
+      const emailBody = await resendRes.json()
       if (!resendRes.ok) {
-        const err = await resendRes.text()
-        console.error('Resend error:', err)
-        // Still return success — invitation doc was created, email can be retried
-        res.status(200).json({ success: true, invitationId, emailSent: false })
-        return
+        console.error('Resend error:', emailBody)
       }
 
-      res.status(200).json({ success: true, invitationId, emailSent: true })
+      res.status(200).json({
+        success: true,
+        invitationId: invRef.id,
+        emailSent: resendRes.ok,
+      })
     } catch (e: any) {
       console.error('sendInvitation error:', e)
       res.status(500).json({ error: e.message ?? 'Internal error' })
