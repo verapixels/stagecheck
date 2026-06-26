@@ -473,19 +473,26 @@ export default function NetworkCheckinPage() {
   // ── Scope filter ──────────────────────────────────────────────────────────
   const scopeFiltered: Registrant[] = (() => {
     if (isOrganizer || (!scopeNodeIds && !scopeCustomPairs)) return registrants
+
     return registrants.filter(r => {
       if (scopeNodeIds) {
         return Object.entries(r).some(([key, val]) =>
           key.startsWith('levelId_') && scopeNodeIds.includes(val as string)
         )
       }
-      if (scopeCustomPairs) {
-        return scopeCustomPairs.every(pair => {
-          if (pair.value === '*') return true
-          const rVal = String(r[`cf_${pair.fieldId}`] ?? '').trim().toLowerCase()
-          return rVal === pair.value.toLowerCase()
-        })
-      }
+     if (scopeCustomPairs) {
+  const grouped: Record<string, string[]> = {}
+  scopeCustomPairs.forEach(pair => {
+    if (!grouped[pair.fieldId]) grouped[pair.fieldId] = []
+    grouped[pair.fieldId].push(pair.value)
+  })
+  return Object.entries(grouped).every(([fieldId, values]) => {
+    if (values.includes('*')) return true
+    const cfArr: any[] = r.customFields ?? []
+    const rVal = String(cfArr.find((f: any) => f.id === fieldId)?.value ?? '').trim().toLowerCase()
+    return values.some(v => v === rVal)
+  })
+}
       return false
     })
   })()

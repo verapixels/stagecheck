@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react'
 import {
-  collection, getDocs, query, orderBy, addDoc, serverTimestamp, getDoc, doc,
+  collection, getDocs, query, orderBy, addDoc, updateDoc,
+  serverTimestamp, getDoc, doc,
 } from 'firebase/firestore'
 import { db } from '../../lib/firebase'
 import {
@@ -12,19 +13,28 @@ import {
 interface OrgLevel { id: string; name: string; order: number; color: string }
 interface OrgNode  { id: string; name: string; levelId: string; parentId?: string }
 
-// One level of the custom-field hierarchy derived from registrant data
 interface CfLevel {
   fieldId: string
   fieldLabel: string
   color: string
-  // all unique values at this level
   values: string[]
 }
 
-// A selected scope item — one value at one level
 interface ScopeSelection {
-  // per level: fieldId → Set of selected values ('*' means all)
   [fieldId: string]: Set<string> | '*'
+}
+
+// ← NEW: matches the TeamMember in NetworkTeamPage
+interface TeamMember {
+  uid: string
+  email: string
+  displayName?: string
+  photoURL?: string
+  role: string
+  scope: 'all' | string[]
+  scopeNames: string[]
+  status: 'active'
+  addedAt?: { seconds: number }
 }
 
 interface Props {
@@ -35,6 +45,7 @@ interface Props {
   eventImage?: string
   organizerName: string
   organizerUid: string
+  editingMember?: TeamMember | null  // ← NEW
 }
 
 const FUNCTIONS_BASE = 'https://us-central1-stagecheck-699c7.cloudfunctions.net'
@@ -55,8 +66,6 @@ const ACCENT = '#6366F1'
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
-// Given registrants + field order, get unique values for a level
-// filtered by what was selected at parent levels
 function getValuesForLevel(
   registrants: any[],
   cfLevels: CfLevel[],
@@ -66,25 +75,28 @@ function getValuesForLevel(
   const level = cfLevels[levelIndex]
   if (!level) return []
 
-  // Filter registrants that match all parent selections
+  const getCfValue = (r: any, fieldId: string): string => {
+    const arr: any[] = r.customFields ?? []
+    return String(arr.find((f: any) => f.id === fieldId)?.value ?? '').trim()
+  }
+
   const filtered = registrants.filter(r => {
     for (let i = 0; i < levelIndex; i++) {
       const parentLevel = cfLevels[i]
       const sel = selections[parentLevel.fieldId]
-      if (!sel) return false                         // parent not selected yet
-      if (sel === '*') continue                      // all = pass through
-      const rVal = String(r[`cf_${parentLevel.fieldId}`] ?? '').trim().toLowerCase()
+      if (!sel) return false
+      if (sel === '*') continue
+      const rVal = getCfValue(r, parentLevel.fieldId).toLowerCase()
       const selSet = sel as Set<string>
       if (!selSet.has(rVal)) return false
     }
     return true
   })
 
-  // Collect unique values for this level
   const seen = new Set<string>()
   const vals: string[] = []
   filtered.forEach(r => {
-    const v = String(r[`cf_${level.fieldId}`] ?? '').trim()
+    const v = getCfValue(r, level.fieldId)
     if (v && !seen.has(v.toLowerCase())) {
       seen.add(v.toLowerCase())
       vals.push(v)
@@ -97,7 +109,6 @@ function getValuesForLevel(
   })
 }
 
-// Build human-readable scope names from selections
 function buildScopeNames(cfLevels: CfLevel[], selections: ScopeSelection): string[] {
   const parts: string[] = []
   cfLevels.forEach(level => {
@@ -113,7 +124,6 @@ function buildScopeNames(cfLevels: CfLevel[], selections: ScopeSelection): strin
   return parts
 }
 
-// Build the scope object stored in Firestore
 function buildScopeObject(cfLevels: CfLevel[], selections: ScopeSelection) {
   const pairs: { fieldId: string; fieldLabel: string; value: string | '*' }[] = []
   cfLevels.forEach(level => {
@@ -133,42 +143,34 @@ function buildScopeObject(cfLevels: CfLevel[], selections: ScopeSelection) {
 // ── Main component ────────────────────────────────────────────────────────────
 
 export default function InviteSubAdminDrawer({
-  open, onClose, eventId, eventName, eventImage, organizerName, organizerUid,
+  open, onClose, eventId, eventName, eventImage,
+  organizerName, organizerUid, editingMember,  // ← NEW
 }: Props) {
   const [email, setEmail]         = useState('')
   const [scopeType, setScopeType] = useState<'all' | 'scoped'>('all')
 
-  // Data
   const [registrants, setRegistrants] = useState<any[]>([])
   const [cfLevels, setCfLevels]       = useState<CfLevel[]>([])
 
-  // Org Builder path (fallback)
   const [orgLevels, setOrgLevels] = useState<OrgLevel[]>([])
   const [orgNodes, setOrgNodes]   = useState<OrgNode[]>([])
   const [path, setPath]           = useState<'cf' | 'org' | null>(null)
 
-  // Cascading selections: fieldId → Set<string> | '*'
-  const [selections, setSelections] = useState<ScopeSelection>({})
-  // Which level is currently expanded
+  const [selections, setSelections]       = useState<ScopeSelection>({})
   const [activeLevelIdx, setActiveLevelIdx] = useState(0)
-
-  // Org Builder selections (flat, for org path)
-  const [orgSelected, setOrgSelected] = useState<Set<string>>(new Set())
+  const [orgSelected, setOrgSelected]     = useState<Set<string>>(new Set())
 
   const [saving, setSaving] = useState(false)
   const [sent,   setSent]   = useState(false)
   const [error,  setError]  = useState('')
 
-  // ── Load data when drawer opens ───────────────────────────────────────────
+  // ── Load Firestore data when drawer opens ─────────────────────────────────
   useEffect(() => {
     if (!eventId || !open) return
 
     Promise.all([
-      // Form config to get field order
       getDoc(doc(db, 'events', eventId, 'config', 'networkForm')),
-      // All registrants for value extraction
       getDocs(collection(db, 'events', eventId, 'networkRegistrations')),
-      // Org Builder levels + nodes (fallback)
       getDocs(query(collection(db, 'events', eventId, 'orgLevels'), orderBy('order'))),
       getDocs(collection(db, 'events', eventId, 'orgNodes')),
     ]).then(([cfgSnap, regSnap, lvlSnap, nodeSnap]) => {
@@ -180,11 +182,9 @@ export default function InviteSubAdminDrawer({
       setOrgLevels(orgLvls)
       setOrgNodes(orgNds)
 
-      // Detect path: custom fields or org builder
       const customFields: any[] = cfgSnap.exists() ? (cfgSnap.data()?.customFields ?? []) : []
 
       if (customFields.length > 0 && regs.length > 0) {
-        // Path: Custom Fields — use field order from config as hierarchy
         const levels: CfLevel[] = customFields.map((f: any, i: number) => ({
           fieldId:    f.id,
           fieldLabel: f.label,
@@ -194,7 +194,6 @@ export default function InviteSubAdminDrawer({
         setCfLevels(levels)
         setPath('cf')
       } else if (orgLvls.length > 0) {
-        // Path: Org Builder
         setPath('org')
       } else {
         setPath(null)
@@ -206,6 +205,19 @@ export default function InviteSubAdminDrawer({
     })
   }, [eventId, open])
 
+  // ── Pre-fill state when editing an existing member ────────────────────────
+  useEffect(() => {
+    if (!open) return
+    if (editingMember) {
+      setEmail(editingMember.email)
+      setScopeType(editingMember.scope === 'all' ? 'all' : 'scoped')
+      setSent(false)
+      setError('')
+    } else {
+      reset()
+    }
+  }, [open, editingMember])
+
   const reset = () => {
     setEmail(''); setScopeType('all'); setSelections({})
     setActiveLevelIdx(0); setOrgSelected(new Set())
@@ -213,12 +225,11 @@ export default function InviteSubAdminDrawer({
   }
   const handleClose = () => { reset(); onClose() }
 
-  // ── Selection helpers (cascading CF) ─────────────────────────────────────
+  // ── Selection helpers ─────────────────────────────────────────────────────
 
   const selectAll = (fieldId: string) => {
     setSelections(prev => {
       const next = { ...prev, [fieldId]: '*' as '*' }
-      // Clear all deeper levels
       const idx = cfLevels.findIndex(l => l.fieldId === fieldId)
       cfLevels.slice(idx + 1).forEach(l => delete next[l.fieldId])
       return next
@@ -235,7 +246,6 @@ export default function InviteSubAdminDrawer({
       set.has(key) ? set.delete(key) : set.add(key)
       const next = { ...prev, [fieldId]: set.size > 0 ? set : undefined } as ScopeSelection
       if (!next[fieldId]) delete next[fieldId]
-      // Clear deeper levels when parent changes
       const idx = cfLevels.findIndex(l => l.fieldId === fieldId)
       cfLevels.slice(idx + 1).forEach(l => delete next[l.fieldId])
       return next
@@ -256,7 +266,7 @@ export default function InviteSubAdminDrawer({
     return (sel as Set<string>).size > 0
   }
 
-  // ── Send ──────────────────────────────────────────────────────────────────
+  // ── Save ──────────────────────────────────────────────────────────────────
   const handleSend = async () => {
     if (!email.trim() || !/^\S+@\S+\.\S+$/.test(email)) {
       setError('Enter a valid email address.'); return
@@ -276,39 +286,47 @@ export default function InviteSubAdminDrawer({
     const scopeNames = scopeType === 'all' ? [] : buildScopeNames(cfLevels, selections)
 
     try {
-      await addDoc(collection(db, 'events', eventId, 'pendingInvites'), {
-        invitedEmail: email.trim().toLowerCase(),
-        role: 'checkin_admin',
-        scope, scopeNames,
-        status: 'pending',
-        invitedAt: serverTimestamp(),
-      })
-
-      fetch(`${FUNCTIONS_BASE}/sendInvitation`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
+      if (editingMember) {
+        // ← EDIT MODE: update existing teamMember doc
+        await updateDoc(doc(db, 'events', eventId, 'teamMembers', editingMember.uid), {
+          scope, scopeNames,
+        })
+        setSent(true)
+      } else {
+        // ← INVITE MODE: create pendingInvite + send email
+        await addDoc(collection(db, 'events', eventId, 'pendingInvites'), {
           invitedEmail: email.trim().toLowerCase(),
-          eventId, eventName,
-          eventImage: eventImage || null,
-          organizerName, organizerUid,
           role: 'checkin_admin',
           scope, scopeNames,
-        }),
-      }).catch(() => console.warn('Email send failed — invite doc saved'))
+          status: 'pending',
+          invitedAt: serverTimestamp(),
+        })
 
-      setSent(true)
+        fetch(`${FUNCTIONS_BASE}/sendInvitation`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            invitedEmail: email.trim().toLowerCase(),
+            eventId, eventName,
+            eventImage: eventImage || null,
+            organizerName, organizerUid,
+            role: 'checkin_admin',
+            scope, scopeNames,
+          }),
+        }).catch(() => console.warn('Email send failed — invite doc saved'))
+
+        setSent(true)
+      }
     } catch {
-      setError('Failed to save invitation. Please try again.')
+      setError(editingMember ? 'Failed to update scope. Please try again.' : 'Failed to save invitation. Please try again.')
     }
     setSaving(false)
   }
 
-  // ── Render cascading CF picker ────────────────────────────────────────────
+  // ── Render CF picker ──────────────────────────────────────────────────────
   const renderCfPicker = () => (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
       {cfLevels.map((level, idx) => {
-        // Only show levels where parent has a selection (or it's the first level)
         const parentSelected = idx === 0 || levelHasSelection(cfLevels[idx - 1].fieldId)
         if (!parentSelected) return null
 
@@ -322,19 +340,15 @@ export default function InviteSubAdminDrawer({
         return (
           <div key={level.fieldId} style={{
             border: `1px solid ${hasSel ? level.color + '44' : 'rgba(255,255,255,0.08)'}`,
-            borderRadius: 12, overflow: 'hidden',
-            transition: 'border-color 0.2s',
+            borderRadius: 12, overflow: 'hidden', transition: 'border-color 0.2s',
           }}>
-            {/* Level header */}
             <div
               onClick={() => setActiveLevelIdx(isActive ? -1 : idx)}
               style={{
                 display: 'flex', alignItems: 'center', gap: 10, padding: '12px 14px',
-                background: hasSel ? `${level.color}10` : 'rgba(255,255,255,0.02)',
-                cursor: 'pointer',
+                background: hasSel ? `${level.color}10` : 'rgba(255,255,255,0.02)', cursor: 'pointer',
               }}
             >
-              {/* Step indicator */}
               <div style={{
                 width: 22, height: 22, borderRadius: '50%', flexShrink: 0,
                 background: hasSel ? level.color : 'rgba(255,255,255,0.08)',
@@ -343,7 +357,6 @@ export default function InviteSubAdminDrawer({
               }}>
                 {hasSel ? <Check size={12} /> : idx + 1}
               </div>
-
               <div style={{ flex: 1 }}>
                 <div style={{ fontSize: 12, fontWeight: 700, color: hasSel ? level.color : '#fff' }}>
                   {level.fieldLabel}
@@ -354,21 +367,18 @@ export default function InviteSubAdminDrawer({
                   </div>
                 )}
               </div>
-
               {idx < cfLevels.length - 1 && hasSel && !isActive && (
                 <ChevronRight size={13} color={level.color} />
               )}
               {isActive ? <ChevronUp size={13} color={SUB2} /> : <ChevronDown size={13} color={SUB2} />}
             </div>
 
-            {/* Values */}
             {isActive && (
               <div style={{ padding: '10px 14px 14px', borderTop: '1px solid rgba(255,255,255,0.06)' }}>
                 {values.length === 0 ? (
                   <p style={{ fontSize: 12, color: SUB2, margin: 0 }}>No values found yet from registrant data.</p>
                 ) : (
                   <>
-                    {/* Select All chip */}
                     <button
                       onClick={() => selectAll(level.fieldId)}
                       style={{
@@ -384,8 +394,6 @@ export default function InviteSubAdminDrawer({
                       {selections[level.fieldId] === '*' && <Check size={10} />}
                       All {level.fieldLabel}s ({values.length})
                     </button>
-
-                    {/* Individual value chips */}
                     <div style={{ display: 'flex', flexWrap: 'wrap', gap: 7 }}>
                       {values.map(val => {
                         const isSel = isValueSelected(level.fieldId, val)
@@ -409,16 +417,13 @@ export default function InviteSubAdminDrawer({
                         )
                       })}
                     </div>
-
-                    {/* Prompt to go to next level */}
                     {hasSel && idx < cfLevels.length - 1 && (
                       <button
                         onClick={() => setActiveLevelIdx(idx + 1)}
                         style={{
                           marginTop: 12, display: 'flex', alignItems: 'center', gap: 5,
                           fontSize: 12, color: level.color, background: 'none', border: 'none',
-                          cursor: 'pointer', fontFamily: 'var(--font-body)', fontWeight: 600,
-                          padding: 0,
+                          cursor: 'pointer', fontFamily: 'var(--font-body)', fontWeight: 600, padding: 0,
                         }}
                       >
                         Next: choose {cfLevels[idx + 1].fieldLabel} <ChevronRight size={13} />
@@ -434,7 +439,7 @@ export default function InviteSubAdminDrawer({
     </div>
   )
 
-  // ── Render org builder picker (flat grouped by level) ─────────────────────
+  // ── Render org picker ─────────────────────────────────────────────────────
   const renderOrgPicker = () => (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
       {orgLevels.map(level => {
@@ -516,8 +521,9 @@ export default function InviteSubAdminDrawer({
             <div style={{ background: 'rgba(13,199,94,0.1)', border: '1px solid rgba(13,199,94,0.25)', borderRadius: 9, padding: '7px 8px', display: 'flex' }}>
               <Shield size={15} color='#0dc75e' />
             </div>
+            {/* ← UPDATED: title changes based on mode */}
             <span style={{ fontSize: 14, fontWeight: 700, color: '#fff', fontFamily: 'var(--font-display)' }}>
-              Invite Check-in Admin
+              {editingMember ? 'Edit Admin Scope' : 'Invite Check-in Admin'}
             </span>
           </div>
           <button onClick={handleClose} style={{ background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.09)', borderRadius: 9, width: 32, height: 32, display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', color: SUB2 }}>
@@ -533,32 +539,51 @@ export default function InviteSubAdminDrawer({
                 <Check size={26} color="#22C55E" />
               </div>
               <div style={{ textAlign: 'center' }}>
-                <div style={{ fontSize: 16, fontWeight: 700, color: '#fff', marginBottom: 6 }}>Invitation Sent!</div>
+                {/* ← UPDATED: success message changes based on mode */}
+                <div style={{ fontSize: 16, fontWeight: 700, color: '#fff', marginBottom: 6 }}>
+                  {editingMember ? 'Scope Updated!' : 'Invitation Sent!'}
+                </div>
                 <div style={{ fontSize: 13, color: SUB2, lineHeight: 1.6, maxWidth: 280 }}>
-                  Invitation sent to <strong style={{ color: '#fff' }}>{email}</strong>. Status will show as Pending until they accept.
+                  {editingMember
+                    ? <>Scope for <strong style={{ color: '#fff' }}>{editingMember.displayName || editingMember.email}</strong> has been updated.</>
+                    : <>Invitation sent to <strong style={{ color: '#fff' }}>{email}</strong>. Status will show as Pending until they accept.</>
+                  }
                 </div>
               </div>
-              <button onClick={reset} style={{ marginTop: 8, padding: '10px 24px', borderRadius: 10, border: `1px solid ${ACCENT}40`, background: `${ACCENT}10`, color: ACCENT, fontSize: 13, fontWeight: 700, cursor: 'pointer', fontFamily: 'var(--font-body)' }}>
-                Invite Another
-              </button>
+              {!editingMember && (
+                <button onClick={reset} style={{ marginTop: 8, padding: '10px 24px', borderRadius: 10, border: `1px solid ${ACCENT}40`, background: `${ACCENT}10`, color: ACCENT, fontSize: 13, fontWeight: 700, cursor: 'pointer', fontFamily: 'var(--font-body)' }}>
+                  Invite Another
+                </button>
+              )}
             </div>
           ) : (
             <>
-              {/* Email */}
+              {/* Email — read-only when editing */}
               <div>
                 <label style={lbl}>Email Address *</label>
                 <div style={{ position: 'relative' }}>
                   <Mail size={13} style={{ position: 'absolute', left: 12, top: '50%', transform: 'translateY(-50%)', color: SUB2 }} />
-                  <input type="email" value={email} onChange={e => { setEmail(e.target.value); setError('') }}
+                  <input
+                    type="email"
+                    value={email}
+                    onChange={e => { if (!editingMember) { setEmail(e.target.value); setError('') } }}
                     placeholder="colleague@example.com"
-                    style={{ ...inp, paddingLeft: 34 }}
-                    onFocus={e => e.currentTarget.style.borderColor = `${ACCENT}50`}
+                    readOnly={!!editingMember}
+                    style={{
+                      ...inp, paddingLeft: 34,
+                      // ← dim the field when read-only in edit mode
+                      opacity: editingMember ? 0.6 : 1,
+                      cursor: editingMember ? 'default' : 'text',
+                    }}
+                    onFocus={e => { if (!editingMember) e.currentTarget.style.borderColor = `${ACCENT}50` }}
                     onBlur={e => e.currentTarget.style.borderColor = 'rgba(255,255,255,0.09)'}
                   />
                 </div>
-                <p style={{ fontSize: 11, color: SUB2, margin: '6px 0 0', lineHeight: 1.5 }}>
-                  They'll be prompted to create a StageCheck account if they don't have one.
-                </p>
+                {!editingMember && (
+                  <p style={{ fontSize: 11, color: SUB2, margin: '6px 0 0', lineHeight: 1.5 }}>
+                    They'll be prompted to create a StageCheck account if they don't have one.
+                  </p>
+                )}
               </div>
 
               {/* Scope type */}
@@ -637,9 +662,12 @@ export default function InviteSubAdminDrawer({
               padding: '11px 0', borderRadius: 12, cursor: email.trim() ? 'pointer' : 'not-allowed',
               fontSize: 13.5, fontWeight: 700, fontFamily: 'var(--font-body)', transition: 'all 0.18s',
             }}>
+              {/* ← UPDATED: button label changes based on mode */}
               {saving
-                ? <><Loader2 size={14} style={{ animation: 'spin 1s linear infinite' }} /> Sending...</>
-                : <><Mail size={14} /> Send Invitation &rarr;</>
+                ? <><Loader2 size={14} style={{ animation: 'spin 1s linear infinite' }} /> {editingMember ? 'Saving...' : 'Sending...'}</>
+                : editingMember
+                  ? <><Check size={14} /> Save Changes &rarr;</>
+                  : <><Mail size={14} /> Send Invitation &rarr;</>
               }
             </button>
             <button onClick={handleClose} style={{ padding: '11px 18px', borderRadius: 12, border: '1px solid rgba(255,255,255,0.09)', background: 'transparent', color: SUB2, cursor: 'pointer', fontSize: 13, fontFamily: 'var(--font-body)' }}>

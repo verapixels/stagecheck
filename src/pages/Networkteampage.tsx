@@ -11,7 +11,7 @@ import InviteSubAdminDrawer from '../components/network/Invitesubadmindrawer'
 import { useAuth } from '../context/Authcontext'
 import {
   Users, Plus, Shield, Globe, Clock, CheckCircle2,
-  Trash2, XCircle, ChevronDown, ChevronUp,
+  Trash2, XCircle, ChevronDown, ChevronUp, Pencil,
 } from 'lucide-react'
 
 interface PendingInvite {
@@ -87,6 +87,7 @@ export default function NetworkTeamPage() {
   const [members, setMembers]   = useState<TeamMember[]>([])
   const [invites, setInvites]   = useState<PendingInvite[]>([])
   const [drawerOpen, setDrawer] = useState(false)
+  const [editingMember, setEditingMember] = useState<TeamMember | null>(null)
   const [removing, setRemoving] = useState<string | null>(null)
   const [tab, setTab]           = useState<'active' | 'pending'>('active')
 
@@ -128,6 +129,16 @@ export default function NetworkTeamPage() {
     await deleteDoc(doc(db, 'events', eventId, 'pendingInvites', inviteId))
   }
 
+  const handleEditMember = (m: TeamMember) => {
+    setEditingMember(m)
+    setDrawer(true)
+  }
+
+  const handleDrawerClose = () => {
+    setDrawer(false)
+    setEditingMember(null)
+  }
+
   const pendingInvites = invites.filter(i => i.status === 'pending')
   const activeCount    = members.length
   const pendingCount   = pendingInvites.length
@@ -161,7 +172,7 @@ export default function NetworkTeamPage() {
             </p>
           </div>
           <button
-            onClick={() => setDrawer(true)}
+            onClick={() => { setEditingMember(null); setDrawer(true) }}
             style={{
               display: 'flex', alignItems: 'center', gap: 7,
               background: ACCENT, border: 'none', color: '#fff',
@@ -258,6 +269,20 @@ export default function NetworkTeamPage() {
                   <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4, fontSize: 11, fontWeight: 700, color: '#22C55E', background: 'rgba(34,197,94,0.1)', padding: '3px 9px', borderRadius: 6 }}>
                     <CheckCircle2 size={10} /> Active
                   </span>
+                  {/* Edit button */}
+                  <button
+                    onClick={() => handleEditMember(m)}
+                    style={{
+                      padding: '7px 10px', borderRadius: 9,
+                      border: `1px solid ${ACCENT}30`,
+                      background: `${ACCENT}08`, color: ACCENT, cursor: 'pointer',
+                      display: 'flex', alignItems: 'center', transition: 'all 0.15s',
+                    }}
+                    title="Edit scope"
+                  >
+                    <Pencil size={13} />
+                  </button>
+                  {/* Delete button */}
                   <button
                     onClick={() => removeMember(m.uid)}
                     disabled={removing === m.uid}
@@ -329,15 +354,16 @@ export default function NetworkTeamPage() {
         )}
       </div>
 
-      {/* Invite drawer */}
+      {/* Invite / Edit drawer */}
       <InviteSubAdminDrawer
         open={drawerOpen}
-        onClose={() => setDrawer(false)}
+        onClose={handleDrawerClose}
         eventId={eventId || ''}
         eventName={eventName}
         eventImage={eventImage}
         organizerName={organizerName}
         organizerUid={user?.uid || ''}
+        editingMember={editingMember}
       />
     </DashboardLayout>
   )
