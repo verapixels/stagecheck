@@ -1,11 +1,11 @@
 import { useState, useCallback } from 'react'
 import { Link, useLocation, useNavigate } from 'react-router-dom'
 import {
-  CheckSquare, LayoutDashboard, CalendarDays, Users, Music2,
+  LayoutDashboard, CalendarDays, Users, Music2,
   Shield, Package, Radio, MessageSquare, Ticket, Trophy,
   Film, BarChart3, Sparkles, Settings, LogOut, ChevronRight,
   Menu, Mic2, GraduationCap, Heart, Star, Presentation,
-  GitBranch, Network, ClipboardList, UserCheck, Wallet, ScanLine,
+  GitBranch, ClipboardList, UserCheck, Wallet, ScanLine,
   PieChart,
 } from 'lucide-react'
 import { useAuth } from '../context/Authcontext'
@@ -40,6 +40,10 @@ export const EVENT_TYPE_LABELS: Record<string, {
   network:    { performers: 'Registrants',  songs: 'Org Nodes',   submissions: 'Registrations',       clash: 'Conflicts',        judging: 'Analytics',         ticketing: 'Tickets',      dashboardTitle: 'Network Event',      icon: <GitBranch size={15} />,     color: '#6366F1' },
   custom:     { performers: 'Performers',   songs: 'Submissions', submissions: 'Submissions',         clash: 'Clash Detection',  judging: 'Judging',           ticketing: 'Ticketing',    dashboardTitle: 'Custom Event',       icon: <Sparkles size={15} />,      color: '#A78BFA' },
 }
+
+// ── Brand constants (never change regardless of event type) ─────────────────
+const BRAND_GREEN = '#22C55E'
+const BRAND_DARK  = '#0B1020'
 
 interface SidebarProps {
   eventId: string
@@ -84,7 +88,6 @@ function SidebarContent({ eventId, eventType, enabledModules, metaLoading, locat
     { icon: <UserCheck size={18} />,       label: 'Team',              path: `${e}/network/team`,           moduleId: 'network-checkin'       },
   ]
 
-  // Sub-admins only see the Check-in page
   const SUB_ADMIN_NAV_ITEMS = [
     { icon: <ScanLine size={18} />, label: 'Check-in', path: `${e}/network/checkin` },
   ]
@@ -101,6 +104,7 @@ function SidebarContent({ eventId, eventType, enabledModules, metaLoading, locat
       )
     : []
 
+  // Active nav always uses brand green — never event type color
   const navLink = (item: { icon: React.ReactNode; label: string; path: string }) => {
     const active = location.pathname === item.path
     return (
@@ -112,12 +116,12 @@ function SidebarContent({ eventId, eventType, enabledModules, metaLoading, locat
         style={{
           display: 'flex', alignItems: 'center', gap: 10,
           padding: '9px 10px', borderRadius: 8, textDecoration: 'none',
-          color: active ? (isNetwork ? '#818CF8' : '#22C55E') : 'rgba(255,255,255,0.55)',
-          background: active ? (isNetwork ? 'rgba(99,102,241,0.1)' : 'rgba(34,197,94,0.1)') : 'transparent',
+          color: active ? BRAND_GREEN : 'rgba(255,255,255,0.55)',
+          background: active ? 'rgba(34,197,94,0.1)' : 'transparent',
           fontSize: 14, fontWeight: active ? 600 : 400,
           fontFamily: 'var(--font-body)', marginBottom: 2,
           transition: 'all 0.15s',
-          borderLeft: active ? `2px solid ${isNetwork ? '#818CF8' : '#22C55E'}` : '2px solid transparent',
+          borderLeft: active ? `2px solid ${BRAND_GREEN}` : '2px solid transparent',
         }}
         onMouseEnter={ev => { if (!active) { ev.currentTarget.style.background = 'rgba(255,255,255,0.05)'; ev.currentTarget.style.color = '#fff' } }}
         onMouseLeave={ev => { if (!active) { ev.currentTarget.style.background = 'transparent'; ev.currentTarget.style.color = 'rgba(255,255,255,0.55)' } }}
@@ -129,21 +133,56 @@ function SidebarContent({ eventId, eventType, enabledModules, metaLoading, locat
     )
   }
 
+  // ── Logo block (shared) ───────────────────────────────────────────────────
+  const LogoBlock = () => (
+    <div style={{ padding: '20px 16px 16px', borderBottom: '1px solid rgba(255,255,255,0.06)', flexShrink: 0 }}>
+      <Link to="/" style={{ textDecoration: 'none', display: 'flex', alignItems: 'center', gap: 10 }}>
+        <img
+          src="/logo.png"
+          alt="StageCheck"
+          style={{ width: 28, height: 28, objectFit: 'contain', flexShrink: 0 }}
+        />
+        <span style={{ fontFamily: 'var(--font-display)', fontWeight: 700, fontSize: 17, color: '#fff' }}>
+          StageCheck
+        </span>
+      </Link>
+    </div>
+  )
+
+  // ── User row (shared) ─────────────────────────────────────────────────────
+  const UserRow = () => (
+    <div style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '10px', borderRadius: 8, border: '1px solid rgba(255,255,255,0.07)', background: 'rgba(255,255,255,0.03)' }}>
+      <div style={{
+        width: 32, height: 32, borderRadius: '50%',
+        background: `linear-gradient(135deg, ${BRAND_GREEN}, #16a34a)`,
+        display: 'flex', alignItems: 'center', justifyContent: 'center',
+        fontSize: 13, fontWeight: 700, color: BRAND_DARK, flexShrink: 0,
+      }}>
+        {displayName.charAt(0).toUpperCase()}
+      </div>
+      <div style={{ flex: 1, minWidth: 0 }}>
+        <div style={{ fontSize: 13, color: '#fff', fontWeight: 500, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{displayName}</div>
+        <div style={{ fontSize: 10, color: 'rgba(255,255,255,0.3)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{user?.email}</div>
+      </div>
+      <button
+        onClick={onSignOut}
+        title="Sign out"
+        style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'rgba(255,255,255,0.3)', padding: 4, display: 'flex', flexShrink: 0, transition: 'color 0.2s' }}
+        onMouseEnter={e => e.currentTarget.style.color = '#F87171'}
+        onMouseLeave={e => e.currentTarget.style.color = 'rgba(255,255,255,0.3)'}
+      >
+        <LogOut size={15} />
+      </button>
+    </div>
+  )
+
   // ── Sub-admin sidebar (stripped down) ──────────────────────────────────────
   if (isSubAdmin && eventId) {
     return (
       <div style={{ display: 'flex', flexDirection: 'column', minHeight: '100%' }}>
-        {/* Logo */}
-        <div style={{ padding: '20px 16px 16px', borderBottom: '1px solid rgba(255,255,255,0.06)', flexShrink: 0 }}>
-          <Link to="/" style={{ textDecoration: 'none', display: 'flex', alignItems: 'center', gap: 10 }}>
-            <div style={{ width: 28, height: 28, background: '#6366F1', borderRadius: 7, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
-              <CheckSquare size={15} color="#fff" strokeWidth={2.5} />
-            </div>
-            <span style={{ fontFamily: 'var(--font-display)', fontWeight: 700, fontSize: 17, color: '#fff' }}>StageCheck</span>
-          </Link>
-        </div>
+        <LogoBlock />
 
-        {/* Role badge */}
+        {/* Role badge — indigo is fine here, it's a role indicator not brand color */}
         <div style={{ padding: '12px 16px', borderBottom: '1px solid rgba(255,255,255,0.06)', flexShrink: 0 }}>
           <div style={{
             display: 'flex', alignItems: 'center', gap: 8,
@@ -162,33 +201,15 @@ function SidebarContent({ eventId, eventType, enabledModules, metaLoading, locat
 
         <nav style={{ flex: 1, padding: '12px 8px' }}>
           <div style={{ marginBottom: 20 }}>
-            <div style={{ fontSize: 10, fontWeight: 600, color: 'rgba(129,140,248,0.5)', letterSpacing: '1.2px', textTransform: 'uppercase', padding: '0 8px', marginBottom: 6 }}>
+            <div style={{ fontSize: 10, fontWeight: 600, color: 'rgba(255,255,255,0.25)', letterSpacing: '1.2px', textTransform: 'uppercase', padding: '0 8px', marginBottom: 6 }}>
               My Tools
             </div>
             {SUB_ADMIN_NAV_ITEMS.map(navLink)}
           </div>
         </nav>
 
-        {/* User row */}
         <div style={{ padding: '12px 8px', flexShrink: 0 }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '10px', borderRadius: 8, border: '1px solid rgba(255,255,255,0.07)', background: 'rgba(255,255,255,0.03)' }}>
-            <div style={{ width: 32, height: 32, borderRadius: '50%', background: 'linear-gradient(135deg, #6366F1, #818CF8)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 13, fontWeight: 700, color: '#fff', flexShrink: 0 }}>
-              {displayName.charAt(0).toUpperCase()}
-            </div>
-            <div style={{ flex: 1, minWidth: 0 }}>
-              <div style={{ fontSize: 13, color: '#fff', fontWeight: 500, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{displayName}</div>
-              <div style={{ fontSize: 10, color: 'rgba(255,255,255,0.3)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{user?.email}</div>
-            </div>
-            <button
-              onClick={onSignOut}
-              title="Sign out"
-              style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'rgba(255,255,255,0.3)', padding: 4, display: 'flex', flexShrink: 0, transition: 'color 0.2s' }}
-              onMouseEnter={e => e.currentTarget.style.color = '#F87171'}
-              onMouseLeave={e => e.currentTarget.style.color = 'rgba(255,255,255,0.3)'}
-            >
-              <LogOut size={15} />
-            </button>
-          </div>
+          <UserRow />
         </div>
       </div>
     )
@@ -198,22 +219,14 @@ function SidebarContent({ eventId, eventType, enabledModules, metaLoading, locat
   return (
     <div style={{ display: 'flex', flexDirection: 'column', minHeight: '100%' }}>
 
-      {/* Logo */}
-      <div style={{ padding: '20px 16px 16px', borderBottom: '1px solid rgba(255,255,255,0.06)', flexShrink: 0 }}>
-        <Link to="/" style={{ textDecoration: 'none', display: 'flex', alignItems: 'center', gap: 10 }}>
-          <div style={{ width: 28, height: 28, background: '#22C55E', borderRadius: 7, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
-            <CheckSquare size={15} color="#0B1020" strokeWidth={2.5} />
-          </div>
-          <span style={{ fontFamily: 'var(--font-display)', fontWeight: 700, fontSize: 17, color: '#fff' }}>StageCheck</span>
-        </Link>
-      </div>
+      <LogoBlock />
 
-      {/* Event type badge */}
+      {/* Event type badge — uses event color, scoped only to this badge */}
       {eventId && (
         <div style={{ padding: '12px 16px', borderBottom: '1px solid rgba(255,255,255,0.06)', flexShrink: 0 }}>
           <div style={{
             display: 'flex', alignItems: 'center', gap: 8,
-            background: `${typeLabels.color}12`, border: `1px solid ${typeLabels.color}25`,
+            background: `${typeLabels.color}18`, border: `1px solid ${typeLabels.color}30`,
             borderRadius: 8, padding: '8px 10px',
           }}>
             <span style={{ color: typeLabels.color, display: 'flex', alignItems: 'center' }}>{typeLabels.icon}</span>
@@ -246,7 +259,8 @@ function SidebarContent({ eventId, eventType, enabledModules, metaLoading, locat
             <div style={{
               fontSize: 10, fontWeight: 600, letterSpacing: '1.2px', textTransform: 'uppercase',
               padding: '0 8px', marginBottom: 6,
-              color: 'rgba(129,140,248,0.5)',
+              // Section label uses a muted version of event color — just the label, not nav items
+              color: `${typeLabels.color}80`,
             }}>
               Network Tools
             </div>
@@ -277,31 +291,14 @@ function SidebarContent({ eventId, eventType, enabledModules, metaLoading, locat
       <div style={{ padding: '12px 8px', flexShrink: 0 }}>
         <Link
           to="/manage/settings"
-          style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '9px 10px', borderRadius: 8, textDecoration: 'none', color: 'rgba(255,255,255,0.45)', fontSize: 14, fontFamily: 'var(--font-body)', marginBottom: 2, transition: 'all 0.15s' }}
+          style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '9px 10px', borderRadius: 8, textDecoration: 'none', color: 'rgba(255,255,255,0.45)', fontSize: 14, fontFamily: 'var(--font-body)', marginBottom: 6, transition: 'all 0.15s' }}
           onMouseEnter={e => { e.currentTarget.style.background = 'rgba(255,255,255,0.05)'; e.currentTarget.style.color = '#fff' }}
           onMouseLeave={e => { e.currentTarget.style.background = 'transparent'; e.currentTarget.style.color = 'rgba(255,255,255,0.45)' }}
         >
-          <Settings size={18} /> Settings
+          <Settings size={18} /> <span style={{ marginLeft: 2 }}>Settings</span>
         </Link>
 
-        <div style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '10px', borderRadius: 8, marginTop: 4, border: '1px solid rgba(255,255,255,0.07)', background: 'rgba(255,255,255,0.03)' }}>
-          <div style={{ width: 32, height: 32, borderRadius: '50%', background: 'linear-gradient(135deg, #22C55E, #16a34a)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 13, fontWeight: 700, color: '#0B1020', flexShrink: 0 }}>
-            {displayName.charAt(0).toUpperCase()}
-          </div>
-          <div style={{ flex: 1, minWidth: 0 }}>
-            <div style={{ fontSize: 13, color: '#fff', fontWeight: 500, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{displayName}</div>
-            <div style={{ fontSize: 10, color: 'rgba(255,255,255,0.3)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{user?.email}</div>
-          </div>
-          <button
-            onClick={onSignOut}
-            title="Sign out"
-            style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'rgba(255,255,255,0.3)', padding: 4, display: 'flex', flexShrink: 0, transition: 'color 0.2s' }}
-            onMouseEnter={e => e.currentTarget.style.color = '#F87171'}
-            onMouseLeave={e => e.currentTarget.style.color = 'rgba(255,255,255,0.3)'}
-          >
-            <LogOut size={15} />
-          </button>
-        </div>
+        <UserRow />
       </div>
     </div>
   )
@@ -331,7 +328,6 @@ export default function DashboardLayout({
   const navigate = useNavigate()
   const [sidebarOpen, setSidebarOpen] = useState(false)
 
-  // Detect if current user is a sub-admin (team member, not organizer)
   const { member, loading: roleLoading } = useTeamRole(eventId || undefined)
   const isSubAdmin = !!member && !roleLoading
 
@@ -357,7 +353,7 @@ export default function DashboardLayout({
   }
 
   return (
-    <div style={{ display: 'flex', minHeight: '100vh', background: '#0B1020' }}>
+    <div style={{ display: 'flex', minHeight: '100vh', background: BRAND_DARK }}>
 
       <aside
         className="desktop-sidebar"
@@ -401,6 +397,7 @@ export default function DashboardLayout({
           <button onClick={() => setSidebarOpen(true)} style={{ background: 'none', border: 'none', color: '#fff', cursor: 'pointer', display: 'flex' }}>
             <Menu size={22} />
           </button>
+          <img src="/logo.png" alt="StageCheck" style={{ width: 22, height: 22, objectFit: 'contain' }} />
           <span style={{ fontFamily: 'var(--font-display)', fontWeight: 700, fontSize: 16, color: '#fff' }}>StageCheck</span>
         </div>
 
