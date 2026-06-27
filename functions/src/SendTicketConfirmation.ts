@@ -112,7 +112,7 @@ function buildTicketEmail(params: {
           <td style="padding:20px 22px 0;background:#0a1424;">
             <table width="100%" cellpadding="0" cellspacing="0" border="0"><tr>
               <td style="vertical-align:middle;background:#0a1424;">
-                <img src="${LOGO_URL}" alt="StageCheck" height="24" style="height:24px;width:auto;display:block;border:0;background:#0a1424;"/>
+              <img src="${LOGO_URL}" alt="StageCheck" width="48" height="48" style="width:48px;height:48px;display:block;border:0;border-radius:10px;"/>
               </td>
               <td align="right" style="vertical-align:middle;">
                 <table cellpadding="0" cellspacing="0" border="0"><tr>
@@ -229,8 +229,8 @@ function buildTicketEmail(params: {
           <td style="padding:20px 22px 22px;background:#0a1424;">
             <table width="100%" cellpadding="0" cellspacing="0" border="0"><tr>
               <td style="vertical-align:top;background:#0a1424;">
-                <img src="${LOGO_URL}" alt="StageCheck" height="20" style="height:20px;width:auto;display:block;margin-bottom:6px;border:0;opacity:0.5;background:#0a1424;"/>
-                <p style="margin:0;font-size:10px;color:rgba(255,255,255,0.2);line-height:1.5;font-family:Arial,sans-serif;">
+                <img src="https://res.cloudinary.com/dr0qtfjjf/image/upload/q_auto,f_auto,w_48,h_48,c_fit/v1782579896/logo.png_jn81nk.png" alt="StageCheck" width="24" height="24" style="width:24px;height:24px;display:block;border:0;border-radius:6px;opacity:0.5;margin-bottom:6px;"/>
+              <p style="margin:0;font-size:10px;color:rgba(255,255,255,0.2);line-height:1.5;font-family:Arial,sans-serif;">
                   Making events seamless, secure<br/>and unforgettable.
                 </p>
               </td>

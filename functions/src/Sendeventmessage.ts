@@ -246,8 +246,8 @@ export const sendEventMessage = onRequest(
       res.status(400).json({ error: 'Missing required fields' }); return
     }
 
-    const LOGO_URL = 'https://res.cloudinary.com/dr0qtfjjf/image/upload/q_auto/f_auto/v1780966404/ChatGPT_Image_Jun_8_2026_10_17_50_PM_phtfqg.png'
-
+   const LOGO_URL = 'https://res.cloudinary.com/dr0qtfjjf/image/upload/q_auto,f_auto,w_96,h_96,c_fit/v1782579896/logo.png_jn81nk.png'
+   
     let performerMap: Record<string, string> = {}
     try {
       const snap = await admin.firestore()

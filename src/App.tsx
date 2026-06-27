@@ -14,6 +14,7 @@ import LandingPage from './pages/Landing'
 
 // Auth pages
 import SignUp from './pages/Signup'
+import VerifyEmailPage from './pages/Verifyemailpage'
 import Login from './pages/Login'
 
 // Protected — organizer / event management
@@ -169,6 +170,7 @@ export default function App() {
           <Route path="/terms" element={<TermsPage />} />
           <Route path="/refund" element={<RefundPage />} />
           <Route path="/signup" element={<AuthRoute><SignUp /></AuthRoute>} />
+          <Route path="/verify-email" element={<VerifyEmailPage />} />
           <Route path="/login" element={<AuthRoute><Login /></AuthRoute>} />
           <Route path="/join/:joinCode" element={<JoinPage />} />
           <Route path="/event/:eventId" element={<EventDetailPage />} />

@@ -1,12 +1,14 @@
 import { useState } from 'react'
 import type { FormEvent } from 'react'
-import { Link } from 'react-router-dom'
+import { Link, useNavigate } from 'react-router-dom'
 import {
   FiUser, FiMail, FiLock, FiPhone, FiEye, FiEyeOff, FiAlertCircle,
-  FiArrowRight, FiShield, FiCheck
+  FiShield
 } from 'react-icons/fi'
 import { BsTicketPerforated, BsHeartPulse, BsCalendar2Check } from 'react-icons/bs'
 import { useAuth } from '../context/Authcontext'
+
+const FUNCTIONS_BASE = 'https://us-central1-stagecheck-699c7.cloudfunctions.net'
 
 // ─── Phone input with country code ───────────────────────────────────────────
 function PhoneInput({
@@ -63,7 +65,8 @@ function FeatureRow({
 
 // ─── Main ────────────────────────────────────────────────────────────────────
 export default function SignUp() {
-  const { signUp, signInWithGoogle } = useAuth()
+  const { signInWithGoogle } = useAuth()
+  const navigate = useNavigate()
 
   const [form, setForm] = useState({
     fullName: '', email: '', phone: '', password: '', confirmPassword: ''
@@ -94,15 +97,37 @@ export default function SignUp() {
     const errs = validate()
     setErrors(errs)
     if (Object.keys(errs).length > 0) return
+
     setLoading(true)
-    const { error } = await signUp(form.email, form.password, form.fullName)
-    setLoading(false)
-    if (error) {
-      const code = (error as any)?.code || ''
-      if (code === 'auth/email-already-in-use') setServerError('An account with this email already exists.')
-      else if (code === 'auth/weak-password') setServerError('Password is too weak.')
-      else if (code === 'auth/network-request-failed') setServerError('Network error. Check your connection.')
-      else setServerError('Something went wrong. Please try again.')
+    try {
+      const res = await fetch(`${FUNCTIONS_BASE}/sendVerificationCode`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          email: form.email,
+          firstName: form.fullName.trim().split(' ')[0],
+        }),
+      })
+
+      if (!res.ok) {
+        const body = await res.json()
+        setServerError(body.error || 'Failed to send verification email. Please try again.')
+        setLoading(false)
+        return
+      }
+
+      // Navigate to verify page — pass form data so VerifyEmailPage can create the account
+      navigate('/verify-email', {
+        state: {
+          email: form.email,
+          password: form.password,
+          fullName: form.fullName.trim(),
+          phone: form.phone,
+        },
+      })
+    } catch {
+      setServerError('Network error. Please check your connection and try again.')
+      setLoading(false)
     }
   }
 
@@ -143,10 +168,6 @@ export default function SignUp() {
           33% { transform: translate(20px,-20px) scale(1.05); }
           66% { transform: translate(-15px,15px) scale(0.95); }
         }
-        @keyframes ticketFloat {
-          0%,100% { transform: translateY(0px) rotate(-8deg); }
-          50% { transform: translateY(-12px) rotate(-8deg); }
-        }
 
         .su-page {
           min-height: 100vh;
@@ -157,17 +178,17 @@ export default function SignUp() {
         }
 
         /* ── LEFT PANEL ── */
-          .lp {
-  position: relative;
-  overflow: hidden;
-  background: var(--bg-left);
-  display: flex;
-  flex-direction: column;
-  justify-content: center;
-  gap: 40px;
-  padding: 40px 44px;
-  min-height: 100vh;
-}
+        .lp {
+          position: relative;
+          overflow: hidden;
+          background: var(--bg-left);
+          display: flex;
+          flex-direction: column;
+          justify-content: center;
+          gap: 40px;
+          padding: 40px 44px;
+          min-height: 100vh;
+        }
         .lp-blob-1 {
           position: absolute; border-radius: 50%; filter: blur(80px); pointer-events: none;
           width: 500px; height: 500px;
@@ -182,10 +203,6 @@ export default function SignUp() {
           bottom: 20%; right: -60px;
           animation: blobFloat 12s ease-in-out infinite reverse;
         }
-        .lp-top { position: relative; z-index: 2; }
-        .lp-logo { display: flex; align-items: center; gap: 10px; }
-        .lp-logo img { height: 32px; object-fit: contain; }
-
         .lp-mid { position: relative; z-index: 2; }
         .lp-eyebrow {
           display: inline-flex; align-items: center; gap: 7px;
@@ -217,14 +234,6 @@ export default function SignUp() {
         }
         .feat-title { font-size: 14px; font-weight: 700; color: var(--text); margin-bottom: 3px; }
         .feat-desc { font-size: 12.5px; color: var(--muted); line-height: 1.5; }
-
-      .lp-bot { display: none; }
-        .lp-ticket-wrap { display: none; }
-        .lp-signin-link {
-          font-size: 13px; color: var(--muted);
-        }
-        .lp-signin-link a { color: var(--green); font-weight: 600; text-decoration: none; }
-        .lp-signin-link a:hover { text-decoration: underline; }
 
         /* ── RIGHT PANEL ── */
         .rp {
@@ -369,13 +378,30 @@ export default function SignUp() {
           flex-shrink: 0;
         }
 
+        /* Sending code state on button */
+        .sub-btn.sending {
+          background: rgba(34,197,94,0.15);
+          border: 1px solid rgba(34,197,94,0.3);
+          color: var(--green);
+          box-shadow: none;
+        }
+        .sub-btn.sending .spinner {
+          border: 2px solid rgba(34,197,94,0.25);
+          border-top-color: var(--green);
+        }
+
         /* ── MOBILE ── */
         @media (max-width: 860px) {
-  .su-page { grid-template-columns: 1fr; }
-  .lp { display: none; }
-  .rp { padding: 24px 16px 40px; min-height: 100vh; }
-  .rp-card { padding: 28px 20px; border-radius: 16px; }
-}
+          .su-page { grid-template-columns: 1fr; }
+          .lp { display: none; }
+          .rp { padding: 24px 16px 40px; min-height: 100vh; }
+          .rp-card { padding: 28px 20px; border-radius: 16px; }
+        }
+
+        input:-webkit-autofill {
+          -webkit-box-shadow: 0 0 0 30px #0e1829 inset !important;
+          -webkit-text-fill-color: #fff !important;
+        }
       `}</style>
 
       <div className="su-page">
@@ -418,13 +444,6 @@ export default function SignUp() {
               />
             </div>
           </div>
-
-          <div className="lp-bot">
-            
-            <div className="lp-signin-link">
-              Already have an account? <Link to="/login">Log in</Link>
-            </div>
-          </div>
         </div>
 
         {/* ── RIGHT ── */}
@@ -435,7 +454,7 @@ export default function SignUp() {
               <p className="rp-sub">Join StageCheck and be part of unforgettable experiences.</p>
 
               {/* Google */}
-              <button className="g-btn" onClick={handleGoogle} disabled={googleLoading} type="button">
+              <button className="g-btn" onClick={handleGoogle} disabled={googleLoading || loading} type="button">
                 <svg width="18" height="18" viewBox="0 0 18 18">
                   <path fill="#4285F4" d="M17.64 9.2c0-.637-.057-1.251-.164-1.84H9v3.481h4.844c-.209 1.125-.843 2.078-1.796 2.717v2.258h2.908c1.702-1.567 2.684-3.874 2.684-6.615z"/>
                   <path fill="#34A853" d="M9 18c2.43 0 4.467-.806 5.956-2.18l-2.908-2.259c-.806.54-1.837.86-3.048.86-2.344 0-4.328-1.584-5.036-3.711H.957v2.332A8.997 8.997 0 009 18z"/>
@@ -462,7 +481,7 @@ export default function SignUp() {
                 {/* Full Name */}
                 <div className="inp-wrap">
                   <label className="inp-label">Full Name</label>
-                  <div className={`inp-box ${errors.fullName ? 'err-box' : ''}`}>
+                  <div className={`inp-box${errors.fullName ? ' err-box' : ''}`}>
                     <span className="inp-icon"><FiUser size={15} /></span>
                     <input
                       type="text" placeholder="Enter your full name"
@@ -477,7 +496,7 @@ export default function SignUp() {
                 {/* Email */}
                 <div className="inp-wrap">
                   <label className="inp-label">Email Address</label>
-                  <div className={`inp-box ${errors.email ? 'err-box' : ''}`}>
+                  <div className={`inp-box${errors.email ? ' err-box' : ''}`}>
                     <span className="inp-icon"><FiMail size={15} /></span>
                     <input
                       type="email" placeholder="Enter your email address"
@@ -491,14 +510,14 @@ export default function SignUp() {
 
                 {/* Phone */}
                 <div className="inp-wrap">
-                  <label className="inp-label">Phone Number</label>
+                  <label className="inp-label">Phone Number <span style={{ color: 'rgba(255,255,255,0.3)', fontWeight: 400 }}>(optional)</span></label>
                   <PhoneInput value={form.phone} onChange={v => setForm({ ...form, phone: v })} />
                 </div>
 
                 {/* Password */}
                 <div className="inp-wrap">
                   <label className="inp-label">Password</label>
-                  <div className={`inp-box ${errors.password ? 'err-box' : ''}`}>
+                  <div className={`inp-box${errors.password ? ' err-box' : ''}`}>
                     <span className="inp-icon"><FiLock size={15} /></span>
                     <input
                       type={showPw ? 'text' : 'password'} placeholder="Create a password"
@@ -520,7 +539,7 @@ export default function SignUp() {
                 {/* Confirm Password */}
                 <div className="inp-wrap">
                   <label className="inp-label">Confirm Password</label>
-                  <div className={`inp-box ${errors.confirmPassword ? 'err-box' : ''}`}>
+                  <div className={`inp-box${errors.confirmPassword ? ' err-box' : ''}`}>
                     <span className="inp-icon"><FiLock size={15} /></span>
                     <input
                       type={showCpw ? 'text' : 'password'} placeholder="Confirm your password"
@@ -553,9 +572,13 @@ export default function SignUp() {
                   {errors.agreed && <div className="agree-err">{errors.agreed}</div>}
                 </div>
 
-                <button type="submit" className="sub-btn" disabled={loading}>
+                <button
+                  type="submit"
+                  className={`sub-btn${loading ? ' sending' : ''}`}
+                  disabled={loading || googleLoading}
+                >
                   {loading
-                    ? <><span className="spinner" /> Creating account...</>
+                    ? <><span className="spinner" /> Sending verification code...</>
                     : 'Create Account'
                   }
                 </button>

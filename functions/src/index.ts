@@ -6,6 +6,7 @@ export { sendSubmissionEmails }  from './Sendsubmissionemails'
 export { sendTicketConfirmation } from './SendTicketConfirmation'
 export { verifyAndFulfillPayment } from './Paystackfunctions'
 export { sendInvitation }        from './Sendinvitation' 
+export { sendVerificationCode, verifyEmailCode } from './SendVerificationCode'
 
 export const searchDeezerArtists = onRequest(async (req, res) => {
   res.set("Access-Control-Allow-Origin", "*");
