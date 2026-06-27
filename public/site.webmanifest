@@ -1,0 +1,13 @@
+{
+  "name": "StageCheck",
+  "short_name": "StageCheck",
+  "description": "Making events seamless, secure and unforgettable.",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#030d1a",
+  "theme_color": "#0dc75e",
+  "icons": [
+    { "src": "/logo.png", "sizes": "512x512", "type": "image/png" },
+    { "src": "/logo.png", "sizes": "192x192", "type": "image/png" }
+  ]
+}

@@ -47,7 +47,7 @@ export default function PublicFooter() {
             onClick={() => navigate('/')}
             style={{ cursor: 'pointer', marginBottom: 0, display: 'inline-block' }}
           >
-            <img src="/Stagechecklogo.png" alt="StageCheck" style={{ height: 40, width: 'auto', objectFit: 'contain', display: 'block' }} />
+            <img src="/logo.png" alt="StageCheck" style={{ height: 40, width: 'auto', objectFit: 'contain', display: 'block' }} />
           </div>
           <p style={{ fontSize: 13, color: 'rgba(255,255,255,0.62)', margin: '14px 0 18px', maxWidth: 190, lineHeight: 1.7 }}>
             The complete event operating system. Plan, manage and run flawless events.

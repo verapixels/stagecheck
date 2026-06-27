@@ -323,7 +323,7 @@ export default function UserDashboardLayout({ children, invitationCount = 0 }: U
             onClick={() => navigate('/')}
             style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '0 8px', marginBottom: 28, cursor: 'pointer' }}
           >
-            <img src="/Stagechecklogo.png" alt="StageCheck" style={{ height: 26 }} />
+            <img src="/logo.png" alt="StageCheck" style={{ height: 26 }} />
             <span style={{ fontFamily: 'Inter, sans-serif', fontWeight: 800, fontSize: 15, color: '#fff' }}>
               StageCheck
             </span>
@@ -379,7 +379,7 @@ export default function UserDashboardLayout({ children, invitationCount = 0 }: U
                 <Menu size={22} />
               </button>
               <div className="udl-mobile-logo" onClick={() => navigate('/')}>
-                <img src="/Stagechecklogo.png" alt="StageCheck" style={{ height: 24 }} />
+                <img src="/logo.png" alt="StageCheck" style={{ height: 24 }} />
                 <span style={{ fontFamily: 'Inter, sans-serif', fontWeight: 800, fontSize: 15, color: '#fff' }}>
                   StageCheck
                 </span>

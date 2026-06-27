@@ -1,76 +1,116 @@
 // src/components/landing/SiteNavbar.tsx
-import { useState, useEffect, useRef } from 'react'
-import { useNavigate, useLocation } from 'react-router-dom'
+import { useState, useEffect, useRef } from "react";
+import { useNavigate, useLocation } from "react-router-dom";
 import {
-  collection, getDocs, query, orderBy, limit,
-  addDoc, doc, setDoc, increment, serverTimestamp,
-} from 'firebase/firestore'
-import { db } from '../lib/firebase'
-import { useAuth } from '../context/Authcontext'
+  collection,
+  getDocs,
+  query,
+  orderBy,
+  limit,
+  addDoc,
+  doc,
+  setDoc,
+  increment,
+  serverTimestamp,
+} from "firebase/firestore";
+import { db } from "../lib/firebase";
+import { useAuth } from "../context/Authcontext";
 import {
-  RiSearchLine, RiMapPin2Line, RiCrosshairLine,
-  RiArrowRightUpLine, RiArrowDownSLine,
-  RiMenuLine, RiCloseLine, RiCalendarEventLine,
-  RiInformationLine, RiQuestionLine, RiShieldLine,
-  RiFileTextLine, RiRefundLine, RiFireLine,
-} from 'react-icons/ri'
+  RiSearchLine,
+  RiMapPin2Line,
+  RiCrosshairLine,
+  RiArrowRightUpLine,
+  RiArrowDownSLine,
+  RiMenuLine,
+  RiCloseLine,
+  RiCalendarEventLine,
+  RiInformationLine,
+  RiQuestionLine,
+  RiShieldLine,
+  RiFileTextLine,
+  RiRefundLine,
+  RiFireLine,
+} from "react-icons/ri";
 
 interface SiteNavbarProps {
-  onSearchSubmit?: (query: string, location: string) => void
-  locationLabel?: string
-  onLocationChange?: (label: string) => void
+  onSearchSubmit?: (query: string, location: string) => void;
+  locationLabel?: string;
+  onLocationChange?: (label: string) => void;
 }
 
 const PAGE_TABS = [
-  { label: 'How It Works', to: '/how-it-works', icon: <RiInformationLine size={16} /> },
-  { label: 'Events', to: '/events', icon: <RiCalendarEventLine size={16} /> },
-  { label: 'Why StageCheck', to: '/why-us', icon: <RiQuestionLine size={16} /> },
-]
+  {
+    label: "How It Works",
+    to: "/how-it-works",
+    icon: <RiInformationLine size={16} />,
+  },
+  { label: "Events", to: "/events", icon: <RiCalendarEventLine size={16} /> },
+  {
+    label: "Why StageCheck",
+    to: "/why-us",
+    icon: <RiQuestionLine size={16} />,
+  },
+];
 
 const RESOURCE_LINKS = [
-  { label: 'Privacy Policy', to: '/privacy', icon: <RiShieldLine size={14} /> },
-  { label: 'Terms of Service', to: '/terms', icon: <RiFileTextLine size={14} /> },
-  { label: 'Refund Policy', to: '/refund', icon: <RiRefundLine size={14} /> },
-]
+  { label: "Privacy Policy", to: "/privacy", icon: <RiShieldLine size={14} /> },
+  {
+    label: "Terms of Service",
+    to: "/terms",
+    icon: <RiFileTextLine size={14} />,
+  },
+  { label: "Refund Policy", to: "/refund", icon: <RiRefundLine size={14} /> },
+];
 
-const FALLBACK_TRENDING = ['tech events', 'lagos free events', 'music concerts', 'stage plays']
+const FALLBACK_TRENDING = [
+  "tech events",
+  "lagos free events",
+  "music concerts",
+  "stage plays",
+];
 
 // ── Sub-components defined OUTSIDE to prevent remount on every render ──
 
 interface LocationPopupProps {
-  locating: boolean
-  cityInput: string
-  setCityInput: (v: string) => void
-  onUseMyLocation: () => void
-  onSubmitCity: () => void
+  locating: boolean;
+  cityInput: string;
+  setCityInput: (v: string) => void;
+  onUseMyLocation: () => void;
+  onSubmitCity: () => void;
 }
 
-function LocationPopup({ locating, cityInput, setCityInput, onUseMyLocation, onSubmitCity }: LocationPopupProps) {
+function LocationPopup({
+  locating,
+  cityInput,
+  setCityInput,
+  onUseMyLocation,
+  onSubmitCity,
+}: LocationPopupProps) {
   return (
     <div className="stg-loc-pop">
       <button className="stg-loc-opt" onClick={onUseMyLocation}>
         <RiCrosshairLine size={15} color="var(--green)" />
-        {locating ? 'Finding you...' : 'Use my location'}
+        {locating ? "Finding you..." : "Use my location"}
       </button>
       <div className="stg-loc-divider">or</div>
       <div className="stg-loc-input-row">
         <input
           placeholder="Type a city..."
           value={cityInput}
-          onChange={e => setCityInput(e.target.value)}
-          onKeyDown={e => e.key === 'Enter' && onSubmitCity()}
+          onChange={(e) => setCityInput(e.target.value)}
+          onKeyDown={(e) => e.key === "Enter" && onSubmitCity()}
         />
         <button className="stg-loc-go" onClick={onSubmitCity}>
           <RiArrowRightUpLine size={14} />
         </button>
       </div>
     </div>
-  )
+  );
 }
 
 interface TrendingDropdownProps {
-  trending: string[]
-  onPick: (term: string) => void
+  trending: string[];
+  onPick: (term: string) => void;
 }
 
 function TrendingDropdown({ trending, onPick }: TrendingDropdownProps) {
@@ -80,36 +120,69 @@ function TrendingDropdown({ trending, onPick }: TrendingDropdownProps) {
         <RiFireLine size={13} color="var(--green)" /> Trending Searches
       </div>
       {trending.map((t, i) => (
-        <button key={t + i} className="stg-trend-item" onClick={() => onPick(t)}>
+        <button
+          key={t + i}
+          className="stg-trend-item"
+          onClick={() => onPick(t)}
+        >
           <RiArrowRightUpLine size={13} color="rgba(255,255,255,0.3)" />
           {t}
         </button>
       ))}
     </div>
-  )
+  );
 }
 
 interface UserMenuProps {
-  displayName: string
-  photoURL: string | null
-  onNavigate: (to: string) => void
-  onOpenManage: () => void
-  onLogout: () => void
+  displayName: string;
+  photoURL: string | null;
+  onNavigate: (to: string) => void;
+  onOpenManage: () => void;
+  onLogout: () => void;
 }
 
-function UserMenu({ displayName, photoURL, onNavigate, onOpenManage, onLogout }: UserMenuProps) {
+function UserMenu({
+  displayName,
+  photoURL,
+  onNavigate,
+  onOpenManage,
+  onLogout,
+}: UserMenuProps) {
   return (
-    <div className="stg-res-pop" style={{ minWidth: 200, right: 0, left: 'auto' }}>
-      <button className="stg-res-item" onClick={() => onNavigate('/dashboard')}>Dashboard</button>
-      <button className="stg-res-item" onClick={() => onNavigate('/dashboard/invitations')}>Invitations</button>
-      <button className="stg-res-item" onClick={onOpenManage}>My Events</button>
-      <button className="stg-res-item" onClick={() => onNavigate('/dashboard/settings')}>Settings</button>
-      <div style={{ height: 1, background: 'var(--border)', margin: '4px 0' }} />
-      <button className="stg-res-item" style={{ color: '#F87171' }} onClick={onLogout}>
+    <div
+      className="stg-res-pop"
+      style={{ minWidth: 200, right: 0, left: "auto" }}
+    >
+      <button className="stg-res-item" onClick={() => onNavigate("/dashboard")}>
+        Dashboard
+      </button>
+      <button
+        className="stg-res-item"
+        onClick={() => onNavigate("/dashboard/invitations")}
+      >
+        Invitations
+      </button>
+      <button className="stg-res-item" onClick={onOpenManage}>
+        My Events
+      </button>
+      <button
+        className="stg-res-item"
+        onClick={() => onNavigate("/dashboard/settings")}
+      >
+        Settings
+      </button>
+      <div
+        style={{ height: 1, background: "var(--border)", margin: "4px 0" }}
+      />
+      <button
+        className="stg-res-item"
+        style={{ color: "#F87171" }}
+        onClick={onLogout}
+      >
         Log out
       </button>
     </div>
-  )
+  );
 }
 
 // ── Main component ──
@@ -119,137 +192,189 @@ export default function SiteNavbar({
   locationLabel: externalLocationLabel,
   onLocationChange,
 }: SiteNavbarProps) {
-  const navigate = useNavigate()
-  const { pathname } = useLocation()
-  const { user, signOut } = useAuth()
+  const navigate = useNavigate();
+  const { pathname } = useLocation();
+  const { user, signOut } = useAuth();
 
   // Internal search & location state
-  const [searchValue, setSearchValue] = useState('')
-  const [locationLabel, setLocationLabel] = useState(externalLocationLabel ?? 'Anywhere')
+  const [searchValue, setSearchValue] = useState("");
+  const [locationLabel, setLocationLabel] = useState(
+    externalLocationLabel ?? "Anywhere",
+  );
 
-  const [scrolled, setScrolled] = useState(false)
-  const [locOpen, setLocOpen] = useState(false)
-  const [resOpen, setResOpen] = useState(false)
-  const [userMenuOpen, setUserMenuOpen] = useState(false)
-  const [mobileOpen, setMobileOpen] = useState(false)
-  const [mobileSearchOpen, setMobileSearchOpen] = useState(false)
-  const [cityInput, setCityInput] = useState('')
-  const [locating, setLocating] = useState(false)
-  const [searchFocused, setSearchFocused] = useState(false)
-  const [mobSearchFocused, setMobSearchFocused] = useState(false)
-  const [trending, setTrending] = useState<string[]>(FALLBACK_TRENDING)
-  const [trendingLoaded, setTrendingLoaded] = useState(false)
+  const [scrolled, setScrolled] = useState(false);
+  const [locOpen, setLocOpen] = useState(false);
+  const [resOpen, setResOpen] = useState(false);
+  const [userMenuOpen, setUserMenuOpen] = useState(false);
+  const [mobileOpen, setMobileOpen] = useState(false);
+  const [mobileSearchOpen, setMobileSearchOpen] = useState(false);
+  const [cityInput, setCityInput] = useState("");
+  const [locating, setLocating] = useState(false);
+  const [searchFocused, setSearchFocused] = useState(false);
+  const [mobSearchFocused, setMobSearchFocused] = useState(false);
+  const [trending, setTrending] = useState<string[]>(FALLBACK_TRENDING);
+  const [trendingLoaded, setTrendingLoaded] = useState(false);
 
-  const locRef = useRef<HTMLDivElement>(null)
-  const mobLocRef = useRef<HTMLDivElement>(null)
-  const resRef = useRef<HTMLDivElement>(null)
-  const searchRef = useRef<HTMLDivElement>(null)
-  const mobSearchRef = useRef<HTMLDivElement>(null)
-  const mobSearchInputRef = useRef<HTMLInputElement>(null)
-  const userMenuRef = useRef<HTMLDivElement>(null)
-
-  useEffect(() => {
-    if (externalLocationLabel) setLocationLabel(externalLocationLabel)
-  }, [externalLocationLabel])
+  const locRef = useRef<HTMLDivElement>(null);
+  const mobLocRef = useRef<HTMLDivElement>(null);
+  const resRef = useRef<HTMLDivElement>(null);
+  const searchRef = useRef<HTMLDivElement>(null);
+  const mobSearchRef = useRef<HTMLDivElement>(null);
+  const mobSearchInputRef = useRef<HTMLInputElement>(null);
+  const userMenuRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
-    const fn = () => setScrolled(window.scrollY > 10)
-    window.addEventListener('scroll', fn, { passive: true })
-    fn()
-    return () => window.removeEventListener('scroll', fn)
-  }, [])
-
-  useEffect(() => { setMobileOpen(false); setMobileSearchOpen(false) }, [pathname])
+    if (externalLocationLabel) setLocationLabel(externalLocationLabel);
+  }, [externalLocationLabel]);
 
   useEffect(() => {
-    document.body.style.overflow = (mobileOpen || mobileSearchOpen) ? 'hidden' : ''
-    return () => { document.body.style.overflow = '' }
-  }, [mobileOpen, mobileSearchOpen])
+    const fn = () => setScrolled(window.scrollY > 10);
+    window.addEventListener("scroll", fn, { passive: true });
+    fn();
+    return () => window.removeEventListener("scroll", fn);
+  }, []);
+
+  useEffect(() => {
+    setMobileOpen(false);
+    setMobileSearchOpen(false);
+  }, [pathname]);
+
+  useEffect(() => {
+    document.body.style.overflow =
+      mobileOpen || mobileSearchOpen ? "hidden" : "";
+    return () => {
+      document.body.style.overflow = "";
+    };
+  }, [mobileOpen, mobileSearchOpen]);
 
   useEffect(() => {
     if (mobileSearchOpen) {
-      const t = setTimeout(() => mobSearchInputRef.current?.focus(), 150)
-      return () => clearTimeout(t)
+      const t = setTimeout(() => mobSearchInputRef.current?.focus(), 150);
+      return () => clearTimeout(t);
     }
-  }, [mobileSearchOpen])
+  }, [mobileSearchOpen]);
 
   useEffect(() => {
     const onClick = (e: MouseEvent) => {
       if (
-        locRef.current && !locRef.current.contains(e.target as Node) &&
+        locRef.current &&
+        !locRef.current.contains(e.target as Node) &&
         (!mobLocRef.current || !mobLocRef.current.contains(e.target as Node))
-      ) setLocOpen(false)
-      if (resRef.current && !resRef.current.contains(e.target as Node)) setResOpen(false)
-      if (searchRef.current && !searchRef.current.contains(e.target as Node)) setSearchFocused(false)
-      if (mobSearchRef.current && !mobSearchRef.current.contains(e.target as Node)) setMobSearchFocused(false)
-      if (userMenuRef.current && !userMenuRef.current.contains(e.target as Node)) setUserMenuOpen(false)
-    }
-    document.addEventListener('mousedown', onClick)
-    return () => document.removeEventListener('mousedown', onClick)
-  }, [])
+      )
+        setLocOpen(false);
+      if (resRef.current && !resRef.current.contains(e.target as Node))
+        setResOpen(false);
+      if (searchRef.current && !searchRef.current.contains(e.target as Node))
+        setSearchFocused(false);
+      if (
+        mobSearchRef.current &&
+        !mobSearchRef.current.contains(e.target as Node)
+      )
+        setMobSearchFocused(false);
+      if (
+        userMenuRef.current &&
+        !userMenuRef.current.contains(e.target as Node)
+      )
+        setUserMenuOpen(false);
+    };
+    document.addEventListener("mousedown", onClick);
+    return () => document.removeEventListener("mousedown", onClick);
+  }, []);
 
   const loadTrending = async () => {
-    if (trendingLoaded) return
-    setTrendingLoaded(true)
+    if (trendingLoaded) return;
+    setTrendingLoaded(true);
     try {
-      const q = query(collection(db, 'trendingSearches'), orderBy('count', 'desc'), limit(6))
-      const snap = await getDocs(q)
-      const terms = snap.docs.map(d => (d.data() as any).term).filter(Boolean)
-      if (terms.length > 0) setTrending(terms)
+      const q = query(
+        collection(db, "trendingSearches"),
+        orderBy("count", "desc"),
+        limit(6),
+      );
+      const snap = await getDocs(q);
+      const terms = snap.docs
+        .map((d) => (d.data() as any).term)
+        .filter(Boolean);
+      if (terms.length > 0) setTrending(terms);
     } catch {
       // keep fallback silently
     }
-  }
+  };
 
   const logSearch = (term: string) => {
-    const clean = term.trim().toLowerCase()
-    if (!clean) return
-    addDoc(collection(db, 'searchLogs'), { term: clean, createdAt: serverTimestamp() }).catch(() => {})
-    const trendRef = doc(db, 'trendingSearches', clean)
-    setDoc(trendRef, { term: clean, count: increment(1), updatedAt: serverTimestamp() }, { merge: true }).catch(() => {})
-  }
+    const clean = term.trim().toLowerCase();
+    if (!clean) return;
+    addDoc(collection(db, "searchLogs"), {
+      term: clean,
+      createdAt: serverTimestamp(),
+    }).catch(() => {});
+    const trendRef = doc(db, "trendingSearches", clean);
+    setDoc(
+      trendRef,
+      { term: clean, count: increment(1), updatedAt: serverTimestamp() },
+      { merge: true },
+    ).catch(() => {});
+  };
 
   const submitSearch = (term?: string) => {
-    const value = (term ?? searchValue).trim()
-    if (term) setSearchValue(term)
-    if (!value) return
-    logSearch(value)
-    setSearchFocused(false)
-    setMobSearchFocused(false)
-    navigate(`/events?q=${encodeURIComponent(value)}&loc=${encodeURIComponent(locationLabel)}`)
-    onSearchSubmit?.(value, locationLabel)
-  }
+    const value = (term ?? searchValue).trim();
+    if (term) setSearchValue(term);
+    if (!value) return;
+    logSearch(value);
+    setSearchFocused(false);
+    setMobSearchFocused(false);
+    navigate(
+      `/events?q=${encodeURIComponent(value)}&loc=${encodeURIComponent(locationLabel)}`,
+    );
+    onSearchSubmit?.(value, locationLabel);
+  };
 
   const handleLocationChange = (label: string) => {
-    setLocationLabel(label)
-    onLocationChange?.(label)
-  }
+    setLocationLabel(label);
+    onLocationChange?.(label);
+  };
 
   const useMyLocation = () => {
-    setLocating(true)
+    setLocating(true);
     if (!navigator.geolocation) {
-      handleLocationChange('Location unavailable'); setLocating(false); setLocOpen(false); return
+      handleLocationChange("Location unavailable");
+      setLocating(false);
+      setLocOpen(false);
+      return;
     }
     navigator.geolocation.getCurrentPosition(
       async (pos) => {
         try {
-          const { latitude, longitude } = pos.coords
-          const res = await fetch(`https://nominatim.openstreetmap.org/reverse?format=json&lat=${latitude}&lon=${longitude}`)
-          const data = await res.json()
-          handleLocationChange(data?.address?.city || data?.address?.town || data?.address?.state || 'Current location')
-        } catch { handleLocationChange('Current location') }
-        setLocating(false); setLocOpen(false)
+          const { latitude, longitude } = pos.coords;
+          const res = await fetch(
+            `https://nominatim.openstreetmap.org/reverse?format=json&lat=${latitude}&lon=${longitude}`,
+          );
+          const data = await res.json();
+          handleLocationChange(
+            data?.address?.city ||
+              data?.address?.town ||
+              data?.address?.state ||
+              "Current location",
+          );
+        } catch {
+          handleLocationChange("Current location");
+        }
+        setLocating(false);
+        setLocOpen(false);
       },
-      () => { handleLocationChange('Location unavailable'); setLocating(false); setLocOpen(false) },
-      { timeout: 8000 }
-    )
-  }
+      () => {
+        handleLocationChange("Location unavailable");
+        setLocating(false);
+        setLocOpen(false);
+      },
+      { timeout: 8000 },
+    );
+  };
 
   const submitCity = () => {
-    if (cityInput.trim()) handleLocationChange(cityInput.trim())
-    setCityInput('')
-    setLocOpen(false)
-  }
+    if (cityInput.trim()) handleLocationChange(cityInput.trim());
+    setCityInput("");
+    setLocOpen(false);
+  };
 
   const locationPopupProps = {
     locating,
@@ -257,21 +382,26 @@ export default function SiteNavbar({
     setCityInput,
     onUseMyLocation: useMyLocation,
     onSubmitCity: submitCity,
-  }
+  };
 
-  const displayName = user?.displayName?.split(' ')[0] || user?.email?.split('@')[0] || 'Account'
-  const avatarInitial = (user?.displayName?.[0] ?? user?.email?.[0] ?? 'U').toUpperCase()
+  const displayName =
+    user?.displayName?.split(" ")[0] || user?.email?.split("@")[0] || "Account";
+  const avatarInitial = (
+    user?.displayName?.[0] ??
+    user?.email?.[0] ??
+    "U"
+  ).toUpperCase();
 
   const handleLogout = async () => {
-    setUserMenuOpen(false)
-    await signOut()
-    navigate('/')
-  }
+    setUserMenuOpen(false);
+    await signOut();
+    navigate("/");
+  };
 
   const handleOpenManage = () => {
-    setUserMenuOpen(false)
-    window.open('/manage', '_blank', 'noopener,noreferrer')
-  }
+    setUserMenuOpen(false);
+    window.open("/manage", "_blank", "noopener,noreferrer");
+  };
 
   return (
     <>
@@ -656,29 +786,46 @@ export default function SiteNavbar({
         }
       `}</style>
 
-      <nav className={`stg-nav ${scrolled ? 'scrolled' : ''}`}>
-
+      <nav className={`stg-nav ${scrolled ? "scrolled" : ""}`}>
         {/* Logo */}
-        <div className="stg-logo" onClick={() => navigate('/')}>
-          <img src="/Stagechecklogo.png" alt="StageCheck" className="stg-logo-img" />
+        <div className="stg-logo" onClick={() => navigate("/")}>
+          <img src="/logo.png" alt="StageCheck" className="stg-logo-img" />
           <span className="stg-logo-text">StageCheck</span>
         </div>
 
         {/* Desktop tabs */}
         <div className="stg-tabs">
-          {PAGE_TABS.map(t => (
-            <button key={t.to} className={`stg-tab ${pathname === t.to ? 'active' : ''}`} onClick={() => navigate(t.to)}>
+          {PAGE_TABS.map((t) => (
+            <button
+              key={t.to}
+              className={`stg-tab ${pathname === t.to ? "active" : ""}`}
+              onClick={() => navigate(t.to)}
+            >
               {t.label}
             </button>
           ))}
-          <div ref={resRef} style={{ position: 'relative' }}>
-            <button className="stg-tab" onClick={() => setResOpen(v => !v)}>
-              Resources <RiArrowDownSLine size={13} style={{ transition: 'transform .2s', transform: resOpen ? 'rotate(180deg)' : 'none' }} />
+          <div ref={resRef} style={{ position: "relative" }}>
+            <button className="stg-tab" onClick={() => setResOpen((v) => !v)}>
+              Resources{" "}
+              <RiArrowDownSLine
+                size={13}
+                style={{
+                  transition: "transform .2s",
+                  transform: resOpen ? "rotate(180deg)" : "none",
+                }}
+              />
             </button>
             {resOpen && (
               <div className="stg-res-pop">
-                {RESOURCE_LINKS.map(r => (
-                  <button key={r.to} className="stg-res-item" onClick={() => { navigate(r.to); setResOpen(false) }}>
+                {RESOURCE_LINKS.map((r) => (
+                  <button
+                    key={r.to}
+                    className="stg-res-item"
+                    onClick={() => {
+                      navigate(r.to);
+                      setResOpen(false);
+                    }}
+                  >
                     {r.icon} {r.label}
                   </button>
                 ))}
@@ -696,23 +843,35 @@ export default function SiteNavbar({
                 <input
                   placeholder="Search events, venues..."
                   value={searchValue}
-                  onFocus={() => { setSearchFocused(true); loadTrending() }}
-                  onChange={e => setSearchValue(e.target.value)}
-                  onKeyDown={e => e.key === 'Enter' && submitSearch()}
+                  onFocus={() => {
+                    setSearchFocused(true);
+                    loadTrending();
+                  }}
+                  onChange={(e) => setSearchValue(e.target.value)}
+                  onKeyDown={(e) => e.key === "Enter" && submitSearch()}
                 />
               </div>
-              {searchFocused && <TrendingDropdown trending={trending} onPick={submitSearch} />}
+              {searchFocused && (
+                <TrendingDropdown trending={trending} onPick={submitSearch} />
+              )}
             </div>
 
             <div className="stg-combined-divider" />
 
             <div className="stg-loc-wrap" ref={locRef}>
-              <button className="stg-loc-inner" onClick={() => setLocOpen(v => !v)}>
+              <button
+                className="stg-loc-inner"
+                onClick={() => setLocOpen((v) => !v)}
+              >
                 <RiMapPin2Line size={14} color="var(--green)" />
                 <span className="stg-loc-btn-label">{locationLabel}</span>
                 <RiArrowDownSLine
                   size={12}
-                  style={{ transition: 'transform .2s', transform: locOpen ? 'rotate(180deg)' : 'none', flexShrink: 0 }}
+                  style={{
+                    transition: "transform .2s",
+                    transform: locOpen ? "rotate(180deg)" : "none",
+                    flexShrink: 0,
+                  }}
                 />
               </button>
               {locOpen && <LocationPopup {...locationPopupProps} />}
@@ -727,19 +886,35 @@ export default function SiteNavbar({
         {/* Desktop right side — auth aware */}
         <div className="stg-nav-r">
           {user ? (
-            <div ref={userMenuRef} style={{ position: 'relative' }}>
-              <button className="stg-user-pill" onClick={() => setUserMenuOpen(v => !v)}>
+            <div ref={userMenuRef} style={{ position: "relative" }}>
+              <button
+                className="stg-user-pill"
+                onClick={() => setUserMenuOpen((v) => !v)}
+              >
                 <div className="stg-user-avatar">
-                  {user.photoURL ? <img src={user.photoURL} alt="" /> : avatarInitial}
+                  {user.photoURL ? (
+                    <img src={user.photoURL} alt="" />
+                  ) : (
+                    avatarInitial
+                  )}
                 </div>
                 <span className="stg-user-name">{displayName}</span>
-                <RiArrowDownSLine size={13} style={{ transition: 'transform .2s', transform: userMenuOpen ? 'rotate(180deg)' : 'none' }} />
+                <RiArrowDownSLine
+                  size={13}
+                  style={{
+                    transition: "transform .2s",
+                    transform: userMenuOpen ? "rotate(180deg)" : "none",
+                  }}
+                />
               </button>
               {userMenuOpen && (
                 <UserMenu
                   displayName={displayName}
                   photoURL={user.photoURL ?? null}
-                  onNavigate={(to) => { navigate(to); setUserMenuOpen(false) }}
+                  onNavigate={(to) => {
+                    navigate(to);
+                    setUserMenuOpen(false);
+                  }}
                   onOpenManage={handleOpenManage}
                   onLogout={handleLogout}
                 />
@@ -747,8 +922,16 @@ export default function SiteNavbar({
             </div>
           ) : (
             <>
-              <button className="stg-btn-ghost" onClick={() => navigate('/login')}>Log in</button>
-              <button className="stg-btn-solid" onClick={() => navigate('/signup')}>
+              <button
+                className="stg-btn-ghost"
+                onClick={() => navigate("/login")}
+              >
+                Log in
+              </button>
+              <button
+                className="stg-btn-solid"
+                onClick={() => navigate("/signup")}
+              >
                 Create Event <RiArrowRightUpLine size={12} />
               </button>
             </>
@@ -756,13 +939,19 @@ export default function SiteNavbar({
         </div>
 
         {/* Mobile: search icon */}
-        <button className="stg-mob-icon-btn" onClick={() => setMobileSearchOpen(true)}>
+        <button
+          className="stg-mob-icon-btn"
+          onClick={() => setMobileSearchOpen(true)}
+        >
           <RiSearchLine size={18} />
         </button>
 
         {/* Mobile: location icon */}
         <div className="stg-mob-loc-icon-wrap" ref={mobLocRef}>
-          <button className="stg-mob-icon-btn" onClick={() => setLocOpen(v => !v)}>
+          <button
+            className="stg-mob-icon-btn"
+            onClick={() => setLocOpen((v) => !v)}
+          >
             <RiMapPin2Line size={18} />
           </button>
           {locOpen && <LocationPopup {...locationPopupProps} />}
@@ -786,36 +975,70 @@ export default function SiteNavbar({
                 ref={mobSearchInputRef}
                 placeholder="Search events..."
                 value={searchValue}
-                onFocus={() => { setMobSearchFocused(true); loadTrending() }}
-                onChange={e => setSearchValue(e.target.value)}
-                onKeyDown={e => {
-                  if (e.key === 'Enter') { submitSearch(); setMobileSearchOpen(false) }
-                  if (e.key === 'Escape') setMobileSearchOpen(false)
+                onFocus={() => {
+                  setMobSearchFocused(true);
+                  loadTrending();
+                }}
+                onChange={(e) => setSearchValue(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter") {
+                    submitSearch();
+                    setMobileSearchOpen(false);
+                  }
+                  if (e.key === "Escape") setMobileSearchOpen(false);
                 }}
                 style={{
-                  flex: 1, minWidth: 0, background: 'none', border: 'none',
-                  outline: 'none', color: 'var(--text)', fontSize: 15,
-                  fontFamily: 'var(--font-body)', padding: '13px 8px',
-                  caretColor: 'var(--green)',
+                  flex: 1,
+                  minWidth: 0,
+                  background: "none",
+                  border: "none",
+                  outline: "none",
+                  color: "var(--text)",
+                  fontSize: 15,
+                  fontFamily: "var(--font-body)",
+                  padding: "13px 8px",
+                  caretColor: "var(--green)",
                 }}
               />
-              <div style={{ width: 1, height: 20, background: 'rgba(255,255,255,0.12)', flexShrink: 0 }} />
-              <div style={{ position: 'relative', flexShrink: 0 }} ref={mobLocRef}>
+              <div
+                style={{
+                  width: 1,
+                  height: 20,
+                  background: "rgba(255,255,255,0.12)",
+                  flexShrink: 0,
+                }}
+              />
+              <div
+                style={{ position: "relative", flexShrink: 0 }}
+                ref={mobLocRef}
+              >
                 <button
-                  onClick={() => setLocOpen(v => !v)}
+                  onClick={() => setLocOpen((v) => !v)}
                   style={{
-                    display: 'flex', alignItems: 'center', gap: 5,
-                    padding: '13px 12px', background: 'none', border: 'none',
-                    color: 'var(--muted)', fontSize: 13, fontFamily: 'var(--font-body)',
-                    cursor: 'pointer', whiteSpace: 'nowrap',
+                    display: "flex",
+                    alignItems: "center",
+                    gap: 5,
+                    padding: "13px 12px",
+                    background: "none",
+                    border: "none",
+                    color: "var(--muted)",
+                    fontSize: 13,
+                    fontFamily: "var(--font-body)",
+                    cursor: "pointer",
+                    whiteSpace: "nowrap",
                   }}
                 >
                   <RiMapPin2Line size={14} color="var(--green)" />
-                  <span style={{
-                    maxWidth: 72, overflow: 'hidden',
-                    textOverflow: 'ellipsis', whiteSpace: 'nowrap',
-                    color: 'var(--text)', fontSize: 13,
-                  }}>
+                  <span
+                    style={{
+                      maxWidth: 72,
+                      overflow: "hidden",
+                      textOverflow: "ellipsis",
+                      whiteSpace: "nowrap",
+                      color: "var(--text)",
+                      fontSize: 13,
+                    }}
+                  >
                     {locationLabel}
                   </span>
                 </button>
@@ -823,14 +1046,20 @@ export default function SiteNavbar({
               </div>
             </div>
 
-            <button className="stg-mob-search-close" onClick={() => setMobileSearchOpen(false)}>
+            <button
+              className="stg-mob-search-close"
+              onClick={() => setMobileSearchOpen(false)}
+            >
               <RiCloseLine size={18} />
             </button>
 
             {mobSearchFocused && (
               <TrendingDropdown
                 trending={trending}
-                onPick={(t) => { submitSearch(t); setMobileSearchOpen(false) }}
+                onPick={(t) => {
+                  submitSearch(t);
+                  setMobileSearchOpen(false);
+                }}
               />
             )}
           </div>
@@ -840,21 +1069,39 @@ export default function SiteNavbar({
       {/* Mobile drawer */}
       {mobileOpen && (
         <>
-          <div className="stg-mob-overlay" onClick={() => setMobileOpen(false)} />
+          <div
+            className="stg-mob-overlay"
+            onClick={() => setMobileOpen(false)}
+          />
           <div className="stg-mob-drawer">
             <div className="stg-mob-head">
-              <div className="stg-logo" onClick={() => { navigate('/'); setMobileOpen(false) }}>
-                <img src="/Stagechecklogo.png" alt="StageCheck" className="stg-logo-img" />
+              <div
+                className="stg-logo"
+                onClick={() => {
+                  navigate("/");
+                  setMobileOpen(false);
+                }}
+              >
+                <img
+                  src="/logo.png"
+                  alt="StageCheck"
+                  className="stg-logo-img"
+                />
                 <span className="stg-logo-text">StageCheck</span>
               </div>
               <button
                 onClick={() => setMobileOpen(false)}
                 style={{
-                  width: 34, height: 34, borderRadius: 9,
-                  background: 'rgba(255,255,255,0.07)',
-                  border: '1px solid rgba(255,255,255,0.1)',
-                  color: 'var(--text)', cursor: 'pointer',
-                  display: 'flex', alignItems: 'center', justifyContent: 'center',
+                  width: 34,
+                  height: 34,
+                  borderRadius: 9,
+                  background: "rgba(255,255,255,0.07)",
+                  border: "1px solid rgba(255,255,255,0.1)",
+                  color: "var(--text)",
+                  cursor: "pointer",
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
                 }}
               >
                 <RiCloseLine size={18} />
@@ -863,20 +1110,39 @@ export default function SiteNavbar({
 
             {/* Logged-in user row */}
             {user && (
-              <div style={{
-                margin: '12px 20px 0', display: 'flex', alignItems: 'center', gap: 10,
-                padding: '11px 14px', borderRadius: 12,
-                background: 'rgba(13,199,94,0.06)', border: '1px solid rgba(13,199,94,0.18)',
-              }}>
+              <div
+                style={{
+                  margin: "12px 20px 0",
+                  display: "flex",
+                  alignItems: "center",
+                  gap: 10,
+                  padding: "11px 14px",
+                  borderRadius: 12,
+                  background: "rgba(13,199,94,0.06)",
+                  border: "1px solid rgba(13,199,94,0.18)",
+                }}
+              >
                 <div className="stg-user-avatar">
-                  {user.photoURL ? <img src={user.photoURL} alt="" /> : avatarInitial}
+                  {user.photoURL ? (
+                    <img src={user.photoURL} alt="" />
+                  ) : (
+                    avatarInitial
+                  )}
                 </div>
-                <span style={{ fontSize: 13, fontWeight: 600, color: 'var(--text)' }}>{displayName}</span>
+                <span
+                  style={{
+                    fontSize: 13,
+                    fontWeight: 600,
+                    color: "var(--text)",
+                  }}
+                >
+                  {displayName}
+                </span>
               </div>
             )}
 
             {/* Location row */}
-            <div className="stg-mob-loc" onClick={() => setLocOpen(v => !v)}>
+            <div className="stg-mob-loc" onClick={() => setLocOpen((v) => !v)}>
               <RiMapPin2Line size={15} color="var(--green)" />
               <span className="stg-mob-loc-text">Location</span>
               <span className="stg-mob-loc-val">{locationLabel}</span>
@@ -885,11 +1151,14 @@ export default function SiteNavbar({
 
             <div className="stg-mob-links">
               <div className="stg-mob-section-label">Navigate</div>
-              {PAGE_TABS.map(t => (
+              {PAGE_TABS.map((t) => (
                 <button
                   key={t.to}
-                  className={`stg-mob-link ${pathname === t.to ? 'active' : ''}`}
-                  onClick={() => { navigate(t.to); setMobileOpen(false) }}
+                  className={`stg-mob-link ${pathname === t.to ? "active" : ""}`}
+                  onClick={() => {
+                    navigate(t.to);
+                    setMobileOpen(false);
+                  }}
                 >
                   <span className="stg-mob-link-icon">{t.icon}</span>
                   {t.label}
@@ -901,24 +1170,39 @@ export default function SiteNavbar({
                   <div className="stg-mob-divider" />
                   <div className="stg-mob-section-label">Account</div>
                   <button
-                    className={`stg-mob-link ${pathname === '/dashboard' ? 'active' : ''}`}
-                    onClick={() => { navigate('/dashboard'); setMobileOpen(false) }}
+                    className={`stg-mob-link ${pathname === "/dashboard" ? "active" : ""}`}
+                    onClick={() => {
+                      navigate("/dashboard");
+                      setMobileOpen(false);
+                    }}
                   >
-                    <span className="stg-mob-link-icon"><RiCalendarEventLine size={16} /></span>
+                    <span className="stg-mob-link-icon">
+                      <RiCalendarEventLine size={16} />
+                    </span>
                     Dashboard
                   </button>
                   <button
-                    className={`stg-mob-link ${pathname === '/dashboard/invitations' ? 'active' : ''}`}
-                    onClick={() => { navigate('/dashboard/invitations'); setMobileOpen(false) }}
+                    className={`stg-mob-link ${pathname === "/dashboard/invitations" ? "active" : ""}`}
+                    onClick={() => {
+                      navigate("/dashboard/invitations");
+                      setMobileOpen(false);
+                    }}
                   >
-                    <span className="stg-mob-link-icon"><RiInformationLine size={16} /></span>
+                    <span className="stg-mob-link-icon">
+                      <RiInformationLine size={16} />
+                    </span>
                     Invitations
                   </button>
                   <button
                     className="stg-mob-link"
-                    onClick={() => { window.open('/manage', '_blank', 'noopener,noreferrer'); setMobileOpen(false) }}
+                    onClick={() => {
+                      window.open("/manage", "_blank", "noopener,noreferrer");
+                      setMobileOpen(false);
+                    }}
                   >
-                    <span className="stg-mob-link-icon"><RiCalendarEventLine size={16} /></span>
+                    <span className="stg-mob-link-icon">
+                      <RiCalendarEventLine size={16} />
+                    </span>
                     My Events
                   </button>
                 </>
@@ -926,11 +1210,14 @@ export default function SiteNavbar({
 
               <div className="stg-mob-divider" />
               <div className="stg-mob-section-label">Resources</div>
-              {RESOURCE_LINKS.map(r => (
+              {RESOURCE_LINKS.map((r) => (
                 <button
                   key={r.to}
-                  className={`stg-mob-link ${pathname === r.to ? 'active' : ''}`}
-                  onClick={() => { navigate(r.to); setMobileOpen(false) }}
+                  className={`stg-mob-link ${pathname === r.to ? "active" : ""}`}
+                  onClick={() => {
+                    navigate(r.to);
+                    setMobileOpen(false);
+                  }}
                 >
                   <span className="stg-mob-link-icon">{r.icon}</span>
                   {r.label}
@@ -942,17 +1229,36 @@ export default function SiteNavbar({
               {user ? (
                 <button
                   className="stg-mob-btn-solid"
-                  style={{ background: 'transparent', border: '1px solid rgba(248,113,113,0.3)', color: '#F87171' }}
-                  onClick={() => { handleLogout(); setMobileOpen(false) }}
+                  style={{
+                    background: "transparent",
+                    border: "1px solid rgba(248,113,113,0.3)",
+                    color: "#F87171",
+                  }}
+                  onClick={() => {
+                    handleLogout();
+                    setMobileOpen(false);
+                  }}
                 >
                   Log out
                 </button>
               ) : (
                 <>
-                  <button className="stg-mob-btn-ghost" onClick={() => { navigate('/login'); setMobileOpen(false) }}>
+                  <button
+                    className="stg-mob-btn-ghost"
+                    onClick={() => {
+                      navigate("/login");
+                      setMobileOpen(false);
+                    }}
+                  >
                     Log in
                   </button>
-                  <button className="stg-mob-btn-solid" onClick={() => { navigate('/signup'); setMobileOpen(false) }}>
+                  <button
+                    className="stg-mob-btn-solid"
+                    onClick={() => {
+                      navigate("/signup");
+                      setMobileOpen(false);
+                    }}
+                  >
                     Create Event <RiArrowRightUpLine size={14} />
                   </button>
                 </>
@@ -962,5 +1268,5 @@ export default function SiteNavbar({
         </>
       )}
     </>
-  )
+  );
 }

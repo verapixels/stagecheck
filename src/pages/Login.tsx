@@ -347,7 +347,7 @@ export default function Login() {
 
           <div className="lp-top">
             <div className="lp-logo">
-              <img src="/Stagechecklogo.png" alt="StageCheck" />
+              <img src="/logo.png" alt="StageCheck" />
             </div>
           </div>
 
