@@ -157,16 +157,17 @@ export default function SignUp() {
         }
 
         /* ── LEFT PANEL ── */
-        .lp {
-          position: relative;
-          overflow: hidden;
-          background: var(--bg-left);
-          display: flex;
-          flex-direction: column;
-          justify-content: space-between;
-          padding: 40px 44px 48px;
-          min-height: 100vh;
-        }
+          .lp {
+  position: relative;
+  overflow: hidden;
+  background: var(--bg-left);
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  gap: 40px;
+  padding: 40px 44px;
+  min-height: 100vh;
+}
         .lp-blob-1 {
           position: absolute; border-radius: 50%; filter: blur(80px); pointer-events: none;
           width: 500px; height: 500px;
@@ -217,16 +218,8 @@ export default function SignUp() {
         .feat-title { font-size: 14px; font-weight: 700; color: var(--text); margin-bottom: 3px; }
         .feat-desc { font-size: 12.5px; color: var(--muted); line-height: 1.5; }
 
-        .lp-bot { position: relative; z-index: 2; }
-        .lp-ticket-wrap {
-          display: flex; justify-content: center;
-          margin-bottom: 24px;
-        }
-        .lp-ticket {
-          width: 220px; height: 220px; object-fit: contain;
-          animation: ticketFloat 4s ease-in-out infinite;
-          filter: drop-shadow(0 0 40px rgba(34,197,94,0.25));
-        }
+      .lp-bot { display: none; }
+        .lp-ticket-wrap { display: none; }
         .lp-signin-link {
           font-size: 13px; color: var(--muted);
         }
@@ -378,17 +371,11 @@ export default function SignUp() {
 
         /* ── MOBILE ── */
         @media (max-width: 860px) {
-          .su-page { grid-template-columns: 1fr; }
-          .lp {
-            min-height: unset; padding: 28px 24px 32px;
-            flex-direction: column; gap: 24px;
-          }
-          .lp-ticket-wrap { margin-bottom: 0; }
-          .lp-ticket { width: 160px; height: 160px; }
-          .lp-headline { font-size: 28px; }
-          .rp { padding: 24px 16px 40px; }
-          .rp-card { padding: 28px 20px; border-radius: 16px; }
-        }
+  .su-page { grid-template-columns: 1fr; }
+  .lp { display: none; }
+  .rp { padding: 24px 16px 40px; min-height: 100vh; }
+  .rp-card { padding: 28px 20px; border-radius: 16px; }
+}
       `}</style>
 
       <div className="su-page">
@@ -396,12 +383,6 @@ export default function SignUp() {
         <div className="lp">
           <div className="lp-blob-1" />
           <div className="lp-blob-2" />
-
-          <div className="lp-top">
-            <div className="lp-logo">
-              <img src="/logo.png" alt="StageCheck" />
-            </div>
-          </div>
 
           <div className="lp-mid">
             <div className="lp-eyebrow">
@@ -439,14 +420,7 @@ export default function SignUp() {
           </div>
 
           <div className="lp-bot">
-            <div className="lp-ticket-wrap">
-              <img
-                src="/ticket-glow.png"
-                alt="StageCheck Ticket"
-                className="lp-ticket"
-                onError={e => { (e.target as HTMLImageElement).style.display = 'none' }}
-              />
-            </div>
+            
             <div className="lp-signin-link">
               Already have an account? <Link to="/login">Log in</Link>
             </div>

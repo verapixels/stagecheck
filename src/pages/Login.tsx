@@ -326,17 +326,11 @@ export default function Login() {
 
         /* ── MOBILE ── */
         @media (max-width: 860px) {
-          .li-page { grid-template-columns: 1fr; }
-          .lp {
-            min-height: unset; padding: 28px 24px 32px;
-            flex-direction: column; gap: 24px;
-          }
-          .lp-ticket-wrap { margin-bottom: 0; }
-          .lp-ticket { width: 160px; height: 160px; }
-          .lp-headline { font-size: 28px; }
-          .rp { padding: 24px 16px 40px; }
-          .rp-card { padding: 28px 20px; border-radius: 16px; }
-        }
+  .li-page { grid-template-columns: 1fr; }
+  .lp { display: none; }
+  .rp { padding: 24px 16px 40px; min-height: 100vh; }
+  .rp-card { padding: 28px 20px; border-radius: 16px; }
+}
       `}</style>
 
       <div className="li-page">
@@ -387,14 +381,7 @@ export default function Login() {
           </div>
 
           <div className="lp-bot">
-            <div className="lp-ticket-wrap">
-              <img
-                src="/ticket-glow.png"
-                alt="StageCheck Ticket"
-                className="lp-ticket"
-                onError={e => { (e.target as HTMLImageElement).style.display = 'none' }}
-              />
-            </div>
+           
             <div className="lp-signup-link">
               Don't have an account? <Link to="/signup">Sign up</Link>
             </div>
