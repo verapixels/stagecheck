@@ -9,7 +9,6 @@ const resendApiKey = defineSecret('RESEND_API_KEY')
 const FROM_EMAIL = 'StageCheck <events@stagecheck.com.ng>'
 const REPLY_TO = 'events@stagecheck.com.ng'
 const ENQUIRIES_EMAIL = 'info@stagecheck.com.ng'
-const LOGO_URL = 'https://res.cloudinary.com/dr0qtfjjf/image/upload/q_auto/f_auto/v1780966404/ChatGPT_Image_Jun_8_2026_10_17_50_PM_phtfqg.png'
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 type EmailType = 'submitted' | 'approved' | 'rejected' | 'organizer_notify'
