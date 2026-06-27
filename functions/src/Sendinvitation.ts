@@ -6,15 +6,13 @@ import fetch from 'node-fetch'
 if (!admin.apps.length) admin.initializeApp()
 
 const resendApiKey = defineSecret('RESEND_API_KEY')
-const FROM_EMAIL   = 'StageCheck <hello@verapixels.com>'
+const FROM_EMAIL = 'StageCheck <events@stagecheck.com.ng>'
+const REPLY_TO = 'events@stagecheck.com.ng'
+const ENQUIRIES_EMAIL = 'info@stagecheck.com.ng'
 
-// ── Update this when you go live on your domain ───────────────────────────────
 const APP_URL = 'https://stagecheck.com.ng'
 
-const LOGO_URL =
-  'https://res.cloudinary.com/dr0qtfjjf/image/upload/q_auto,f_auto,w_160/v1780966404/ChatGPT_Image_Jun_8_2026_10_17_50_PM_phtfqg.png'
 
-// Social links — update these
 const SOCIALS = {
   facebook:  'https://facebook.com/stagecheckapp',
   instagram: 'https://instagram.com/stagecheckapp',
@@ -23,7 +21,6 @@ const SOCIALS = {
   tiktok:    'https://tiktok.com/@stagecheckapp',
 }
 
-// Simple Icons CDN — reliable, renders on mobile
 const ICON_FACEBOOK  = 'https://cdn.simpleicons.org/facebook/0dc75e'
 const ICON_INSTAGRAM = 'https://cdn.simpleicons.org/instagram/0dc75e'
 const ICON_X         = 'https://cdn.simpleicons.org/x/0dc75e'
@@ -48,7 +45,6 @@ const socialIconsHtml = [
     </a>
   </td>`).join('')
 
-// ── Scope label ───────────────────────────────────────────────────────────────
 function buildScopeHtml(scope: any, scopeNames: string[]): string {
   if (!scope || scope === 'all') {
     return `<span style="color:#0dc75e;font-weight:bold;">Full Access</span> — you can check in all attendees.`
@@ -58,7 +54,6 @@ function buildScopeHtml(scope: any, scopeNames: string[]): string {
   return `Scoped to: <strong style="color:#ffffff;">${names.join(', ')}</strong>`
 }
 
-// ── Email HTML ────────────────────────────────────────────────────────────────
 function buildInvitationEmail(params: {
   eventName: string
   eventImage?: string | null
@@ -82,21 +77,20 @@ function buildInvitationEmail(params: {
 <table width="100%" cellpadding="0" cellspacing="0" border="0" style="background:#030d1a;min-height:100vh;">
   <tr>
     <td align="center" style="padding:32px 12px 60px;">
-
       <table width="100%" cellpadding="0" cellspacing="0" border="0"
              style="max-width:600px;background:#061220;border-radius:20px;border:1px solid rgba(13,199,94,0.2);overflow:hidden;box-shadow:0 32px 80px rgba(0,0,0,0.7);">
 
-        <!-- Top green bar -->
         <tr><td style="height:4px;background:linear-gradient(90deg,#0dc75e,#14B8A6,#0dc75e);font-size:0;line-height:0;">&nbsp;</td></tr>
 
-        <!-- Header: logo + badge -->
         <tr>
           <td style="padding:24px 32px 0;">
             <table width="100%" cellpadding="0" cellspacing="0" border="0">
               <tr>
                 <td style="vertical-align:middle;">
-                  <img src="${LOGO_URL}" alt="StageCheck" width="140" height="32"
-                       style="height:32px;width:auto;max-width:160px;display:block;border:0;"/>
+                  <img src="https://res.cloudinary.com/dr0qtfjjf/image/upload/q_auto,f_auto,w_96,h_96,c_fit/v1782579896/logo.png_jn81nk.png" 
+     alt="StageCheck" 
+     width="48" height="48"
+     style="width:48px;height:48px;display:block;border:0;border-radius:10px;"/>
                 </td>
                 <td align="right" style="vertical-align:middle;">
                   <table cellpadding="0" cellspacing="0" border="0"><tr>
@@ -110,11 +104,9 @@ function buildInvitationEmail(params: {
           </td>
         </tr>
 
-        <!-- Divider -->
         <tr><td style="padding:20px 32px 0;"><table width="100%" cellpadding="0" cellspacing="0" border="0"><tr><td style="height:1px;background:rgba(255,255,255,0.07);font-size:0;line-height:0;">&nbsp;</td></tr></table></td></tr>
 
         ${eventImage ? `
-        <!-- Event banner -->
         <tr>
           <td style="padding:20px 32px 0;">
             <img src="${eventImage}" alt="${eventName}" width="536"
@@ -122,7 +114,6 @@ function buildInvitationEmail(params: {
           </td>
         </tr>` : ''}
 
-        <!-- Hero text -->
         <tr>
           <td style="padding:24px 32px 0;">
             <div style="font-size:36px;font-weight:900;color:#ffffff;line-height:1.05;letter-spacing:-1px;font-family:Arial,sans-serif;">
@@ -137,34 +128,25 @@ function buildInvitationEmail(params: {
           </td>
         </tr>
 
-        <!-- Role card -->
         <tr>
           <td style="padding:20px 32px 0;">
             <table width="100%" cellpadding="0" cellspacing="0" border="0"
                    style="background:rgba(13,199,94,0.06);border:1px solid rgba(13,199,94,0.2);border-radius:14px;">
               <tr>
                 <td style="padding:20px 22px;">
-
-                  <!-- Role -->
                   <div style="font-size:10px;font-weight:bold;letter-spacing:0.9px;text-transform:uppercase;color:rgba(255,255,255,0.35);margin-bottom:5px;font-family:Arial,sans-serif;">Your Role</div>
                   <div style="font-size:18px;font-weight:900;color:#0dc75e;margin-bottom:14px;font-family:Arial,sans-serif;">Check-in Admin</div>
-
-                  <!-- Divider -->
                   <table width="100%" cellpadding="0" cellspacing="0" border="0" style="margin-bottom:14px;">
                     <tr><td style="height:1px;background:rgba(255,255,255,0.07);font-size:0;line-height:0;">&nbsp;</td></tr>
                   </table>
-
-                  <!-- Scope -->
                   <div style="font-size:10px;font-weight:bold;letter-spacing:0.9px;text-transform:uppercase;color:rgba(255,255,255,0.35);margin-bottom:5px;font-family:Arial,sans-serif;">Access Scope</div>
                   <div style="font-size:13px;color:rgba(255,255,255,0.65);line-height:1.6;font-family:Arial,sans-serif;">${scopeHtml}</div>
-
                 </td>
               </tr>
             </table>
           </td>
         </tr>
 
-        <!-- Info text -->
         <tr>
           <td style="padding:16px 32px 0;">
             <p style="margin:0;font-size:13px;color:rgba(255,255,255,0.45);line-height:1.7;font-family:Arial,sans-serif;">
@@ -174,7 +156,6 @@ function buildInvitationEmail(params: {
           </td>
         </tr>
 
-        <!-- CTA button -->
         <tr>
           <td style="padding:22px 32px 0;text-align:center;">
             <table cellpadding="0" cellspacing="0" border="0" style="margin:0 auto;">
@@ -194,10 +175,26 @@ function buildInvitationEmail(params: {
           </td>
         </tr>
 
-        <!-- Divider -->
         <tr><td style="padding:22px 32px 0;"><table width="100%" cellpadding="0" cellspacing="0" border="0"><tr><td style="height:1px;background:rgba(255,255,255,0.07);font-size:0;line-height:0;">&nbsp;</td></tr></table></td></tr>
 
-        <!-- Social icons -->
+        <!-- ENQUIRIES -->
+        <tr>
+          <td style="padding:20px 32px 0;">
+            <table width="100%" cellpadding="0" cellspacing="0" border="0"
+                   style="background:rgba(13,199,94,0.05);border:1px solid rgba(13,199,94,0.15);border-radius:12px;">
+              <tr><td style="padding:14px 18px;text-align:center;">
+                <div style="font-size:12px;font-weight:700;color:#ffffff;margin-bottom:4px;font-family:Arial,sans-serif;">Have a question?</div>
+                <div style="font-size:12px;color:rgba(255,255,255,0.45);font-family:Arial,sans-serif;">
+                  You can reply to this email or reach us at<br/>
+                  <a href="mailto:${ENQUIRIES_EMAIL}" style="color:#0dc75e;text-decoration:none;font-weight:700;">${ENQUIRIES_EMAIL}</a>
+                </div>
+              </td></tr>
+            </table>
+          </td>
+        </tr>
+
+        <tr><td style="padding:20px 32px 0;"><table width="100%" cellpadding="0" cellspacing="0" border="0"><tr><td style="height:1px;background:rgba(255,255,255,0.07);font-size:0;line-height:0;">&nbsp;</td></tr></table></td></tr>
+
         <tr>
           <td style="padding:20px 32px 0;text-align:center;">
             <p style="margin:0 0 14px;font-size:11px;font-weight:bold;color:rgba(255,255,255,0.3);letter-spacing:0.7px;text-transform:uppercase;font-family:Arial,sans-serif;">Stay Connected</p>
@@ -207,17 +204,17 @@ function buildInvitationEmail(params: {
           </td>
         </tr>
 
-        <!-- Divider -->
         <tr><td style="padding:20px 32px 0;"><table width="100%" cellpadding="0" cellspacing="0" border="0"><tr><td style="height:1px;background:rgba(255,255,255,0.07);font-size:0;line-height:0;">&nbsp;</td></tr></table></td></tr>
 
-        <!-- Footer -->
         <tr>
           <td style="padding:18px 32px 28px;">
             <table width="100%" cellpadding="0" cellspacing="0" border="0">
               <tr>
                 <td style="vertical-align:top;">
-                  <img src="${LOGO_URL}" alt="StageCheck" height="22"
-                       style="height:22px;width:auto;display:block;margin-bottom:8px;border:0;opacity:0.5;"/>
+                 <img src="https://res.cloudinary.com/dr0qtfjjf/image/upload/q_auto,f_auto,w_48,h_48,c_fit/v1782579896/logo.png_jn81nk.png" 
+     alt="StageCheck" 
+     width="24" height="24"
+     style="width:24px;height:24px;display:block;border:0;border-radius:6px;opacity:0.5;margin-bottom:6px;"/>
                   <p style="margin:0;font-size:11px;color:rgba(255,255,255,0.2);line-height:1.6;font-family:Arial,sans-serif;">
                     &copy; 2025 StageCheck. All rights reserved.<br/>
                     Making events seamless, secure and unforgettable.
@@ -225,10 +222,10 @@ function buildInvitationEmail(params: {
                 </td>
                 <td style="vertical-align:top;text-align:right;">
                   <p style="margin:0 0 4px;font-size:11px;color:rgba(255,255,255,0.3);font-family:Arial,sans-serif;">
-                    Need help? <a href="mailto:hello@verapixels.com" style="color:#0dc75e;text-decoration:none;font-weight:bold;">Contact us</a>
+                    Need help? <a href="mailto:${ENQUIRIES_EMAIL}" style="color:#0dc75e;text-decoration:none;font-weight:bold;">Contact us</a>
                   </p>
                   <p style="margin:0;font-size:11px;color:rgba(255,255,255,0.2);line-height:1.7;font-family:Arial,sans-serif;">
-                    hello@stagecheck.com.ng<br/>
+                    ${ENQUIRIES_EMAIL}<br/>
                     stagecheck.com.ng
                   </p>
                 </td>
@@ -237,12 +234,10 @@ function buildInvitationEmail(params: {
           </td>
         </tr>
 
-        <!-- Bottom bar -->
         <tr><td style="height:4px;background:linear-gradient(90deg,#14B8A6,#0dc75e,#14B8A6);font-size:0;line-height:0;">&nbsp;</td></tr>
 
       </table>
 
-      <!-- Powered by -->
       <p style="margin:20px 0 0;font-size:11px;color:rgba(255,255,255,0.2);font-family:Arial,sans-serif;">
         This invitation was sent to <strong style="color:rgba(255,255,255,0.35);">${invitedEmail}</strong>.
         If this was a mistake, you can safely ignore this email.
@@ -296,7 +291,6 @@ export const sendInvitation = onRequest(
     const safeEventName = eventName?.trim() || 'this event'
 
     try {
-      // 1. Create invitation doc
       const invRef = await admin.firestore().collection('invitations').add({
         invitedEmail: invitedEmail.toLowerCase(),
         eventId,
@@ -313,7 +307,6 @@ export const sendInvitation = onRequest(
 
       const acceptUrl = `${APP_URL}/accept-invitation/${invRef.id}`
 
-      // 2. Send email
       const html = buildInvitationEmail({
         eventName: safeEventName,
         eventImage,
@@ -333,6 +326,7 @@ export const sendInvitation = onRequest(
         body: JSON.stringify({
           from: FROM_EMAIL,
           to: [invitedEmail],
+          reply_to: REPLY_TO,
           subject: `You've been invited to manage ${safeEventName} · StageCheck`,
           html,
         }),

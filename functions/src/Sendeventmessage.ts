@@ -6,16 +6,16 @@ import fetch from 'node-fetch'
 if (!admin.apps.length) admin.initializeApp()
 
 const resendApiKey = defineSecret('RESEND_API_KEY')
-const FROM_EMAIL = 'StageCheck <hello@verapixels.com>'
+const FROM_EMAIL = 'StageCheck <info@stagecheck.com.ng>'
+const REPLY_TO = 'info@stagecheck.com.ng'
+const ENQUIRIES_EMAIL = 'info@stagecheck.com.ng'
 
-// ─── Social links — fill in later ────────────────────────────────────────────
 const SOCIALS = {
-  instagram: 'https://instagram.com/yourhandle',   // ← fill in
-  twitter:   'https://x.com/yourhandle',           // ← fill in
-  tiktok:    'https://tiktok.com/@yourhandle',     // ← fill in
+  instagram: 'https://instagram.com/stagecheckapp',
+  twitter:   'https://x.com/stagecheckapp',
+  tiktok:    'https://tiktok.com/@stagecheckapp',
 }
 
-// ─── Email HTML Template ──────────────────────────────────────────────────────
 function buildEmailHtml({
   eventName,
   messageText,
@@ -103,7 +103,10 @@ function buildEmailHtml({
               <table width="100%" cellpadding="0" cellspacing="0" border="0">
                 <tr>
                   <td style="vertical-align:middle;">
-                    <img src="${logoUrl}" alt="StageCheck" height="36" style="height:36px;width:auto;display:block;border:0;" />
+                   <img src="https://res.cloudinary.com/dr0qtfjjf/image/upload/q_auto,f_auto,w_96,h_96,c_fit/v1782579896/logo.png_jn81nk.png" 
+     alt="StageCheck" 
+     width="48" height="48"
+     style="width:48px;height:48px;display:block;border:0;border-radius:10px;"/>
                   </td>
                   <td align="right" style="vertical-align:middle;">
                     <span style="display:inline-block;background:rgba(13,199,94,0.1);border:1px solid rgba(13,199,94,0.25);border-radius:20px;padding:5px 14px;font-size:11px;font-weight:600;color:#0dc75e;letter-spacing:0.6px;text-transform:uppercase;">
@@ -152,7 +155,7 @@ function buildEmailHtml({
             </td>
           </tr>
           <tr>
-            <td style="padding:16px 40px 28px;">
+            <td style="padding:16px 40px 0;">
               <table cellpadding="0" cellspacing="0" border="0">
                 <tr>
                   <td style="vertical-align:middle;">
@@ -173,7 +176,24 @@ function buildEmailHtml({
               </table>
             </td>
           </tr>
-          <tr><td style="padding:0 40px;"><div style="height:1px;background:rgba(255,255,255,0.06);"></div></td></tr>
+
+          <!-- ENQUIRIES -->
+          <tr>
+            <td style="padding:20px 40px 0;">
+              <table width="100%" cellpadding="0" cellspacing="0" border="0"
+                     style="background:rgba(13,199,94,0.05);border:1px solid rgba(13,199,94,0.15);border-radius:12px;">
+                <tr><td style="padding:14px 18px;text-align:center;">
+                  <div style="font-size:12px;font-weight:700;color:#ffffff;margin-bottom:4px;font-family:Arial,sans-serif;">Have a question?</div>
+                  <div style="font-size:12px;color:rgba(255,255,255,0.45);font-family:Arial,sans-serif;">
+                    You can reply to this email or reach us at<br/>
+                    <a href="mailto:${ENQUIRIES_EMAIL}" style="color:#0dc75e;text-decoration:none;font-weight:700;">${ENQUIRIES_EMAIL}</a>
+                  </div>
+                </td></tr>
+              </table>
+            </td>
+          </tr>
+
+          <tr><td style="padding:20px 40px 0;"><div style="height:1px;background:rgba(255,255,255,0.06);"></div></td></tr>
           <tr>
             <td style="padding:24px 40px 20px;text-align:center;">
               <p style="margin:0 0 16px 0;font-size:11px;color:rgba(255,255,255,0.2);letter-spacing:0.8px;text-transform:uppercase;font-weight:600;">Follow StageCheck</p>
@@ -204,7 +224,7 @@ function buildEmailHtml({
 }
 
 // ─── Cloud Function ───────────────────────────────────────────────────────────
-   export const sendEventMessage = onRequest(
+export const sendEventMessage = onRequest(
   { timeoutSeconds: 30, memory: '256MiB', secrets: ['RESEND_API_KEY'] },
   async (req, res) => {
     const RESEND_API_KEY = resendApiKey.value()
@@ -256,7 +276,7 @@ function buildEmailHtml({
           body: JSON.stringify({
             from: FROM_EMAIL,
             to: [email],
-            reply_to: senderEmail || undefined,
+            reply_to: REPLY_TO,
             subject: `Message from ${senderName} · ${eventName}`,
             html,
           }),

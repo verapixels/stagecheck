@@ -6,7 +6,9 @@ import fetch from 'node-fetch'
 if (!admin.apps.length) admin.initializeApp()
 
 const resendApiKey = defineSecret('RESEND_API_KEY')
-const FROM_EMAIL = 'StageCheck <hello@verapixels.com>'
+const FROM_EMAIL = 'StageCheck <events@stagecheck.com.ng>'
+const REPLY_TO = 'events@stagecheck.com.ng'
+const ENQUIRIES_EMAIL = 'info@stagecheck.com.ng'
 const LOGO_URL = 'https://res.cloudinary.com/dr0qtfjjf/image/upload/q_auto/f_auto/v1780966404/ChatGPT_Image_Jun_8_2026_10_17_50_PM_phtfqg.png'
 
 // ─── Types ────────────────────────────────────────────────────────────────────
@@ -20,6 +22,18 @@ interface SongItem {
   source?: string
 }
 
+// ─── Enquiries footer block ───────────────────────────────────────────────────
+const enquiriesFooter = `
+  <table cellpadding="0" cellspacing="0" border="0" width="100%"
+         style="background:rgba(13,199,94,0.05);border:1px solid rgba(13,199,94,0.15);border-radius:12px;margin-top:20px;">
+    <tr><td style="padding:14px 18px;text-align:center;">
+      <div style="font-size:12px;font-weight:700;color:#ffffff;margin-bottom:4px;font-family:Arial,sans-serif;">Have a question?</div>
+      <div style="font-size:12px;color:rgba(255,255,255,0.45);font-family:Arial,sans-serif;">
+        You can reply to this email or reach us at<br/>
+        <a href="mailto:${ENQUIRIES_EMAIL}" style="color:#0dc75e;text-decoration:none;font-weight:700;">${ENQUIRIES_EMAIL}</a>
+      </div>
+    </td></tr>
+  </table>`
 
 // ─── Song rows HTML ───────────────────────────────────────────────────────────
 function buildSongRows(songs: SongItem[]): string {
@@ -51,6 +65,7 @@ function buildSongRows(songs: SongItem[]): string {
       </tr>
     </table>`).join('')
 }
+
 // ─── Shared wrapper ───────────────────────────────────────────────────────────
 function emailShell(title: string, bodyContent: string, footerEvent: string): string {
   return `<!DOCTYPE html>
@@ -80,7 +95,12 @@ function emailShell(title: string, bodyContent: string, footerEvent: string): st
             <td style="padding:28px 36px 20px;">
               <table width="100%" cellpadding="0" cellspacing="0" border="0">
                 <tr>
-                  <td><img src="${LOGO_URL}" alt="StageCheck" height="32" style="height:32px;width:auto;display:block;border:0;"/></td>
+                  <td>
+                   <img src="https://res.cloudinary.com/dr0qtfjjf/image/upload/q_auto,f_auto,w_96,h_96,c_fit/v1782579896/logo.png_jn81nk.png" 
+     alt="StageCheck" 
+     width="48" height="48"
+     style="width:48px;height:48px;display:block;border:0;border-radius:10px;"/>
+                  </td>
                   <td align="right">
                     <span style="display:inline-block;background:rgba(13,199,94,0.1);border:1px solid rgba(13,199,94,0.25);border-radius:20px;padding:4px 12px;font-size:10px;font-weight:700;color:#0dc75e;letter-spacing:0.8px;text-transform:uppercase;">
                       StageCheck
@@ -127,7 +147,6 @@ function buildSubmittedEmail(params: {
   songs: SongItem[]
 }): string {
   const body = `
-    <!-- icon + heading -->
     <table cellpadding="0" cellspacing="0" border="0" style="margin-bottom:20px;">
       <tr>
         <td style="width:48px;vertical-align:middle;">
@@ -150,7 +169,6 @@ function buildSubmittedEmail(params: {
       The organizer will review it and you'll hear back once a decision is made.
     </p>
 
-    <!-- status pill -->
     <table cellpadding="0" cellspacing="0" border="0" style="margin-bottom:24px;">
       <tr>
         <td style="background:rgba(245,158,11,0.1);border:1px solid rgba(245,158,11,0.25);border-radius:8px;padding:8px 16px;">
@@ -164,6 +182,8 @@ function buildSubmittedEmail(params: {
       Your submitted song${params.songs.length > 1 ? 's' : ''}
     </div>
     ${buildSongRows(params.songs)}` : ''}
+
+    ${enquiriesFooter}
   `
   return emailShell(`Entry received · ${params.eventName}`, body, params.eventName)
 }
@@ -196,7 +216,6 @@ function buildOrganizerEmail(params: {
       </tr>
     </table>
 
-    <!-- submitter card -->
     <table cellpadding="0" cellspacing="0" border="0" width="100%"
            style="background:rgba(13,199,94,0.05);border:1px solid rgba(13,199,94,0.14);border-radius:12px;margin-bottom:20px;">
       <tr>
@@ -234,7 +253,6 @@ function buildOrganizerEmail(params: {
     </div>
     ${buildSongRows(params.songs)}` : ''}
 
-    <!-- CTA -->
     <table cellpadding="0" cellspacing="0" border="0" width="100%" style="margin-top:24px;">
       <tr>
         <td align="center">
@@ -245,6 +263,8 @@ function buildOrganizerEmail(params: {
         </td>
       </tr>
     </table>
+
+    ${enquiriesFooter}
   `
   return emailShell(`New submission · ${params.eventName}`, body, params.eventName)
 }
@@ -279,7 +299,6 @@ function buildApprovedEmail(params: {
       <strong style="color:#0dc75e;">approved</strong>. You're on the lineup!
     </p>
 
-    <!-- status pill -->
     <table cellpadding="0" cellspacing="0" border="0" style="margin-bottom:24px;">
       <tr>
         <td style="background:rgba(13,199,94,0.1);border:1px solid rgba(13,199,94,0.3);border-radius:8px;padding:8px 16px;">
@@ -294,11 +313,7 @@ function buildApprovedEmail(params: {
     </div>
     ${buildSongRows(params.songs)}` : ''}
 
-    ${params.organizerEmail ? `
-    <p style="margin:24px 0 0 0;font-size:13px;color:rgba(255,255,255,0.35);line-height:1.6;">
-      Questions? Reply to this email or contact the organizer at
-      <a href="mailto:${params.organizerEmail}" style="color:#14B8A6;">${params.organizerEmail}</a>.
-    </p>` : ''}
+    ${enquiriesFooter}
   `
   return emailShell(`You're approved · ${params.eventName}`, body, params.eventName)
 }
@@ -340,11 +355,7 @@ function buildRejectedEmail(params: {
       </tr>
     </table>
 
-    ${params.organizerEmail ? `
-    <p style="margin:0;font-size:13px;color:rgba(255,255,255,0.35);line-height:1.6;">
-      If you have questions, reach out to the organizer at
-      <a href="mailto:${params.organizerEmail}" style="color:#14B8A6;">${params.organizerEmail}</a>.
-    </p>` : ''}
+    ${enquiriesFooter}
   `
   return emailShell(`Submission update · ${params.eventName}`, body, params.eventName)
 }
@@ -386,26 +397,24 @@ export const sendSubmissionEmails = onRequest(
     }
 
     const sendEmail = async (to: string, subject: string, html: string) => {
-  const r = await fetch('https://api.resend.com/emails', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${RESEND_KEY}` },
-    body: JSON.stringify({ from: FROM_EMAIL, to: [to], subject, html }),
-  })
-  const body = await r.json()
-  console.log('Resend response:', r.status, JSON.stringify(body))
-  return r.ok
-}
+      const r = await fetch('https://api.resend.com/emails', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${RESEND_KEY}` },
+        body: JSON.stringify({ from: FROM_EMAIL, to: [to], reply_to: REPLY_TO, subject, html }),
+      })
+      const body = await r.json()
+      console.log('Resend response:', r.status, JSON.stringify(body))
+      return r.ok
+    }
 
     const results: { to: string; ok: boolean }[] = []
 
-    // ── submitted: email performer + organizer ────────────────────────────────
     if (type === 'submitted') {
       if (performerEmail) {
         const html = buildSubmittedEmail({ eventName, performerName, songs: songs || [] })
         const ok = await sendEmail(performerEmail, `Entry received · ${eventName}`, html)
         results.push({ to: performerEmail, ok })
       }
-
       if (organizerEmail) {
         const base = dashboardUrl || 'https://stagecheck-699c7.web.app'
         const html = buildOrganizerEmail({
@@ -420,14 +429,12 @@ export const sendSubmissionEmails = onRequest(
       }
     }
 
-    // ── approved ──────────────────────────────────────────────────────────────
     if (type === 'approved' && performerEmail) {
       const html = buildApprovedEmail({ eventName, performerName, songs: songs || [], organizerEmail })
       const ok = await sendEmail(performerEmail, `You're approved · ${eventName}`, html)
       results.push({ to: performerEmail, ok })
     }
 
-    // ── rejected ──────────────────────────────────────────────────────────────
     if (type === 'rejected' && performerEmail) {
       const html = buildRejectedEmail({ eventName, performerName, organizerEmail })
       const ok = await sendEmail(performerEmail, `Submission update · ${eventName}`, html)

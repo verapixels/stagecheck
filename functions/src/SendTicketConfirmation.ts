@@ -3,8 +3,9 @@ import { defineSecret } from 'firebase-functions/params'
 import fetch from 'node-fetch'
 
 const resendApiKey = defineSecret('RESEND_API_KEY')
-const FROM_EMAIL = 'StageCheck <hello@verapixels.com>'
-const SUPPORT_EMAIL = 'support@stagecheck.com.ng'
+const FROM_EMAIL = 'StageCheck <tickets@stagecheck.com.ng>'
+const REPLY_TO = 'tickets@stagecheck.com.ng'
+const ENQUIRIES_EMAIL = 'info@stagecheck.com.ng'
 
 const LOGO_URL =
   'https://res.cloudinary.com/dr0qtfjjf/image/upload/v1780966404/ChatGPT_Image_Jun_8_2026_10_17_50_PM_phtfqg.png'
@@ -191,22 +192,6 @@ function buildTicketEmail(params: {
           </td>
         </tr>
 
-        <!-- CTA -->
-        <tr>
-          <td style="padding:18px 22px 0;">
-            <table width="100%" cellpadding="0" cellspacing="0" border="0" style="background:#0dc75e;border-radius:12px;">
-              <tr><td style="padding:14px 20px;text-align:center;">
-                <a href="mailto:${SUPPORT_EMAIL}" style="font-size:14px;font-weight:900;color:#000000;text-decoration:none;font-family:Arial,sans-serif;">
-                  Contact Support &nbsp;&#8250;
-                </a>
-              </td></tr>
-            </table>
-            <p style="margin:8px 0 0;font-size:11px;color:rgba(255,255,255,0.25);text-align:center;font-family:Arial,sans-serif;">
-              Access your ticket details, manage your order and more.
-            </p>
-          </td>
-        </tr>
-
         <!-- IMPORTANT INFO -->
         <tr>
           <td style="padding:18px 22px 0;">
@@ -223,14 +208,16 @@ function buildTicketEmail(params: {
           </td>
         </tr>
 
-        <!-- NEED HELP -->
+        <!-- ENQUIRIES -->
         <tr>
-          <td style="padding:12px 22px 0;">
-            <table width="100%" cellpadding="0" cellspacing="0" border="0" style="background:rgba(255,255,255,0.02);border-radius:14px;">
-              <tr><td style="padding:14px 18px;">
-                <div style="font-size:12px;font-weight:700;color:#ffffff;margin-bottom:2px;font-family:Arial,sans-serif;">Need help?</div>
-                <div style="font-size:11px;color:rgba(255,255,255,0.45);font-family:Arial,sans-serif;">
-                  Contact <a href="mailto:${SUPPORT_EMAIL}" style="color:#0dc75e;text-decoration:none;font-weight:700;">StageCheck Support</a>
+          <td style="padding:14px 22px 0;">
+            <table width="100%" cellpadding="0" cellspacing="0" border="0"
+                   style="background:rgba(13,199,94,0.05);border:1px solid rgba(13,199,94,0.15);border-radius:14px;">
+              <tr><td style="padding:16px 18px;text-align:center;">
+                <div style="font-size:12px;font-weight:700;color:#ffffff;margin-bottom:4px;font-family:Arial,sans-serif;">Have a question?</div>
+                <div style="font-size:12px;color:rgba(255,255,255,0.45);font-family:Arial,sans-serif;">
+                  You can reply to this email or reach us at<br/>
+                  <a href="mailto:${ENQUIRIES_EMAIL}" style="color:#0dc75e;text-decoration:none;font-weight:700;">${ENQUIRIES_EMAIL}</a>
                 </div>
               </td></tr>
             </table>
@@ -331,7 +318,7 @@ export const sendTicketConfirmation = onRequest(
         body: JSON.stringify({
           from: FROM_EMAIL,
           to: [attendeeEmail],
-          reply_to: SUPPORT_EMAIL,
+          reply_to: REPLY_TO,
           subject: `Your ticket for ${eventName} · StageCheck`,
           html,
         }),
