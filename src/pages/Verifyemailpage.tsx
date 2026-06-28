@@ -104,34 +104,42 @@ export default function VerifyEmailPage() {
   }, [])
 
   const handleVerify = async () => {
-    const code = digits.join('')
-    if (code.length < CODE_LENGTH) { setError('Please enter all 6 digits.'); return }
-    if (timeLeft <= 0) { setError('Your code has expired. Please request a new one.'); return }
-    setLoading(true); setError('')
-    try {
-      const res = await fetch(`${FUNCTIONS_BASE}/verifyEmailCode`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email, code }),
-      })
-      const body = await res.json()
-      if (!res.ok) { setError(body.error || 'Incorrect code. Please try again.'); setLoading(false); return }
+  const code = digits.join('')
+  if (code.length < CODE_LENGTH) { setError('Please enter all 6 digits.'); return }
+  if (timeLeft <= 0) { setError('Your code has expired. Please request a new one.'); return }
+  setLoading(true); setError('')
+  try {
+    const res = await fetch(`${FUNCTIONS_BASE}/verifyEmailCode`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ email, code }),
+    })
+    const body = await res.json()
+    if (!res.ok) { setError(body.error || 'Incorrect code. Please try again.'); setLoading(false); return }
 
-      // Code verified — create account
-      const { error: authError } = await signUp(email, password, fullName)
-      if (authError) {
-        const code = (authError as any)?.code || ''
-        if (code === 'auth/email-already-in-use') setError('This email is already registered. Try logging in.')
-        else setError('Account creation failed. Please try again.')
-        setLoading(false); return
-      }
-      setSuccess(true)
-      setTimeout(() => navigate('/dashboard'), 1500)
-    } catch {
-      setError('Something went wrong. Please try again.')
-      setLoading(false)
+    // Code verified — create account
+    const { error: authError } = await signUp(email, password, fullName)
+    if (authError) {
+      const code = (authError as any)?.code || ''
+      if (code === 'auth/email-already-in-use') setError('This email is already registered. Try logging in.')
+      else setError('Account creation failed. Please try again.')
+      setLoading(false); return
     }
+
+    // Account created — fire welcome email (don't block redirect on it)
+    fetch(`${FUNCTIONS_BASE}/sendWelcomeEmail`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ email, firstName }),
+    }).catch(err => console.error('Welcome email failed:', err))
+
+    setSuccess(true)
+    setTimeout(() => navigate('/dashboard'), 1500)
+  } catch {
+    setError('Something went wrong. Please try again.')
+    setLoading(false)
   }
+}
 
   const handleResend = async () => {
     if (!canResend || sending) return

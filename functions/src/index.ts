@@ -1,5 +1,8 @@
 import { onRequest } from "firebase-functions/v2/https";
 import fetch from "node-fetch";
+import * as admin from "firebase-admin";
+
+if (!admin.apps.length) admin.initializeApp();
 
 export { sendEventMessage }      from './Sendeventmessage'
 export { sendSubmissionEmails }  from './Sendsubmissionemails'
@@ -7,6 +10,7 @@ export { sendTicketConfirmation } from './SendTicketConfirmation'
 export { verifyAndFulfillPayment } from './Paystackfunctions'
 export { sendInvitation }        from './Sendinvitation' 
 export { sendVerificationCode, verifyEmailCode } from './SendVerificationCode'
+export { sendWelcomeEmail } from './Sendwelcomeemail'
 
 export const searchDeezerArtists = onRequest(async (req, res) => {
   res.set("Access-Control-Allow-Origin", "*");
@@ -48,5 +52,24 @@ export const searchKnowledgeGraph = onRequest(async (req, res) => {
     res.json(data);
   } catch {
     res.status(500).json({ error: "Failed to fetch from Knowledge Graph" });
+  }
+});
+
+export const checkEmailExists = onRequest(async (req, res) => {
+  res.set("Access-Control-Allow-Origin", "*");
+  res.set("Access-Control-Allow-Methods", "POST, OPTIONS");
+  res.set("Access-Control-Allow-Headers", "Content-Type");
+  if (req.method === "OPTIONS") { res.status(204).send(""); return; }
+  const { email } = req.body;
+  if (!email) { res.status(400).json({ error: "Email is required" }); return; }
+  try {
+    await admin.auth().getUserByEmail(email);
+    res.status(200).json({ exists: true });
+  } catch (err: any) {
+    if (err.code === "auth/user-not-found") {
+      res.status(200).json({ exists: false });
+    } else {
+      res.status(500).json({ error: "Server error" });
+    }
   }
 });

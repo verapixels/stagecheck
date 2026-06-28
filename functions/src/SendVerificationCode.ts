@@ -7,7 +7,8 @@ import * as crypto from 'crypto'
 if (!admin.apps.length) admin.initializeApp()
 
 const resendApiKey = defineSecret('RESEND_API_KEY')
-const FROM_EMAIL = 'StageCheck <events@stagecheck.com.ng>'
+// FIX #1: switched to noreply since this inbox isn't monitored — replies should go to SUPPORT_EMAIL instead
+const FROM_EMAIL = 'StageCheck <noreply@stagecheck.com.ng>'
 const SUPPORT_EMAIL = 'support@stagecheck.com.ng'
 const APP_URL = 'https://stagecheck.com.ng'
 
@@ -16,6 +17,8 @@ const ICON_INSTAGRAM = 'https://cdn.simpleicons.org/instagram/22C55E'
 const ICON_X         = 'https://cdn.simpleicons.org/x/22C55E'
 const ICON_YOUTUBE   = 'https://cdn.simpleicons.org/youtube/22C55E'
 const ICON_TIKTOK    = 'https://cdn.simpleicons.org/tiktok/22C55E'
+
+const LOGO_URL = 'https://res.cloudinary.com/dr0qtfjjf/image/upload/q_auto,f_auto,w_96,h_96,c_fit/v1782579896/logo.png_jn81nk.png'
 
 const socialIconsHtml = [
   { href: 'https://facebook.com/stagecheckapp',  src: ICON_FACEBOOK,  alt: 'Facebook'  },
@@ -41,11 +44,18 @@ function buildVerificationEmail(params: {
   email: string
 }): string {
   const { firstName, code, email } = params
+
+  // FIX #3: digit box centering — use table-cell + vertical-align:middle instead of inline-flex
+  // (inline-flex is unreliable in email clients like Gmail/Outlook, which caused the misalignment)
   const digits = code.split('').map(d =>
     `<td style="padding:0 5px;">
-      <div style="width:52px;height:64px;background:#0a1628;border:1.5px solid rgba(34,197,94,0.4);border-radius:12px;display:inline-flex;align-items:center;justify-content:center;text-align:center;line-height:64px;">
-        <span style="font-size:34px;font-weight:900;color:#22C55E;font-family:Arial,sans-serif;letter-spacing:0;">${d}</span>
-      </div>
+      <table cellpadding="0" cellspacing="0" border="0" style="width:52px;height:64px;background:#0a1628;border:1.5px solid rgba(34,197,94,0.4);border-radius:12px;">
+        <tr>
+          <td align="center" valign="middle" style="width:52px;height:64px;">
+            <span style="font-size:34px;font-weight:900;color:#22C55E;font-family:Arial,sans-serif;letter-spacing:0;">${d}</span>
+          </td>
+        </tr>
+      </table>
     </td>`
   ).join('')
 
@@ -55,6 +65,16 @@ function buildVerificationEmail(params: {
   <meta charset="UTF-8"/>
   <meta name="viewport" content="width=device-width,initial-scale=1.0"/>
   <title>Verify Your Email · StageCheck</title>
+  <style>
+    /* FIX #2: bump up text sizes on mobile so the copy isn't tiny */
+    @media only screen and (max-width: 480px) {
+      .sc-hero-title { font-size: 30px !important; }
+      .sc-hero-sub { font-size: 16px !important; }
+      .sc-body-text { font-size: 14px !important; }
+      .sc-label { font-size: 12px !important; }
+      .sc-footer-text { font-size: 13px !important; }
+    }
+  </style>
 </head>
 <body style="margin:0;padding:0;background:#030d1a;font-family:Arial,Helvetica,sans-serif;">
 <table width="100%" cellpadding="0" cellspacing="0" border="0" style="background:#030d1a;min-height:100vh;">
@@ -72,7 +92,7 @@ function buildVerificationEmail(params: {
             <table width="100%" cellpadding="0" cellspacing="0" border="0">
               <tr>
                 <td>
-                  <img src="https://res.cloudinary.com/dr0qtfjjf/image/upload/q_auto,f_auto,w_96,h_96,c_fit/v1782579896/logo.png_jn81nk.png"
+                  <img src="${LOGO_URL}"
                        alt="StageCheck" width="44" height="44"
                        style="width:44px;height:44px;display:block;border:0;border-radius:10px;"/>
                 </td>
@@ -93,16 +113,16 @@ function buildVerificationEmail(params: {
         <!-- hero text -->
         <tr>
           <td style="padding:28px 32px 0;text-align:center;">
-            <!-- ticket icon -->
+            <!-- FIX #4: removed the ticket icon block, replaced with the StageCheck logo -->
             <div style="display:inline-block;width:72px;height:72px;background:rgba(34,197,94,0.1);border:1.5px solid rgba(34,197,94,0.3);border-radius:20px;text-align:center;line-height:72px;margin-bottom:20px;">
-              <img src="https://cdn.jsdelivr.net/npm/lucide-static@0.383.0/icons/ticket.svg"
-                   width="32" height="32"
-                   style="width:32px;height:32px;vertical-align:middle;filter:invert(58%) sepia(98%) saturate(400%) hue-rotate(95deg);border:0;"/>
+              <img src="${LOGO_URL}"
+                   width="40" height="40"
+                   style="width:40px;height:40px;vertical-align:middle;border:0;border-radius:8px;"/>
             </div>
-            <div style="font-size:34px;font-weight:900;color:#ffffff;letter-spacing:-1px;line-height:1.1;font-family:Arial,sans-serif;">
+            <div class="sc-hero-title" style="font-size:34px;font-weight:900;color:#ffffff;letter-spacing:-1px;line-height:1.1;font-family:Arial,sans-serif;">
               Verify Your<br/><span style="color:#22C55E;">Email</span>
             </div>
-            <p style="margin:14px 0 0;font-size:14px;color:rgba(255,255,255,0.55);line-height:1.7;max-width:400px;margin-left:auto;margin-right:auto;">
+            <p class="sc-hero-sub" style="margin:14px 0 0;font-size:14px;color:rgba(255,255,255,0.8);line-height:1.7;max-width:400px;margin-left:auto;margin-right:auto;">
               Hi <strong style="color:#ffffff;">${firstName}</strong>, welcome to StageCheck! 🎉<br/>
               Use the verification code below to complete your account setup.
             </p>
@@ -116,13 +136,13 @@ function buildVerificationEmail(params: {
                    style="margin:0 auto;background:rgba(34,197,94,0.05);border:1.5px solid rgba(34,197,94,0.25);border-radius:16px;padding:24px 28px;">
               <tr>
                 <td style="text-align:center;">
-                  <div style="font-size:10px;font-weight:bold;letter-spacing:1px;text-transform:uppercase;color:rgba(255,255,255,0.3);margin-bottom:16px;font-family:Arial,sans-serif;">
+                  <div class="sc-label" style="font-size:10px;font-weight:bold;letter-spacing:1px;text-transform:uppercase;color:rgba(255,255,255,0.55);margin-bottom:16px;font-family:Arial,sans-serif;">
                     Your Verification Code
                   </div>
                   <table cellpadding="0" cellspacing="0" border="0" style="margin:0 auto;">
                     <tr>${digits}</tr>
                   </table>
-                  <div style="margin-top:16px;font-size:12.5px;color:rgba(255,255,255,0.4);font-family:Arial,sans-serif;">
+                  <div style="margin-top:16px;font-size:12.5px;color:rgba(255,255,255,0.7);font-family:Arial,sans-serif;">
                     This code expires in <strong style="color:#22C55E;">10 minutes.</strong>
                   </div>
                 </td>
@@ -149,7 +169,7 @@ function buildVerificationEmail(params: {
                       </td>
                       <td>
                         <div style="font-size:12px;font-weight:700;color:#22C55E;margin-bottom:4px;font-family:Arial,sans-serif;">Security Tip</div>
-                        <div style="font-size:12px;color:rgba(255,255,255,0.45);line-height:1.6;font-family:Arial,sans-serif;">
+                        <div class="sc-body-text" style="font-size:12px;color:rgba(255,255,255,0.75);line-height:1.6;font-family:Arial,sans-serif;">
                           Never share this verification code with anyone. StageCheck will never ask for your verification code by phone, email, or chat.
                         </div>
                       </td>
@@ -171,11 +191,11 @@ function buildVerificationEmail(params: {
                   <table cellpadding="0" cellspacing="0" border="0">
                     <tr>
                       <td style="vertical-align:top;padding-right:12px;">
-                        <div style="width:32px;height:32px;background:rgba(255,255,255,0.05);border-radius:50%;text-align:center;line-height:32px;font-size:15px;color:rgba(255,255,255,0.3);">?</div>
+                        <div style="width:32px;height:32px;background:rgba(255,255,255,0.05);border-radius:50%;text-align:center;line-height:32px;font-size:15px;color:rgba(255,255,255,0.55);">?</div>
                       </td>
                       <td>
                         <div style="font-size:12px;font-weight:700;color:#ffffff;margin-bottom:3px;font-family:Arial,sans-serif;">Didn't request this?</div>
-                        <div style="font-size:12px;color:rgba(255,255,255,0.4);line-height:1.6;font-family:Arial,sans-serif;">
+                        <div class="sc-body-text" style="font-size:12px;color:rgba(255,255,255,0.7);line-height:1.6;font-family:Arial,sans-serif;">
                           You can safely ignore this email if you didn't create a StageCheck account.
                         </div>
                       </td>
@@ -192,7 +212,7 @@ function buildVerificationEmail(params: {
         <!-- socials -->
         <tr>
           <td style="padding:20px 32px 0;text-align:center;">
-            <p style="margin:0 0 14px;font-size:11px;font-weight:bold;color:rgba(255,255,255,0.3);letter-spacing:0.7px;text-transform:uppercase;font-family:Arial,sans-serif;">Stay Connected</p>
+            <p class="sc-label" style="margin:0 0 14px;font-size:11px;font-weight:bold;color:rgba(255,255,255,0.55);letter-spacing:0.7px;text-transform:uppercase;font-family:Arial,sans-serif;">Stay Connected</p>
             <table cellpadding="0" cellspacing="0" border="0" style="margin:0 auto;">
               <tr>${socialIconsHtml}</tr>
             </table>
@@ -209,19 +229,19 @@ function buildVerificationEmail(params: {
                 <td style="vertical-align:top;">
                   <img src="https://res.cloudinary.com/dr0qtfjjf/image/upload/q_auto,f_auto,w_48,h_48,c_fit/v1782579896/logo.png_jn81nk.png"
                        alt="StageCheck" width="22" height="22"
-                       style="width:22px;height:22px;display:block;border:0;border-radius:6px;opacity:0.4;margin-bottom:6px;"/>
-                  <p style="margin:0;font-size:11px;color:rgba(255,255,255,0.2);line-height:1.7;font-family:Arial,sans-serif;">
+                       style="width:22px;height:22px;display:block;border:0;border-radius:6px;opacity:0.6;margin-bottom:6px;"/>
+                  <p class="sc-footer-text" style="margin:0;font-size:11px;color:rgba(255,255,255,0.45);line-height:1.7;font-family:Arial,sans-serif;">
                     &copy; ${new Date().getFullYear()} StageCheck. All rights reserved.<br/>
                     Making events seamless, secure and unforgettable.
                   </p>
                 </td>
                 <td style="vertical-align:top;text-align:right;">
-                  <p style="margin:0 0 4px;font-size:11px;color:rgba(255,255,255,0.3);font-family:Arial,sans-serif;">
+                  <p style="margin:0 0 4px;font-size:11px;color:rgba(255,255,255,0.55);font-family:Arial,sans-serif;">
                     Need help? <a href="mailto:${SUPPORT_EMAIL}" style="color:#22C55E;text-decoration:none;font-weight:bold;">Contact us</a>
                   </p>
-                  <p style="margin:0;font-size:11px;color:rgba(255,255,255,0.2);line-height:1.7;font-family:Arial,sans-serif;">
+                  <p class="sc-footer-text" style="margin:0;font-size:11px;color:rgba(255,255,255,0.45);line-height:1.7;font-family:Arial,sans-serif;">
                     ${SUPPORT_EMAIL}<br/>
-                    <a href="${APP_URL}" style="color:rgba(255,255,255,0.2);text-decoration:none;">stagecheck.com.ng</a>
+                    <a href="${APP_URL}" style="color:rgba(255,255,255,0.45);text-decoration:none;">stagecheck.com.ng</a>
                   </p>
                 </td>
               </tr>
@@ -234,8 +254,8 @@ function buildVerificationEmail(params: {
 
       </table>
 
-      <p style="margin:20px 0 0;font-size:11px;color:rgba(255,255,255,0.2);font-family:Arial,sans-serif;">
-        This email was sent to <strong style="color:rgba(255,255,255,0.35);">${email}</strong>.
+      <p style="margin:20px 0 0;font-size:11px;color:rgba(255,255,255,0.45);font-family:Arial,sans-serif;">
+        This email was sent to <strong style="color:rgba(255,255,255,0.6);">${email}</strong>.
         If this was a mistake, you can safely ignore it.
       </p>
     </td>
@@ -283,6 +303,7 @@ export const sendVerificationCode = onRequest(
         to: [email],
         subject: 'Verify your StageCheck account',
         html,
+        reply_to: SUPPORT_EMAIL,
       }),
     })
 

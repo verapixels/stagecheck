@@ -2,82 +2,38 @@ import { useState } from 'react'
 import type { FormEvent } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import {
-  FiUser, FiMail, FiLock, FiPhone, FiEye, FiEyeOff, FiAlertCircle,
-  FiShield
+  FiMail, FiLock, FiPhone, FiEye, FiEyeOff, FiAlertCircle,
+  FiArrowRight, FiUser
 } from 'react-icons/fi'
-import { BsTicketPerforated, BsHeartPulse, BsCalendar2Check } from 'react-icons/bs'
 import { useAuth } from '../context/Authcontext'
 
 const FUNCTIONS_BASE = 'https://us-central1-stagecheck-699c7.cloudfunctions.net'
 
-// ─── Phone input with country code ───────────────────────────────────────────
-function PhoneInput({
-  value, onChange
-}: {
-  value: string
-  onChange: (v: string) => void
-}) {
+function PhoneInput({ value, onChange }: { value: string; onChange: (v: string) => void }) {
   return (
     <div className="inp-box">
       <span className="inp-icon"><FiPhone size={15} /></span>
       <div className="phone-flag">
-        <img
-          src="https://flagcdn.com/w20/ng.png"
-          alt="NG"
-          style={{ width: 18, height: 12, objectFit: 'cover', borderRadius: 2 }}
-        />
+        <img src="https://flagcdn.com/w20/ng.png" alt="NG" style={{ width: 18, height: 12, objectFit: 'cover', borderRadius: 2 }} />
         <span className="phone-code">+234</span>
         <span className="phone-chevron">&#8964;</span>
       </div>
       <div className="phone-sep" />
-      <input
-        type="tel"
-        placeholder="801 234 5678"
-        value={value}
-        onChange={e => onChange(e.target.value)}
-        className="inp-el"
-      />
+      <input type="tel" placeholder="801 234 5678" value={value} onChange={e => onChange(e.target.value)} className="inp-el" />
     </div>
   )
 }
 
-// ─── Feature row ─────────────────────────────────────────────────────────────
-function FeatureRow({
-  icon, title, desc, accent
-}: {
-  icon: React.ReactNode
-  title: string
-  desc: string
-  accent: string
-}) {
-  return (
-    <div className="feat-row">
-      <div className="feat-icon-box" style={{ background: accent }}>
-        {icon}
-      </div>
-      <div>
-        <div className="feat-title">{title}</div>
-        <div className="feat-desc">{desc}</div>
-      </div>
-    </div>
-  )
-}
-
-// ─── Main ────────────────────────────────────────────────────────────────────
 export default function SignUp() {
   const { signInWithGoogle } = useAuth()
   const navigate = useNavigate()
 
-  const [form, setForm] = useState({
-    fullName: '', email: '', phone: '', password: '', confirmPassword: ''
-  })
+  const [form, setForm] = useState({ fullName: '', email: '', phone: '', password: '', confirmPassword: '' })
   const [errors, setErrors] = useState<Record<string, string>>({})
   const [showPw, setShowPw] = useState(false)
-  const [showCpw, setShowCpw] = useState(false)
   const [loading, setLoading] = useState(false)
   const [googleLoading, setGoogleLoading] = useState(false)
   const [serverError, setServerError] = useState('')
-  const [agreed, setAgreed] = useState(false)
 
   const validate = () => {
     const e: Record<string, string> = {}
@@ -86,8 +42,6 @@ export default function SignUp() {
     else if (!/\S+@\S+\.\S+/.test(form.email)) e.email = 'Enter a valid email'
     if (!form.password) e.password = 'Password is required'
     else if (form.password.length < 8) e.password = 'At least 8 characters with a number and letter'
-    if (form.password !== form.confirmPassword) e.confirmPassword = 'Passwords do not match'
-    if (!agreed) e.agreed = 'You must agree to the terms'
     return e
   }
 
@@ -100,6 +54,26 @@ export default function SignUp() {
 
     setLoading(true)
     try {
+      // 1. Check if email already exists
+      const checkRes = await fetch(`${FUNCTIONS_BASE}/checkEmailExists`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email: form.email }),
+      })
+      if (!checkRes.ok) {
+        const body = await checkRes.json()
+        setServerError(body.error || 'Something went wrong. Please try again.')
+        setLoading(false)
+        return
+      }
+      const { exists } = await checkRes.json()
+      if (exists) {
+        setErrors(prev => ({ ...prev, email: 'An account with this email already exists.' }))
+        setLoading(false)
+        return
+      }
+
+      // 2. Send verification code
       const res = await fetch(`${FUNCTIONS_BASE}/sendVerificationCode`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -108,7 +82,6 @@ export default function SignUp() {
           firstName: form.fullName.trim().split(' ')[0],
         }),
       })
-
       if (!res.ok) {
         const body = await res.json()
         setServerError(body.error || 'Failed to send verification email. Please try again.')
@@ -116,7 +89,7 @@ export default function SignUp() {
         return
       }
 
-      // Navigate to verify page — pass form data so VerifyEmailPage can create the account
+      // 3. Navigate to verify page
       navigate('/verify-email', {
         state: {
           email: form.email,
@@ -141,280 +114,323 @@ export default function SignUp() {
   return (
     <>
       <link rel="preconnect" href="https://fonts.googleapis.com" />
-      <link
-        href="https://fonts.googleapis.com/css2?family=Syne:wght@700;800&family=DM+Sans:wght@400;500;600;700&display=swap"
-        rel="stylesheet"
-      />
+      <link href="https://fonts.googleapis.com/css2?family=Syne:wght@700;800&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet" />
       <style>{`
         *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
         :root {
           --green: #22C55E;
-          --green-glow: rgba(34,197,94,0.35);
-          --bg: #0b1120;
-          --bg-left: #0c1222;
-          --card: #111827;
-          --card-border: rgba(255,255,255,0.08);
+          --bg: #080e1a;
+          --bg-left: #060c18;
           --text: #ffffff;
           --muted: rgba(255,255,255,0.5);
-          --muted2: rgba(255,255,255,0.3);
-          --inp-bg: rgba(255,255,255,0.04);
-          --inp-border: rgba(255,255,255,0.1);
           --font-d: 'Syne', sans-serif;
-          --font-b: 'DM Sans', sans-serif;
+          --font-b: 'Inter', sans-serif;
         }
         @keyframes spin { to { transform: rotate(360deg); } }
         @keyframes blobFloat {
           0%,100% { transform: translate(0,0) scale(1); }
-          33% { transform: translate(20px,-20px) scale(1.05); }
-          66% { transform: translate(-15px,15px) scale(0.95); }
+          33% { transform: translate(15px,-15px) scale(1.04); }
+          66% { transform: translate(-10px,10px) scale(0.96); }
         }
 
+        body { background: var(--bg); }
+
         .su-page {
-          min-height: 100vh;
+          height: 100vh;
+          overflow: hidden;
           display: grid;
           grid-template-columns: 1fr 1fr;
-          background: var(--bg);
           font-family: var(--font-b);
         }
 
-        /* ── LEFT PANEL ── */
+        /* ══ LEFT PANEL ══════════════════════════════════════════════ */
         .lp {
           position: relative;
-          overflow: hidden;
           background: var(--bg-left);
           display: flex;
           flex-direction: column;
+          justify-content: space-between;
+          height: 100vh;
+          overflow: hidden;
+          padding: 0 40px 36px;
+        }
+
+        /* ambient blobs */
+        .blob {
+          position: absolute; border-radius: 50%;
+          pointer-events: none; filter: blur(90px);
+        }
+        .blob-1 {
+          width: 480px; height: 480px;
+          background: rgba(34,197,94,0.08);
+          top: -80px; left: -120px;
+          animation: blobFloat 10s ease-in-out infinite;
+        }
+        .blob-2 {
+          width: 320px; height: 320px;
+          background: rgba(99,102,241,0.07);
+          bottom: 15%; right: -80px;
+          animation: blobFloat 14s ease-in-out infinite reverse;
+        }
+
+        /* top arc highlight — matches reference */
+        .lp-arc {
+          position: absolute; top: 0; left: 50%;
+          transform: translateX(-50%);
+          width: 55%; height: 1px;
+          background: linear-gradient(90deg, transparent, rgba(34,197,94,0.5), transparent);
+          z-index: 5;
+        }
+
+        /* ── Logo bar ── */
+        .lp-logo {
+          position: relative; z-index: 10;
+          display: flex; align-items: center; gap: 10px;
+          padding-top: 28px; padding-bottom: 0;
+          flex-shrink: 0;
+        }
+        .lp-logo img { width: 36px; height: 36px; object-fit: contain; }
+        .lp-logo-name {
+          font-family: var(--font-d); font-size: 20px; font-weight: 800;
+          color: var(--text); letter-spacing: -0.3px;
+        }
+        .lp-logo-name span { color: var(--green); }
+
+        /* ── Middle block: eyebrow + headline ── */
+        .lp-mid {
+          position: relative; z-index: 10;
+          display: flex; flex-direction: column;
+          gap: 0;
+          flex: 1;
           justify-content: center;
-          gap: 40px;
-          padding: 40px 44px;
-          min-height: 100vh;
+          padding-top: 20px;
         }
-        .lp-blob-1 {
-          position: absolute; border-radius: 50%; filter: blur(80px); pointer-events: none;
-          width: 500px; height: 500px;
-          background: radial-gradient(circle, rgba(34,197,94,0.1) 0%, transparent 70%);
-          top: -120px; left: -80px;
-          animation: blobFloat 9s ease-in-out infinite;
-        }
-        .lp-blob-2 {
-          position: absolute; border-radius: 50%; filter: blur(80px); pointer-events: none;
-          width: 350px; height: 350px;
-          background: radial-gradient(circle, rgba(99,102,241,0.08) 0%, transparent 70%);
-          bottom: 20%; right: -60px;
-          animation: blobFloat 12s ease-in-out infinite reverse;
-        }
-        .lp-mid { position: relative; z-index: 2; }
-        .lp-eyebrow {
+
+        /* eyebrow pill */
+        .eyebrow {
           display: inline-flex; align-items: center; gap: 7px;
-          background: rgba(34,197,94,0.1); border: 1px solid rgba(34,197,94,0.2);
-          border-radius: 100px; padding: 5px 14px; margin-bottom: 24px;
-          font-size: 11px; font-weight: 600; color: var(--green); letter-spacing: .04em;
+          background: rgba(34,197,94,0.1); border: 1px solid rgba(34,197,94,0.22);
+          border-radius: 100px; padding: 5px 14px;
+          font-size: 11px; font-weight: 600; color: var(--green);
+          letter-spacing: .05em; width: fit-content;
+          margin-bottom: 18px;
         }
-        .lp-eyebrow-dot { width: 6px; height: 6px; border-radius: 50%; background: var(--green); }
+        .eyebrow-dot {
+          width: 6px; height: 6px; border-radius: 50%; background: var(--green);
+        }
+
+        /* headline */
         .lp-headline {
           font-family: var(--font-d);
-          font-size: clamp(30px, 3vw, 46px);
+          font-size: clamp(32px, 3.4vw, 54px);
           font-weight: 800;
-          line-height: 1.08;
+          line-height: 1.04;
           color: var(--text);
-          letter-spacing: -1px;
-          margin-bottom: 16px;
+          letter-spacing: -1.5px;
+          margin-bottom: 12px;
         }
         .lp-headline .accent { color: var(--green); }
-        .lp-sub {
-          font-size: 14px; color: var(--muted); line-height: 1.7; max-width: 360px;
-          margin-bottom: 32px;
-        }
-        .feats { display: flex; flex-direction: column; gap: 16px; }
-        .feat-row { display: flex; align-items: flex-start; gap: 14px; }
-        .feat-icon-box {
-          width: 44px; height: 44px; border-radius: 12px; flex-shrink: 0;
-          display: flex; align-items: center; justify-content: center;
-          color: #fff;
-        }
-        .feat-title { font-size: 14px; font-weight: 700; color: var(--text); margin-bottom: 3px; }
-        .feat-desc { font-size: 12.5px; color: var(--muted); line-height: 1.5; }
 
-        /* ── RIGHT PANEL ── */
+        .lp-sub {
+          font-size: 13.5px; color: var(--muted);
+          line-height: 1.65; max-width: 340px;
+          margin-bottom: 24px;
+        }
+
+        /* ── Bottom block: features + social proof ── */
+        .lp-bottom { position: relative; z-index: 10; }
+
+        .feats { display: flex; flex-direction: column; gap: 14px; margin-bottom: 28px; }
+        .feat-row { display: flex; align-items: flex-start; gap: 12px; }
+        .feat-icon-box {
+          width: 40px; height: 40px; border-radius: 10px; flex-shrink: 0;
+          display: flex; align-items: center; justify-content: center;
+        }
+        .feat-title { font-size: 13.5px; font-weight: 700; color: var(--text); margin-bottom: 2px; }
+        .feat-desc { font-size: 12px; color: var(--muted); line-height: 1.45; }
+
+        .social-proof { display: flex; align-items: center; gap: 0; }
+        .avatars { display: flex; }
+        .avatar {
+          width: 32px; height: 32px; border-radius: 50%;
+          border: 2px solid var(--bg-left);
+          object-fit: cover; margin-right: -9px;
+        }
+        .social-text {
+          font-size: 12.5px; color: var(--muted); line-height: 1.4;
+          margin-left: 22px;
+        }
+        .social-text strong { color: var(--green); font-weight: 700; }
+
+        /* ══ RIGHT PANEL ══════════════════════════════════════════════ */
         .rp {
           display: flex; align-items: center; justify-content: center;
-          padding: clamp(24px, 5vh, 48px) clamp(20px, 4vw, 48px);
+          padding: clamp(16px, 3vh, 32px) clamp(20px, 4vw, 52px);
           background: var(--bg);
-          min-height: 100vh;
-          overflow-y: auto;
+          height: 100vh; overflow: hidden;
         }
-        .rp-inner { width: 100%; max-width: 460px; }
-        .rp-card {
-          background: #0e1829;
-          border: 1px solid var(--card-border);
-          border-radius: 20px;
-          padding: 36px 32px;
-          box-shadow: 0 32px 80px rgba(0,0,0,0.5);
-        }
-        .rp-title {
-          font-family: var(--font-d); font-size: 26px; font-weight: 800;
-          color: var(--text); margin-bottom: 6px; letter-spacing: -.5px;
-        }
-        .rp-sub { font-size: 13.5px; color: var(--muted); margin-bottom: 24px; }
+        .rp-inner { width: 100%; max-width: 520px; }
 
-        /* Google btn */
+        /* right panel card — subtle border like reference */
+        .rp-card {
+          background: #0b1525;
+          border: 1px solid rgba(255,255,255,0.07);
+          border-radius: 20px;
+          padding: 28px 36px;
+        }
+
+        .rp-title {
+          font-family: var(--font-d); font-size: clamp(24px, 2.2vw, 30px);
+          font-weight: 800; color: var(--text);
+          letter-spacing: -1px; line-height: 1.05;
+          margin-bottom: 6px;
+        }
+        .rp-title span { color: var(--green); }
+        .rp-sub { font-size: 13px; color: var(--muted); margin-bottom: 16px; }
+
+        /* Google */
         .g-btn {
-          width: 100%; padding: 12px 16px; border-radius: 12px;
-          background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.1);
+          width: 100%; padding: 11px 16px; border-radius: 12px;
+          background: rgba(255,255,255,0.04); border: 1px solid rgba(255,255,255,0.1);
           color: var(--text); font-size: 14px; font-weight: 500; font-family: var(--font-b);
           cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 10px;
-          transition: all .2s; margin-bottom: 20px;
+          transition: background .2s, border-color .2s; margin-bottom: 14px;
         }
         .g-btn:hover:not(:disabled) { background: rgba(255,255,255,0.08); border-color: rgba(255,255,255,0.18); }
         .g-btn:disabled { opacity: .6; cursor: not-allowed; }
 
-        /* Divider */
-        .divider { display: flex; align-items: center; gap: 12px; margin-bottom: 20px; }
-        .div-line { flex: 1; height: 1px; background: rgba(255,255,255,0.08); }
-        .div-text { font-size: 12px; color: rgba(255,255,255,0.3); white-space: nowrap; }
+        .divider { display: flex; align-items: center; gap: 12px; margin-bottom: 14px; }
+        .div-line { flex: 1; height: 1px; background: rgba(255,255,255,0.07); }
+        .div-text { font-size: 12px; color: rgba(255,255,255,0.28); }
 
-        /* Error banner */
         .srv-err {
           display: flex; align-items: flex-start; gap: 9px;
           background: rgba(239,68,68,0.08); border: 1px solid rgba(239,68,68,0.2);
-          border-radius: 10px; padding: 11px 14px; margin-bottom: 16px;
+          border-radius: 10px; padding: 11px 14px; margin-bottom: 14px;
         }
         .srv-err-txt { font-size: 13px; color: #f87171; }
 
         /* Form */
-        .su-form { display: flex; flex-direction: column; gap: 14px; }
-        .inp-wrap { display: flex; flex-direction: column; gap: 6px; }
-        .inp-label { font-size: 12.5px; font-weight: 600; color: rgba(255,255,255,0.65); }
+        .su-form { display: flex; flex-direction: column; gap: 10px; }
+        .inp-wrap { display: flex; flex-direction: column; gap: 4px; }
+        .inp-label { font-size: 12px; font-weight: 600; color: rgba(255,255,255,0.65); }
         .inp-box {
           display: flex; align-items: center; gap: 10px;
-          background: rgba(255,255,255,0.04); border: 1px solid rgba(255,255,255,0.1);
-          border-radius: 10px; padding: 0 14px; height: 48px;
-          transition: border-color .2s, box-shadow .2s;
+          background: rgba(255,255,255,0.04); border: 1px solid rgba(255,255,255,0.09);
+          border-radius: 10px; padding: 0 14px; height: 44px;
+          transition: border-color .18s, box-shadow .18s;
         }
         .inp-box:focus-within {
-          border-color: rgba(34,197,94,0.45);
-          box-shadow: 0 0 0 3px rgba(34,197,94,0.07);
+          border-color: rgba(34,197,94,0.4);
+          box-shadow: 0 0 0 3px rgba(34,197,94,0.06);
         }
-        .inp-box.err-box { border-color: rgba(239,68,68,0.4); }
-        .inp-icon { color: rgba(255,255,255,0.3); flex-shrink: 0; display: flex; align-items: center; }
+        .inp-box.err-box { border-color: rgba(239,68,68,0.38); }
+        .inp-icon { color: rgba(255,255,255,0.28); flex-shrink: 0; display: flex; }
         .inp-el {
           flex: 1; background: none; border: none; outline: none;
           color: var(--text); font-size: 14px; font-family: var(--font-b);
         }
-        .inp-el::placeholder { color: rgba(255,255,255,0.22); }
+        .inp-el::placeholder { color: rgba(255,255,255,0.2); }
         .inp-eye {
           background: none; border: none; cursor: pointer;
-          color: rgba(255,255,255,0.3); padding: 0; display: flex; align-items: center;
-          transition: color .2s;
+          color: rgba(255,255,255,0.28); padding: 0; display: flex;
+          transition: color .18s;
         }
-        .inp-eye:hover { color: rgba(255,255,255,0.6); }
+        .inp-eye:hover { color: rgba(255,255,255,0.55); }
         .inp-err { display: flex; align-items: center; gap: 5px; font-size: 11.5px; color: #f87171; }
+        .inp-hint { font-size: 11.5px; color: rgba(255,255,255,0.28); }
 
-        /* Phone */
         .phone-flag { display: flex; align-items: center; gap: 5px; flex-shrink: 0; }
         .phone-code { font-size: 13px; color: var(--text); font-weight: 500; }
-        .phone-chevron { font-size: 11px; color: var(--muted2); }
-        .phone-sep { width: 1px; height: 20px; background: rgba(255,255,255,0.12); flex-shrink: 0; }
-
-        /* Hint */
-        .inp-hint { font-size: 11.5px; color: rgba(255,255,255,0.3); margin-top: 2px; }
-
-        /* Checkbox */
-        .agree-row { display: flex; align-items: flex-start; gap: 10px; }
-        .agree-cb {
-          width: 18px; height: 18px; border-radius: 4px; flex-shrink: 0;
-          border: 1.5px solid rgba(255,255,255,0.2); background: rgba(255,255,255,0.04);
-          cursor: pointer; appearance: none; -webkit-appearance: none;
-          display: flex; align-items: center; justify-content: center;
-          margin-top: 1px; transition: all .15s;
-        }
-        .agree-cb:checked { background: var(--green); border-color: var(--green); }
-        .agree-cb:checked::after {
-          content: '';
-          display: block; width: 5px; height: 9px;
-          border: 2px solid #0b1120; border-top: none; border-left: none;
-          transform: rotate(45deg) translateY(-1px);
-        }
-        .agree-text { font-size: 12.5px; color: var(--muted); line-height: 1.6; }
-        .agree-text a { color: var(--green); text-decoration: none; font-weight: 600; }
-        .agree-text a:hover { text-decoration: underline; }
-        .agree-err { font-size: 11.5px; color: #f87171; margin-top: 3px; }
+        .phone-chevron { font-size: 11px; color: rgba(255,255,255,0.3); }
+        .phone-sep { width: 1px; height: 20px; background: rgba(255,255,255,0.1); flex-shrink: 0; }
 
         /* Submit */
         .sub-btn {
-          width: 100%; padding: 14px; border-radius: 12px;
-          background: var(--green); border: none; color: #0b1120;
+          width: 100%; padding: 12px 20px; border-radius: 12px;
+          background: var(--green); border: none; color: #050d0a;
           font-size: 15px; font-weight: 700; font-family: var(--font-b);
-          cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 9px;
-          transition: all .2s; margin-top: 4px;
-          box-shadow: 0 0 28px rgba(34,197,94,0.3);
+          cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 10px;
+          transition: background .2s, transform .15s; margin-top: 2px;
         }
-        .sub-btn:hover:not(:disabled) {
-          background: #1da34a; box-shadow: 0 0 40px rgba(34,197,94,0.45);
-          transform: translateY(-1px);
+        .sub-btn:hover:not(:disabled) { background: #1db851; transform: translateY(-1px); }
+        .sub-btn:disabled { opacity: .6; cursor: not-allowed; transform: none; }
+        .sub-btn.sending {
+          background: rgba(34,197,94,0.12);
+          border: 1px solid rgba(34,197,94,0.28);
+          color: var(--green);
         }
-        .sub-btn:disabled { opacity: .65; cursor: not-allowed; transform: none; }
+        .sub-btn.sending .spinner {
+          border: 2px solid rgba(34,197,94,0.2);
+          border-top-color: var(--green);
+        }
 
-        /* Security note */
-        .sec-note {
-          display: flex; align-items: flex-start; gap: 9px;
-          background: rgba(34,197,94,0.05); border: 1px solid rgba(34,197,94,0.12);
-          border-radius: 10px; padding: 11px 13px; margin-top: 16px;
+        /* Terms note */
+        .terms-note {
+          display: flex; align-items: flex-start; gap: 8px; margin-top: 12px;
         }
-        .sec-note-txt { font-size: 12px; color: rgba(255,255,255,0.45); line-height: 1.6; }
+        .terms-text { font-size: 11.5px; color: rgba(255,255,255,0.38); line-height: 1.5; }
+        .terms-text a { color: rgba(255,255,255,0.65); text-decoration: underline; text-underline-offset: 2px; }
+        .terms-text a:hover { color: var(--green); }
 
-        /* Footer */
-        .rp-foot { text-align: center; margin-top: 20px; font-size: 13px; color: rgba(255,255,255,0.4); }
-        .rp-foot a { color: var(--green); text-decoration: none; font-weight: 600; }
+        .rp-foot { text-align: center; margin-top: 10px; font-size: 13px; color: rgba(255,255,255,0.38); }
+        .rp-foot a { color: var(--green); text-decoration: none; font-weight: 700; }
         .rp-foot a:hover { text-decoration: underline; }
 
-        /* Spinner */
         .spinner {
           width: 16px; height: 16px;
-          border: 2px solid rgba(11,17,32,0.25);
-          border-top-color: #0b1120;
+          border: 2px solid rgba(5,13,10,0.2);
+          border-top-color: #050d0a;
           border-radius: 50%;
           animation: spin .7s linear infinite;
           flex-shrink: 0;
         }
 
-        /* Sending code state on button */
-        .sub-btn.sending {
-          background: rgba(34,197,94,0.15);
-          border: 1px solid rgba(34,197,94,0.3);
-          color: var(--green);
-          box-shadow: none;
-        }
-        .sub-btn.sending .spinner {
-          border: 2px solid rgba(34,197,94,0.25);
-          border-top-color: var(--green);
-        }
-
-        /* ── MOBILE ── */
+        /* ══ MOBILE ══════════════════════════════════════════════════ */
         @media (max-width: 860px) {
           .su-page { grid-template-columns: 1fr; }
-          .lp { display: none; }
-          .rp { padding: 24px 16px 40px; min-height: 100vh; }
-          .rp-card { padding: 28px 20px; border-radius: 16px; }
+          .lp {
+            min-height: auto;
+            padding: 0 20px 0;
+          }
+          .lp-mid { padding-top: 12px; }
+          .blob-1, .blob-2 { display: none; }
+          .lp-bottom { display: none; }
+          .lp-sub { display: none; }
+          .lp-headline { font-size: 28px; margin-bottom: 16px; }
+          .rp { padding: 20px 16px 40px; min-height: auto; align-items: flex-start; }
+          .rp-inner { max-width: 100%; }
+          .rp-card { padding: 24px 18px; border-radius: 16px; }
+          .rp-title { font-size: 24px; }
         }
 
         input:-webkit-autofill {
-          -webkit-box-shadow: 0 0 0 30px #0e1829 inset !important;
+          -webkit-box-shadow: 0 0 0 30px #0b1525 inset !important;
           -webkit-text-fill-color: #fff !important;
         }
       `}</style>
 
       <div className="su-page">
-        {/* ── LEFT ── */}
-        <div className="lp">
-          <div className="lp-blob-1" />
-          <div className="lp-blob-2" />
 
+        {/* ══ LEFT ══ */}
+        <div className="lp">
+          <div className="lp-arc" />
+          <div className="blob blob-1" />
+          <div className="blob blob-2" />
+
+          {/* Logo */}
+          <div className="lp-logo">
+            <img src="/logo.png" alt="StageCheck" style={{ width: 34, height: 34 }} />
+            <span className="lp-logo-name">Stage<span>Check</span></span>
+          </div>
+
+          {/* Middle: eyebrow + headline + sub */}
           <div className="lp-mid">
-            <div className="lp-eyebrow">
-              <span className="lp-eyebrow-dot" />
-              Your events, your experience
+            <div className="eyebrow">
+              <span className="eyebrow-dot" />
+              Your events. Your experience.
             </div>
+
             <h2 className="lp-headline">
               Discover.<br />
               Book.<br />
@@ -423,37 +439,66 @@ export default function SignUp() {
             <p className="lp-sub">
               Create your account and start discovering amazing events near you.
             </p>
+          </div>
+
+          {/* Bottom: features + social proof */}
+          <div className="lp-bottom">
             <div className="feats">
-              <FeatureRow
-                icon={<BsTicketPerforated size={20} />}
-                title="Find Amazing Events"
-                desc="Discover events that match your interests."
-                accent="rgba(34,197,94,0.18)"
-              />
-              <FeatureRow
-                icon={<BsHeartPulse size={20} />}
-                title="Save & Get Updates"
-                desc="Save events and get notified about what you love."
-                accent="rgba(139,92,246,0.2)"
-              />
-              <FeatureRow
-                icon={<BsCalendar2Check size={20} />}
-                title="Secure Ticketing"
-                desc="Book tickets securely and hassle-free."
-                accent="rgba(59,130,246,0.18)"
-              />
+              <div className="feat-row">
+                <div className="feat-icon-box" style={{ background: 'rgba(34,197,94,0.14)' }}>
+                  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#22C55E" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                    <rect x="1" y="4" width="22" height="16" rx="2"/><line x1="1" y1="10" x2="23" y2="10"/>
+                  </svg>
+                </div>
+                <div>
+                  <div className="feat-title">Find Amazing Events</div>
+                  <div className="feat-desc">Discover events that match your interests.</div>
+                </div>
+              </div>
+              <div className="feat-row">
+                <div className="feat-icon-box" style={{ background: 'rgba(139,92,246,0.16)' }}>
+                  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#a78bfa" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                    <path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"/>
+                  </svg>
+                </div>
+                <div>
+                  <div className="feat-title">Save &amp; Get Updates</div>
+                  <div className="feat-desc">Save your favorite events and get notified.</div>
+                </div>
+              </div>
+              <div className="feat-row">
+                <div className="feat-icon-box" style={{ background: 'rgba(59,130,246,0.15)' }}>
+                  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#60a5fa" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                    <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/>
+                  </svg>
+                </div>
+                <div>
+                  <div className="feat-title">Secure &amp; Trusted</div>
+                  <div className="feat-desc">Your data is protected and your experience is our priority.</div>
+                </div>
+              </div>
+            </div>
+
+            <div className="social-proof">
+              <div className="avatars">
+                {['https://i.pravatar.cc/32?img=11','https://i.pravatar.cc/32?img=22','https://i.pravatar.cc/32?img=33'].map((src, i) => (
+                  <img key={i} src={src} alt="" className="avatar" />
+                ))}
+              </div>
+              <span className="social-text">
+                Join <strong>10,000+</strong> event lovers<br />across Nigeria.
+              </span>
             </div>
           </div>
         </div>
 
-        {/* ── RIGHT ── */}
+        {/* ══ RIGHT ══ */}
         <div className="rp">
           <div className="rp-inner">
             <div className="rp-card">
-              <h1 className="rp-title">Create an account</h1>
+              <h1 className="rp-title">Create an <span>account</span></h1>
               <p className="rp-sub">Join StageCheck and be part of unforgettable experiences.</p>
 
-              {/* Google */}
               <button className="g-btn" onClick={handleGoogle} disabled={googleLoading || loading} type="button">
                 <svg width="18" height="18" viewBox="0 0 18 18">
                   <path fill="#4285F4" d="M17.64 9.2c0-.637-.057-1.251-.164-1.84H9v3.481h4.844c-.209 1.125-.843 2.078-1.796 2.717v2.258h2.908c1.702-1.567 2.684-3.874 2.684-6.615z"/>
@@ -461,13 +506,14 @@ export default function SignUp() {
                   <path fill="#FBBC05" d="M3.964 10.71A5.41 5.41 0 013.682 9c0-.593.102-1.17.282-1.71V4.958H.957A8.996 8.996 0 000 9c0 1.452.348 2.827.957 4.042l3.007-2.332z"/>
                   <path fill="#EA4335" d="M9 3.58c1.321 0 2.508.454 3.44 1.345l2.582-2.58C13.463.891 11.426 0 9 0A8.997 8.997 0 00.957 4.958L3.964 7.29C4.672 5.163 6.656 3.58 9 3.58z"/>
                 </svg>
-                {googleLoading ? <><span className="spinner" /> Redirecting...</> : 'Continue with Google'}
+                {googleLoading
+                  ? <><span className="spinner" style={{ borderTopColor: '#fff', borderColor: 'rgba(255,255,255,0.2)' }} /> Redirecting...</>
+                  : 'Continue with Google'
+                }
               </button>
 
               <div className="divider">
-                <div className="div-line" />
-                <span className="div-text">or</span>
-                <div className="div-line" />
+                <div className="div-line" /><span className="div-text">or</span><div className="div-line" />
               </div>
 
               {serverError && (
@@ -478,54 +524,40 @@ export default function SignUp() {
               )}
 
               <form onSubmit={handleSubmit} className="su-form" noValidate>
-                {/* Full Name */}
                 <div className="inp-wrap">
                   <label className="inp-label">Full Name</label>
                   <div className={`inp-box${errors.fullName ? ' err-box' : ''}`}>
                     <span className="inp-icon"><FiUser size={15} /></span>
-                    <input
-                      type="text" placeholder="Enter your full name"
-                      value={form.fullName}
-                      onChange={e => setForm({ ...form, fullName: e.target.value })}
-                      className="inp-el"
-                    />
+                    <input type="text" placeholder="Enter your full name" value={form.fullName}
+                      onChange={e => setForm({ ...form, fullName: e.target.value })} className="inp-el" />
                   </div>
                   {errors.fullName && <span className="inp-err"><FiAlertCircle size={11} />{errors.fullName}</span>}
                 </div>
 
-                {/* Email */}
                 <div className="inp-wrap">
                   <label className="inp-label">Email Address</label>
                   <div className={`inp-box${errors.email ? ' err-box' : ''}`}>
                     <span className="inp-icon"><FiMail size={15} /></span>
-                    <input
-                      type="email" placeholder="Enter your email address"
-                      value={form.email}
-                      onChange={e => setForm({ ...form, email: e.target.value })}
-                      className="inp-el"
-                    />
+                    <input type="email" placeholder="Enter your email address" value={form.email}
+                      onChange={e => setForm({ ...form, email: e.target.value })} className="inp-el" />
                   </div>
                   {errors.email && <span className="inp-err"><FiAlertCircle size={11} />{errors.email}</span>}
                 </div>
 
-                {/* Phone */}
                 <div className="inp-wrap">
-                  <label className="inp-label">Phone Number <span style={{ color: 'rgba(255,255,255,0.3)', fontWeight: 400 }}>(optional)</span></label>
+                  <label className="inp-label">
+                    Phone Number <span style={{ color: 'rgba(255,255,255,0.28)', fontWeight: 400 }}>(optional)</span>
+                  </label>
                   <PhoneInput value={form.phone} onChange={v => setForm({ ...form, phone: v })} />
                 </div>
 
-                {/* Password */}
                 <div className="inp-wrap">
                   <label className="inp-label">Password</label>
                   <div className={`inp-box${errors.password ? ' err-box' : ''}`}>
                     <span className="inp-icon"><FiLock size={15} /></span>
-                    <input
-                      type={showPw ? 'text' : 'password'} placeholder="Create a password"
-                      value={form.password}
-                      onChange={e => setForm({ ...form, password: e.target.value })}
-                      className="inp-el"
-                      autoComplete="new-password"
-                    />
+                    <input type={showPw ? 'text' : 'password'} placeholder="Create a password"
+                      value={form.password} onChange={e => setForm({ ...form, password: e.target.value })}
+                      className="inp-el" autoComplete="new-password" />
                     <button type="button" className="inp-eye" onClick={() => setShowPw(v => !v)}>
                       {showPw ? <FiEyeOff size={15} /> : <FiEye size={15} />}
                     </button>
@@ -536,42 +568,6 @@ export default function SignUp() {
                   }
                 </div>
 
-                {/* Confirm Password */}
-                <div className="inp-wrap">
-                  <label className="inp-label">Confirm Password</label>
-                  <div className={`inp-box${errors.confirmPassword ? ' err-box' : ''}`}>
-                    <span className="inp-icon"><FiLock size={15} /></span>
-                    <input
-                      type={showCpw ? 'text' : 'password'} placeholder="Confirm your password"
-                      value={form.confirmPassword}
-                      onChange={e => setForm({ ...form, confirmPassword: e.target.value })}
-                      className="inp-el"
-                      autoComplete="new-password"
-                    />
-                    <button type="button" className="inp-eye" onClick={() => setShowCpw(v => !v)}>
-                      {showCpw ? <FiEyeOff size={15} /> : <FiEye size={15} />}
-                    </button>
-                  </div>
-                  {errors.confirmPassword && <span className="inp-err"><FiAlertCircle size={11} />{errors.confirmPassword}</span>}
-                </div>
-
-                {/* Terms */}
-                <div>
-                  <div className="agree-row">
-                    <input
-                      type="checkbox" className="agree-cb"
-                      checked={agreed}
-                      onChange={e => setAgreed(e.target.checked)}
-                      id="agree-cb"
-                    />
-                    <label htmlFor="agree-cb" className="agree-text">
-                      I agree to the <Link to="/terms">Terms of Service</Link> and{' '}
-                      <Link to="/privacy">Privacy Policy</Link>
-                    </label>
-                  </div>
-                  {errors.agreed && <div className="agree-err">{errors.agreed}</div>}
-                </div>
-
                 <button
                   type="submit"
                   className={`sub-btn${loading ? ' sending' : ''}`}
@@ -579,23 +575,24 @@ export default function SignUp() {
                 >
                   {loading
                     ? <><span className="spinner" /> Sending verification code...</>
-                    : 'Create Account'
+                    : <>Create Account <FiArrowRight size={16} /></>
                   }
                 </button>
               </form>
 
-              {/* Security note */}
-              <div className="sec-note">
-                <FiShield size={15} color="rgba(34,197,94,0.7)" style={{ flexShrink: 0, marginTop: 1 }} />
-                <span className="sec-note-txt">
-                  Your information is safe with us. We never share your data with third parties.
+              <div className="terms-note">
+                <FiLock size={13} color="rgba(255,255,255,0.3)" style={{ flexShrink: 0, marginTop: 1 }} />
+                <span className="terms-text">
+                  By creating an account, you agree to our{' '}
+                  <Link to="/terms">Terms of Service</Link> and{' '}
+                  <Link to="/privacy">Privacy Policy</Link>.
                 </span>
               </div>
-            </div>
 
-            <p className="rp-foot">
-              Already have an account? <Link to="/login">Log in</Link>
-            </p>
+              <p className="rp-foot">
+                Already have an account? <Link to="/login">Sign in</Link>
+              </p>
+            </div>
           </div>
         </div>
       </div>
