@@ -54,7 +54,6 @@ export default function SignUp() {
 
     setLoading(true)
     try {
-      // 1. Check if email already exists
       const checkRes = await fetch(`${FUNCTIONS_BASE}/checkEmailExists`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -73,7 +72,6 @@ export default function SignUp() {
         return
       }
 
-      // 2. Send verification code
       const res = await fetch(`${FUNCTIONS_BASE}/sendVerificationCode`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -89,7 +87,6 @@ export default function SignUp() {
         return
       }
 
-      // 3. Navigate to verify page
       navigate('/verify-email', {
         state: {
           email: form.email,
@@ -133,11 +130,10 @@ export default function SignUp() {
           66% { transform: translate(-10px,10px) scale(0.96); }
         }
 
-        body { background: var(--bg); }
+        html, body { background: var(--bg); }
 
         .su-page {
-          height: 100vh;
-          overflow: hidden;
+          min-height: 100vh;
           display: grid;
           grid-template-columns: 1fr 1fr;
           font-family: var(--font-b);
@@ -150,12 +146,11 @@ export default function SignUp() {
           display: flex;
           flex-direction: column;
           justify-content: space-between;
-          height: 100vh;
+          min-height: 100vh;
           overflow: hidden;
           padding: 0 40px 36px;
         }
 
-        /* ambient blobs */
         .blob {
           position: absolute; border-radius: 50%;
           pointer-events: none; filter: blur(90px);
@@ -173,7 +168,6 @@ export default function SignUp() {
           animation: blobFloat 14s ease-in-out infinite reverse;
         }
 
-        /* top arc highlight — matches reference */
         .lp-arc {
           position: absolute; top: 0; left: 50%;
           transform: translateX(-50%);
@@ -182,21 +176,19 @@ export default function SignUp() {
           z-index: 5;
         }
 
-        /* ── Logo bar ── */
         .lp-logo {
           position: relative; z-index: 10;
           display: flex; align-items: center; gap: 10px;
           padding-top: 28px; padding-bottom: 0;
           flex-shrink: 0;
         }
-        .lp-logo img { width: 36px; height: 36px; object-fit: contain; }
+        .lp-logo img { width: 34px; height: 34px; object-fit: contain; }
         .lp-logo-name {
           font-family: var(--font-d); font-size: 20px; font-weight: 800;
           color: var(--text); letter-spacing: -0.3px;
         }
         .lp-logo-name span { color: var(--green); }
 
-        /* ── Middle block: eyebrow + headline ── */
         .lp-mid {
           position: relative; z-index: 10;
           display: flex; flex-direction: column;
@@ -206,7 +198,6 @@ export default function SignUp() {
           padding-top: 20px;
         }
 
-        /* eyebrow pill */
         .eyebrow {
           display: inline-flex; align-items: center; gap: 7px;
           background: rgba(34,197,94,0.1); border: 1px solid rgba(34,197,94,0.22);
@@ -219,10 +210,9 @@ export default function SignUp() {
           width: 6px; height: 6px; border-radius: 50%; background: var(--green);
         }
 
-        /* headline */
         .lp-headline {
           font-family: var(--font-d);
-          font-size: clamp(32px, 3.4vw, 54px);
+          font-size: clamp(30px, 3.2vw, 50px);
           font-weight: 800;
           line-height: 1.04;
           color: var(--text);
@@ -237,7 +227,6 @@ export default function SignUp() {
           margin-bottom: 24px;
         }
 
-        /* ── Bottom block: features + social proof ── */
         .lp-bottom { position: relative; z-index: 10; }
 
         .feats { display: flex; flex-direction: column; gap: 14px; margin-bottom: 28px; }
@@ -267,11 +256,10 @@ export default function SignUp() {
           display: flex; align-items: center; justify-content: center;
           padding: clamp(16px, 3vh, 32px) clamp(20px, 4vw, 52px);
           background: var(--bg);
-          height: 100vh; overflow: hidden;
+          min-height: 100vh;
         }
         .rp-inner { width: 100%; max-width: 520px; }
 
-        /* right panel card — subtle border like reference */
         .rp-card {
           background: #0b1525;
           border: 1px solid rgba(255,255,255,0.07);
@@ -288,7 +276,6 @@ export default function SignUp() {
         .rp-title span { color: var(--green); }
         .rp-sub { font-size: 13px; color: var(--muted); margin-bottom: 16px; }
 
-        /* Google */
         .g-btn {
           width: 100%; padding: 11px 16px; border-radius: 12px;
           background: rgba(255,255,255,0.04); border: 1px solid rgba(255,255,255,0.1);
@@ -310,7 +297,6 @@ export default function SignUp() {
         }
         .srv-err-txt { font-size: 13px; color: #f87171; }
 
-        /* Form */
         .su-form { display: flex; flex-direction: column; gap: 10px; }
         .inp-wrap { display: flex; flex-direction: column; gap: 4px; }
         .inp-label { font-size: 12px; font-weight: 600; color: rgba(255,255,255,0.65); }
@@ -327,7 +313,7 @@ export default function SignUp() {
         .inp-box.err-box { border-color: rgba(239,68,68,0.38); }
         .inp-icon { color: rgba(255,255,255,0.28); flex-shrink: 0; display: flex; }
         .inp-el {
-          flex: 1; background: none; border: none; outline: none;
+          flex: 1; min-width: 0; background: none; border: none; outline: none;
           color: var(--text); font-size: 14px; font-family: var(--font-b);
         }
         .inp-el::placeholder { color: rgba(255,255,255,0.2); }
@@ -345,7 +331,6 @@ export default function SignUp() {
         .phone-chevron { font-size: 11px; color: rgba(255,255,255,0.3); }
         .phone-sep { width: 1px; height: 20px; background: rgba(255,255,255,0.1); flex-shrink: 0; }
 
-        /* Submit */
         .sub-btn {
           width: 100%; padding: 12px 20px; border-radius: 12px;
           background: var(--green); border: none; color: #050d0a;
@@ -365,7 +350,6 @@ export default function SignUp() {
           border-top-color: var(--green);
         }
 
-        /* Terms note */
         .terms-note {
           display: flex; align-items: flex-start; gap: 8px; margin-top: 12px;
         }
@@ -386,22 +370,38 @@ export default function SignUp() {
           flex-shrink: 0;
         }
 
-        /* ══ MOBILE ══════════════════════════════════════════════════ */
+        /* ══ TABLET / IPAD (861px – 1100px) ══════════════════════════ */
+        @media (max-width: 1100px) and (min-width: 861px) {
+          .lp { padding: 0 28px 28px; }
+          .lp-headline { font-size: clamp(26px, 4vw, 38px); }
+          .lp-sub { max-width: 280px; }
+          .rp { padding: 24px 24px; }
+          .rp-card { padding: 24px 28px; }
+        }
+
+        /* ══ MOBILE & SMALL TABLET (≤860px) ═══════════════════════════
+           Left panel fully hidden — only the form shows.            */
         @media (max-width: 860px) {
-          .su-page { grid-template-columns: 1fr; }
-          .lp {
-            min-height: auto;
-            padding: 0 20px 0;
+          .su-page {
+            grid-template-columns: 1fr;
+            min-height: 100vh;
           }
-          .lp-mid { padding-top: 12px; }
-          .blob-1, .blob-2 { display: none; }
-          .lp-bottom { display: none; }
-          .lp-sub { display: none; }
-          .lp-headline { font-size: 28px; margin-bottom: 16px; }
-          .rp { padding: 20px 16px 40px; min-height: auto; align-items: flex-start; }
+          .lp { display: none; }
+          .rp {
+            min-height: 100vh;
+            align-items: flex-start;
+            padding: 28px 16px 40px;
+          }
           .rp-inner { max-width: 100%; }
-          .rp-card { padding: 24px 18px; border-radius: 16px; }
+          .rp-card { padding: 24px 20px; border-radius: 16px; }
           .rp-title { font-size: 24px; }
+        }
+
+        @media (max-width: 420px) {
+          .rp { padding: 20px 12px 32px; }
+          .rp-card { padding: 20px 16px; border-radius: 14px; }
+          .inp-box { padding: 0 12px; height: 46px; }
+          .g-btn { padding: 12px 14px; }
         }
 
         input:-webkit-autofill {
@@ -412,19 +412,17 @@ export default function SignUp() {
 
       <div className="su-page">
 
-        {/* ══ LEFT ══ */}
+        {/* ══ LEFT — hidden on mobile via CSS ══ */}
         <div className="lp">
           <div className="lp-arc" />
           <div className="blob blob-1" />
           <div className="blob blob-2" />
 
-          {/* Logo */}
           <div className="lp-logo">
             <img src="/logo.png" alt="StageCheck" style={{ width: 34, height: 34 }} />
             <span className="lp-logo-name">Stage<span>Check</span></span>
           </div>
 
-          {/* Middle: eyebrow + headline + sub */}
           <div className="lp-mid">
             <div className="eyebrow">
               <span className="eyebrow-dot" />
@@ -441,7 +439,6 @@ export default function SignUp() {
             </p>
           </div>
 
-          {/* Bottom: features + social proof */}
           <div className="lp-bottom">
             <div className="feats">
               <div className="feat-row">
@@ -492,7 +489,7 @@ export default function SignUp() {
           </div>
         </div>
 
-        {/* ══ RIGHT ══ */}
+        {/* ══ RIGHT — always visible, only thing shown on mobile ══ */}
         <div className="rp">
           <div className="rp-inner">
             <div className="rp-card">
