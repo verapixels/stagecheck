@@ -1,6 +1,7 @@
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom'
 import { useEffect, useState } from 'react'
 import { useLocation } from 'react-router-dom'
+import { HelmetProvider } from 'react-helmet-async'
 import './index.css'
 import { AuthProvider } from './context/Authcontext'
 import ProtectedRoute from './components/Protectedroute'
@@ -11,6 +12,10 @@ import { db } from './lib/firebase'
 
 // Landing
 import LandingPage from './pages/Landing'
+
+// Marketing pages
+import HowItWorksPage from './pages/HowItWorksPage'
+import HelpCenterPage from './pages/HelpCenterPage'
 
 // Auth pages
 import SignUp from './pages/Signup'
@@ -40,6 +45,7 @@ import GetTicketsPage from './pages/GetTicketingPage'
 
 // Public — all events
 import AllEvents from './pages/AllEvents'
+import CreateEventPage from './pages/CreateEventPage'
 
 // Public — legal pages
 import PrivacyPage from './pages/Privacypage'
@@ -158,87 +164,92 @@ function EventRoute({ children }: { children: React.ReactNode }) {
 
 export default function App() {
   return (
-    <BrowserRouter>
-      <AuthProvider>
-        <ScrollRestorer />
-        <Routes>
+    <HelmetProvider>
+      <BrowserRouter>
+        <AuthProvider>
+          <ScrollRestorer />
+          <Routes>
 
-          {/* ── PUBLIC ── */}
-          <Route path="/" element={<LandingPage />} />
-          <Route path="/events" element={<AllEvents />} />
-          <Route path="/privacy" element={<PrivacyPage />} />
-          <Route path="/terms" element={<TermsPage />} />
-          <Route path="/refund" element={<RefundPage />} />
-          <Route path="/signup" element={<AuthRoute><SignUp /></AuthRoute>} />
-          <Route path="/verify-email" element={<VerifyEmailPage />} />
-          <Route path="/login" element={<AuthRoute><Login /></AuthRoute>} />
-          <Route path="/join/:joinCode" element={<JoinPage />} />
-          <Route path="/event/:eventId" element={<EventDetailPage />} />
-          <Route path="/event/:eventId/tickets" element={<GetTicketsPage />} />
-          <Route path="/event/:eventId/network/tickets" element={<PublicNetworkTicketPage />} /> 
-          <Route path="/submit/:eventSlug/:eventId" element={<SubmitPage />} />
-          <Route path="/feedback/:tokenId" element={<FeedbackPage />} />
-          <Route path="/register/:eventId" element={<PublicNetworkRegPage />} />
+            {/* ── PUBLIC ── */}
+            <Route path="/" element={<LandingPage />} />
+            <Route path="/how-it-works" element={<HowItWorksPage />} />
+            <Route path="/help" element={<HelpCenterPage />} />
+            <Route path="/create-event" element={<CreateEventPage />} />
+            <Route path="/events" element={<AllEvents />} />
+            <Route path="/privacy" element={<PrivacyPage />} />
+            <Route path="/terms" element={<TermsPage />} />
+            <Route path="/refund" element={<RefundPage />} />
+            <Route path="/signup" element={<AuthRoute><SignUp /></AuthRoute>} />
+            <Route path="/verify-email" element={<VerifyEmailPage />} />
+            <Route path="/login" element={<AuthRoute><Login /></AuthRoute>} />
+            <Route path="/join/:joinCode" element={<JoinPage />} />
+            <Route path="/event/:eventId" element={<EventDetailPage />} />
+            <Route path="/event/:eventId/tickets" element={<GetTicketsPage />} />
+            <Route path="/event/:eventId/network/tickets" element={<PublicNetworkTicketPage />} /> 
+            <Route path="/submit/:eventSlug/:eventId" element={<SubmitPage />} />
+            <Route path="/feedback/:tokenId" element={<FeedbackPage />} />
+            <Route path="/register/:eventId" element={<PublicNetworkRegPage />} />
 
-           {/* ── PROTECTED — USER DASHBOARD ── */}
-          <Route path="/dashboard" element={<ProtectedRoute><Dashboard /></ProtectedRoute>} />
-          <Route path="/dashboard/invitations" element={<ProtectedRoute><InvitationsPage /></ProtectedRoute>} />
-          <Route path="/dashboard/settings" element={<ProtectedRoute><UserSettings /></ProtectedRoute>} />
-          <Route path="/dashboard/tickets" element={<ProtectedRoute><MyTickets /></ProtectedRoute>} />
-          <Route path="/dashboard/saved" element={<ProtectedRoute><SavedEvents /></ProtectedRoute>} />
-          <Route path="/dashboard/payment-methods" element={<ProtectedRoute><PaymentMethods /></ProtectedRoute>} />
-          <Route path="/dashboard/help" element={<ProtectedRoute><HelpSupport /></ProtectedRoute>} />
+             {/* ── PROTECTED — USER DASHBOARD ── */}
+            <Route path="/dashboard" element={<ProtectedRoute><Dashboard /></ProtectedRoute>} />
+            <Route path="/dashboard/invitations" element={<ProtectedRoute><InvitationsPage /></ProtectedRoute>} />
+            <Route path="/dashboard/settings" element={<ProtectedRoute><UserSettings /></ProtectedRoute>} />
+            <Route path="/dashboard/tickets" element={<ProtectedRoute><MyTickets /></ProtectedRoute>} />
+            <Route path="/dashboard/saved" element={<ProtectedRoute><SavedEvents /></ProtectedRoute>} />
+            <Route path="/dashboard/payment-methods" element={<ProtectedRoute><PaymentMethods /></ProtectedRoute>} />
+            <Route path="/dashboard/help" element={<ProtectedRoute><HelpSupport /></ProtectedRoute>} />
 
-          {/* ── PROTECTED — EVENT MANAGEMENT (organizer) ── */}
-          <Route path="/onboarding" element={<ProtectedRoute><Onboarding /></ProtectedRoute>} />
-          <Route path="/manage" element={<ProtectedRoute><EventManagerHome /></ProtectedRoute>} />
-          <Route path="/manage/events" element={<ProtectedRoute><EventsPage /></ProtectedRoute>} />
-          <Route path="/manage/event/:eventId" element={<ProtectedRoute><EventDashboard /></ProtectedRoute>} />
+            {/* ── PROTECTED — EVENT MANAGEMENT (organizer) ── */}
+            <Route path="/onboarding" element={<ProtectedRoute><Onboarding /></ProtectedRoute>} />
+            <Route path="/manage" element={<ProtectedRoute><EventManagerHome /></ProtectedRoute>} />
+            <Route path="/manage/events" element={<ProtectedRoute><EventsPage /></ProtectedRoute>} />
+            <Route path="/manage/event/:eventId" element={<ProtectedRoute><EventDashboard /></ProtectedRoute>} />
 
-          {/* ── PROTECTED — EVENT SPECIFIC ── */}
-          <Route path="/manage/event/:eventId/submissions" element={<EventRoute><SubmissionsPage /></EventRoute>} />
-          <Route path="/manage/event/:eventId/songs"        element={<EventRoute><SongsPage /></EventRoute>} />
-          <Route path="/manage/event/:eventId/clashes"      element={<EventRoute><ClashesPage /></EventRoute>} />
-          <Route path="/manage/event/:eventId/live"         element={<EventRoute><LiveControlPage /></EventRoute>} />
-          <Route path="/manage/event/:eventId/resources"    element={<EventRoute><ResourcesPage /></EventRoute>} />
-          <Route path="/manage/event/:eventId/judging"      element={<EventRoute><JudgingPage /></EventRoute>} />
-          <Route path="/manage/event/:eventId/ticketing"    element={<EventRoute><TicketingPage /></EventRoute>} />
-          <Route path="/manage/event/:eventId/messages"     element={<EventRoute><MessagesPage /></EventRoute>} />
-          <Route path="/manage/event/:eventId/media"        element={<EventRoute><MediaPage /></EventRoute>} />
-          <Route path="/manage/event/:eventId/analytics"    element={<EventRoute><AnalyticsPage /></EventRoute>} />
-          <Route path="/manage/event/:eventId/ai"           element={<EventRoute><AIInsightsPage /></EventRoute>} />
+            {/* ── PROTECTED — EVENT SPECIFIC ── */}
+            <Route path="/manage/event/:eventId/submissions" element={<EventRoute><SubmissionsPage /></EventRoute>} />
+            <Route path="/manage/event/:eventId/songs"        element={<EventRoute><SongsPage /></EventRoute>} />
+            <Route path="/manage/event/:eventId/clashes"      element={<EventRoute><ClashesPage /></EventRoute>} />
+            <Route path="/manage/event/:eventId/live"         element={<EventRoute><LiveControlPage /></EventRoute>} />
+            <Route path="/manage/event/:eventId/resources"    element={<EventRoute><ResourcesPage /></EventRoute>} />
+            <Route path="/manage/event/:eventId/judging"      element={<EventRoute><JudgingPage /></EventRoute>} />
+            <Route path="/manage/event/:eventId/ticketing"    element={<EventRoute><TicketingPage /></EventRoute>} />
+            <Route path="/manage/event/:eventId/messages"     element={<EventRoute><MessagesPage /></EventRoute>} />
+            <Route path="/manage/event/:eventId/media"        element={<EventRoute><MediaPage /></EventRoute>} />
+            <Route path="/manage/event/:eventId/analytics"    element={<EventRoute><AnalyticsPage /></EventRoute>} />
+            <Route path="/manage/event/:eventId/ai"           element={<EventRoute><AIInsightsPage /></EventRoute>} />
 
-          {/* ── NETWORK EVENT ROUTES ── */}
-          <Route path="/manage/event/:eventId/network/dashboard"      element={<EventRoute><NetworkDashboardPage /></EventRoute>} />
-          <Route path="/manage/event/:eventId/network/org-builder"    element={<EventRoute><NetworkOrgBuilderPage /></EventRoute>} />
-          <Route path="/manage/event/:eventId/network/reg-form"       element={<EventRoute><NetworkRegistrationFormPage /></EventRoute>} />
-          <Route path="/manage/event/:eventId/network/registrations"  element={<EventRoute><NetworkRegistrationsPage /></EventRoute>} />
-          <Route path="/manage/event/:eventId/network/tickets"        element={<EventRoute><NetworkTicketManagementPage /></EventRoute>} />
-          <Route path="/manage/event/:eventId/network/checkin"        element={<EventRoute><NetworkCheckinPage /></EventRoute>} />
-          <Route path="/manage/event/:eventId/network/analytics"      element={<EventRoute><NetworkAnalyticsPage /></EventRoute>} />
-          <Route path="/manage/event/:eventId/network/team"           element={<EventRoute><NetworkTeamPage /></EventRoute>} />  {/* ← new */}
+            {/* ── NETWORK EVENT ROUTES ── */}
+            <Route path="/manage/event/:eventId/network/dashboard"      element={<EventRoute><NetworkDashboardPage /></EventRoute>} />
+            <Route path="/manage/event/:eventId/network/org-builder"    element={<EventRoute><NetworkOrgBuilderPage /></EventRoute>} />
+            <Route path="/manage/event/:eventId/network/reg-form"       element={<EventRoute><NetworkRegistrationFormPage /></EventRoute>} />
+            <Route path="/manage/event/:eventId/network/registrations"  element={<EventRoute><NetworkRegistrationsPage /></EventRoute>} />
+            <Route path="/manage/event/:eventId/network/tickets"        element={<EventRoute><NetworkTicketManagementPage /></EventRoute>} />
+            <Route path="/manage/event/:eventId/network/checkin"        element={<EventRoute><NetworkCheckinPage /></EventRoute>} />
+            <Route path="/manage/event/:eventId/network/analytics"      element={<EventRoute><NetworkAnalyticsPage /></EventRoute>} />
+            <Route path="/manage/event/:eventId/network/team"           element={<EventRoute><NetworkTeamPage /></EventRoute>} />  {/* ← new */}
 
-          {/* ── SUPERADMIN ── */}
-          <Route element={<SuperAdminRoute><SuperAdminLayout /></SuperAdminRoute>}>
-            <Route path="/superadmin" element={<AdminOverview />} />
-            <Route path="/superadmin/events" element={<AdminEvents />} />
-            <Route path="/superadmin/users" element={<AdminUsers />} />
-            <Route path="/superadmin/reports" element={<AdminReports />} />
-            <Route path="/superadmin/testimonials" element={<AdminTestimonials />} />
-            <Route path="/superadmin/analytics" element={<AdminAnalytics />} />
-            <Route path="/superadmin/settings" element={<AdminSettingsPage />} />
-          </Route>
+            {/* ── SUPERADMIN ── */}
+            <Route element={<SuperAdminRoute><SuperAdminLayout /></SuperAdminRoute>}>
+              <Route path="/superadmin" element={<AdminOverview />} />
+              <Route path="/superadmin/events" element={<AdminEvents />} />
+              <Route path="/superadmin/users" element={<AdminUsers />} />
+              <Route path="/superadmin/reports" element={<AdminReports />} />
+              <Route path="/superadmin/testimonials" element={<AdminTestimonials />} />
+              <Route path="/superadmin/analytics" element={<AdminAnalytics />} />
+              <Route path="/superadmin/settings" element={<AdminSettingsPage />} />
+            </Route>
 
-          <Route path="/accept-invitation/:invitationId" element={<AcceptInvitationPage />} />
+            <Route path="/accept-invitation/:invitationId" element={<AcceptInvitationPage />} />
 
-          {/* ── CATCH ALL ── */}
-          <Route path="*" element={<Navigate to="/" replace />} />
+            {/* ── CATCH ALL ── */}
+            <Route path="*" element={<Navigate to="/" replace />} />
 
-        </Routes>
+          </Routes>
 
-        <CookieBanner />
+          <CookieBanner />
 
-      </AuthProvider>
-    </BrowserRouter>
+        </AuthProvider>
+      </BrowserRouter>
+    </HelmetProvider>
   )
 }

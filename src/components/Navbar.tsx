@@ -26,9 +26,9 @@ import {
   RiCalendarEventLine,
   RiInformationLine,
   RiQuestionLine,
-  RiShieldLine,
-  RiFileTextLine,
-  RiRefundLine,
+  RiTicketLine,
+  RiCustomerServiceLine,
+  RiUserStarLine,
   RiFireLine,
   RiDashboardLine,
   RiSettings4Line,
@@ -43,14 +43,15 @@ interface SiteNavbarProps {
 
 const PAGE_TABS = [
   { label: "How It Works", to: "/how-it-works", icon: <RiInformationLine size={16} /> },
-  { label: "Events", to: "/events", icon: <RiCalendarEventLine size={16} /> },
-  { label: "Why StageCheck", to: "/why-us", icon: <RiQuestionLine size={16} /> },
+  { label: "Find Events", to: "/events", icon: <RiCalendarEventLine size={16} /> },
+  { label: "Create Event", to: "/create-event", icon: <RiCalendarEventLine size={16} /> },
 ];
 
-const RESOURCE_LINKS = [
-  { label: "Privacy Policy", to: "/privacy", icon: <RiShieldLine size={14} /> },
-  { label: "Terms of Service", to: "/terms", icon: <RiFileTextLine size={14} /> },
-  { label: "Refund Policy", to: "/refund", icon: <RiRefundLine size={14} /> },
+const HELP_CENTER_LINKS = [
+  { label: "Find Your Ticket", to: "/find-ticket", icon: <RiTicketLine size={14} /> },
+   { label: "Help Center", to: "/help", icon: <RiCustomerServiceLine size={14} /> },
+  { label: "Contact Event Organizers", to: "/for-organizers", icon: <RiUserStarLine size={14} /> },
+  { label: "Updates", to: "/updates", icon: <RiInformationLine size={14} /> },
 ];
 
 const FALLBACK_TRENDING = ["tech events", "lagos free events", "music concerts", "stage plays"];
@@ -582,19 +583,19 @@ export default function SiteNavbar({ onSearchSubmit, locationLabel: externalLoca
             </button>
           ))}
           <div ref={resRef} style={{ position: "relative" }}>
-            <button className="stg-tab" onClick={() => setResOpen((v) => !v)}>
-              Resources{" "}
-              <RiArrowDownSLine size={13} style={{ transition: "transform .2s", transform: resOpen ? "rotate(180deg)" : "none" }} />
-            </button>
-            {resOpen && (
-              <div className="stg-res-pop">
-                {RESOURCE_LINKS.map((r) => (
-                  <button key={r.to} className="stg-res-item" onClick={() => { navigate(r.to); setResOpen(false); }}>
-                    {r.icon} {r.label}
-                  </button>
-                ))}
-              </div>
-            )}
+           <button className="stg-tab" onClick={() => setResOpen((v) => !v)}>
+  Support{" "}
+  <RiArrowDownSLine size={13} style={{ transition: "transform .2s", transform: resOpen ? "rotate(180deg)" : "none" }} />
+</button>
+{resOpen && (
+  <div className="stg-res-pop">
+    {HELP_CENTER_LINKS.map((r) => (
+      <button key={r.to} className="stg-res-item" onClick={() => { navigate(r.to); setResOpen(false); }}>
+        {r.icon} {r.label}
+      </button>
+    ))}
+  </div>
+)}
           </div>
         </div>
 
@@ -827,13 +828,13 @@ export default function SiteNavbar({ onSearchSubmit, locationLabel: externalLoca
                 </>
               )}
 
-              <div className="stg-mob-divider" />
-              <div className="stg-mob-section-label">Resources</div>
-              {RESOURCE_LINKS.map((r) => (
-                <button key={r.to} className={`stg-mob-link ${pathname === r.to ? "active" : ""}`} onClick={() => { navigate(r.to); setMobileOpen(false); }}>
-                  <span className="stg-mob-link-icon">{r.icon}</span>{r.label}
-                </button>
-              ))}
+                <div className="stg-mob-divider" />
+                 <div className="stg-mob-section-label">Support</div>
+                   {HELP_CENTER_LINKS.map((r) => (
+                    <button key={r.to} className={`stg-mob-link ${pathname === r.to ? "active" : ""}`} onClick={() => { navigate(r.to); setMobileOpen(false); }}>
+                   <span className="stg-mob-link-icon">{r.icon}</span>{r.label}
+                    </button>
+                   ))}
             </div>
 
             <div className="stg-mob-footer">

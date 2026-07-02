@@ -1,0 +1,602 @@
+/* ============================================================
+   CREATE EVENT PAGE — Full Stylesheet v3
+   ============================================================ */
+
+.ce-page {
+  background: #03070f;
+  color: #f0faf2;
+  font-family: 'Inter', sans-serif;
+  padding-top: var(--nav-h, 64px);
+  overflow-x: hidden;
+}
+.ce-wrap {
+  max-width: 1280px;
+  margin: 0 auto;
+  padding: 0 clamp(16px, 4%, 48px);
+}
+
+/* ============================================================
+   HERO
+   ============================================================ */
+.ce-hero {
+  display: flex;
+  align-items: center;
+  gap: 48px;
+  max-width: 1280px;
+  margin: 0 auto;
+  padding: 56px clamp(16px, 4%, 48px) 52px;
+}
+.ce-hero-left { flex: 1; min-width: 0; }
+
+.ce-hero-title {
+  font-size: clamp(32px, 4vw, 52px);
+  font-weight: 800;
+  line-height: 1.12;
+  letter-spacing: -1px;
+  margin: 0 0 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+.ce-title-line { display: block; white-space: nowrap; }
+
+/* Fixed-height row so the line below never jumps regardless of phrase length */
+.ce-title-typed-row {
+  display: block;
+  min-height: 1.18em;  /* matches one line at the font size */
+  white-space: nowrap;
+  overflow: hidden;
+}
+.ce-accent { color: #0dc75e; }
+.ce-typed  { display: inline; }
+
+.ce-typed-cursor {
+  display: inline-block;
+  color: #0dc75e;
+  animation: ce-blink 0.75s step-end infinite;
+  font-weight: 300;
+  margin-left: 1px;
+}
+@keyframes ce-blink { 0%, 100% { opacity: 1; } 50% { opacity: 0; } }
+
+.ce-hero-sub {
+  font-size: 15px;
+  color: rgba(255,255,255,0.68);
+  line-height: 1.65;
+  max-width: 460px;
+  margin: 0 0 30px;
+}
+.ce-hero-actions {
+  display: flex; align-items: center; gap: 20px; flex-wrap: wrap;
+}
+.ce-btn-solid {
+  display: inline-flex; align-items: center; gap: 6px;
+  background: #0dc75e; color: #000; border: none;
+  padding: 13px 26px; border-radius: 10px; font-size: 14px; font-weight: 700;
+  cursor: pointer; transition: filter .2s, transform .2s; font-family: inherit;
+}
+.ce-btn-solid:hover { filter: brightness(1.08); transform: translateY(-2px); }
+.ce-btn-text {
+  display: inline-flex; align-items: center; gap: 7px;
+  background: none; border: none; color: rgba(255,255,255,0.8); font-size: 14px;
+  font-weight: 600; cursor: pointer; font-family: inherit; transition: color .2s;
+}
+.ce-btn-text:hover { color: #fff; }
+
+/* Crossfade image stack */
+.ce-hero-right { flex: 1; min-width: 0; position: relative; }
+.ce-hero-img-stack {
+  position: relative; width: 100%; height: 380px;
+  border-radius: 22px; overflow: hidden;
+  border: 1px solid rgba(255,255,255,0.07);
+  background: #0a1020;
+}
+.ce-hero-img {
+  position: absolute; inset: 0;
+  width: 100%; height: 100%; object-fit: cover;
+}
+.ce-hero-img-active { animation: ce-fadeIn .9s ease forwards; z-index: 2; }
+.ce-hero-img-fading { animation: ce-fadeOut .9s ease forwards; z-index: 1; }
+@keyframes ce-fadeIn  { from { opacity: 0; } to { opacity: 1; } }
+@keyframes ce-fadeOut { from { opacity: 1; } to { opacity: 0; } }
+
+.ce-hero-badge {
+  position: absolute; bottom: 16px; right: 16px; z-index: 5;
+  display: flex; align-items: center; gap: 10px;
+  background: rgba(4,8,20,0.92); border: 1px solid rgba(255,255,255,0.1);
+  border-radius: 14px; padding: 10px 14px; backdrop-filter: blur(8px);
+  max-width: 248px;
+  animation: ce-badgeIn .8s .5s cubic-bezier(.22,1,.36,1) both;
+}
+@keyframes ce-badgeIn { from { opacity: 0; transform: translateY(12px); } to { opacity: 1; transform: translateY(0); } }
+.ce-hero-badge-avatars { display: flex; flex-shrink: 0; }
+.ce-avatar-dot {
+  width: 26px; height: 26px; border-radius: 50%;
+  border: 2px solid #03070f; margin-left: -8px;
+}
+.ce-avatar-dot:first-child { margin-left: 0; }
+.ce-hero-badge-text { display: flex; flex-direction: column; font-size: 11.5px; line-height: 1.4; }
+.ce-hero-badge-text strong { color: #fff; font-size: 12px; }
+.ce-hero-badge-text span { color: rgba(255,255,255,0.58); }
+
+/* ============================================================
+   GUIDE BANNER — fixed overlay alignment
+   ============================================================ */
+.ce-guide-banner {
+  position: relative;                     /* stacking context */
+  max-width: 1280px; margin: 0 auto 60px;
+  padding: 52px clamp(20px, 4%, 56px);
+  display: flex; align-items: center; justify-content: space-between; gap: 32px;
+  border-radius: 22px; overflow: hidden;  /* clips image + tint to rounded corners */
+  border: 1px solid rgba(255,255,255,0.07);
+  opacity: 0; transform: translateY(36px);
+  transition: opacity .7s ease, transform .7s cubic-bezier(.22,1,.36,1);
+}
+.ce-guide-banner-in { opacity: 1; transform: translateY(0); }
+
+/* Actual <img> covers entire banner, below everything */
+.ce-guide-banner-img {
+  position: absolute; inset: 0;
+  width: 100%; height: 100%; object-fit: cover;
+  z-index: 0;
+}
+/* Tint sits on top of image, below text */
+.ce-guide-banner-tint {
+  position: absolute; inset: 0;
+  background: linear-gradient(100deg, rgba(5,10,24,0.92) 40%, rgba(50,15,80,0.78) 100%);
+  z-index: 1;
+}
+/* Text content above tint */
+.ce-guide-text {
+  position: relative; z-index: 2; flex: 1;
+}
+.ce-guide-text h3 { font-size: 24px; font-weight: 800; margin: 0 0 10px; }
+.ce-guide-text p  { font-size: 13.5px; color: rgba(255,255,255,0.72); max-width: 420px; margin: 0 0 20px; line-height: 1.55; }
+.ce-btn-ghost-sm {
+  display: inline-flex; align-items: center; gap: 6px;
+  background: rgba(255,255,255,0.09); border: 1px solid rgba(255,255,255,0.2);
+  color: #fff; padding: 10px 18px; border-radius: 10px; font-size: 13px; font-weight: 600;
+  cursor: pointer; font-family: inherit; transition: background .2s, border-color .2s;
+}
+.ce-btn-ghost-sm:hover { background: rgba(13,199,94,0.12); border-color: rgba(13,199,94,0.4); }
+.ce-guide-stamp {
+  position: relative; z-index: 2; flex-shrink: 0;
+  background: #0dc75e; color: #000; font-size: 11px; font-weight: 900;
+  padding: 12px 16px; border-radius: 11px; line-height: 1.3; text-align: center;
+  transform: rotate(7deg); border: 2px dashed rgba(0,0,0,0.22);
+  box-shadow: 0 8px 28px rgba(13,199,94,0.45); letter-spacing: 0.06em;
+}
+
+/* ============================================================
+   SHARED SECTION WRAPPER
+   ============================================================ */
+.ce-section { max-width: 1280px; margin: 0 auto 64px; padding: 0 clamp(16px, 4%, 48px); }
+.ce-section-title { font-size: 24px; font-weight: 800; margin: 0 0 6px; }
+.ce-section-sub   { font-size: 13.5px; color: rgba(255,255,255,0.52); margin: 0 0 28px; }
+.ce-tools-header  {
+  display: flex; align-items: flex-end; justify-content: space-between;
+  gap: 16px; margin-bottom: 28px; flex-wrap: wrap;
+}
+
+/* ============================================================
+   HELP CARDS
+   ============================================================ */
+.ce-help-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 18px; }
+.ce-help-card {
+  position: relative; border-radius: 18px; overflow: hidden; min-height: 240px;
+  display: flex; flex-direction: column; justify-content: flex-end;
+  border: 1px solid rgba(255,255,255,0.07); cursor: pointer;
+  transition: transform .3s cubic-bezier(.22,1,.36,1), box-shadow .3s;
+}
+.ce-help-card:hover { transform: translateY(-5px); box-shadow: 0 22px 52px rgba(0,0,0,0.55); }
+.ce-help-card-bg {
+  position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover;
+  transition: transform .5s ease;
+}
+.ce-help-card:hover .ce-help-card-bg { transform: scale(1.06); }
+.ce-help-card-overlay {
+  position: absolute; inset: 0;
+  background: linear-gradient(180deg, rgba(8,12,24,0.12), rgba(8,12,24,0.92));
+}
+.ce-help-card-purple .ce-help-card-overlay { background: linear-gradient(180deg, rgba(60,20,90,0.18), rgba(20,8,30,0.96)); }
+.ce-help-card-green  .ce-help-card-overlay { background: linear-gradient(180deg, rgba(8,40,20,0.18), rgba(5,18,12,0.96)); }
+.ce-help-card-blue { background: linear-gradient(160deg, rgba(20,40,80,0.5), rgba(8,14,28,0.95)); align-items: flex-start; padding-top: 20px; }
+.ce-help-card-icon { padding: 0 20px; color: rgba(80,140,255,0.7); }
+.ce-help-card-content { position: relative; z-index: 2; padding: 22px; }
+.ce-help-card-content h4 { font-size: 16px; font-weight: 700; margin: 0 0 7px; }
+.ce-help-card-content p  { font-size: 12.5px; color: rgba(255,255,255,0.62); margin: 0 0 14px; line-height: 1.5; }
+.ce-help-card-content button {
+  display: inline-flex; align-items: center; gap: 4px;
+  background: none; border: none; color: #0dc75e; font-size: 12.5px; font-weight: 700;
+  cursor: pointer; padding: 0; font-family: inherit;
+}
+.ce-help-card-purple .ce-help-card-content button { color: #c084fc; }
+
+/* ============================================================
+   STEPS — clean image cards, single brand accent, lighter entrance
+   ============================================================ */
+.ce-steps-nav-arrows { display: flex; gap: 8px; flex-shrink: 0; }
+.ce-steps-nav-arrows button {
+  width: 38px; height: 38px; border-radius: 10px;
+  background: rgba(255,255,255,0.06); border: 1px solid rgba(255,255,255,0.11);
+  color: #fff; cursor: pointer; display: flex; align-items: center; justify-content: center;
+  transition: background .2s, border-color .2s;
+}
+.ce-steps-nav-arrows button:hover { background: rgba(13,199,94,0.12); border-color: rgba(13,199,94,0.35); }
+
+.ce-steps-track {
+  display: flex; gap: 16px;
+  overflow-x: auto; padding-bottom: 16px; padding-top: 6px;
+  scroll-snap-type: x mandatory;
+  scrollbar-width: thin; scrollbar-color: rgba(13,199,94,0.3) transparent;
+  -webkit-overflow-scrolling: touch;
+}
+.ce-steps-track::-webkit-scrollbar { height: 4px; }
+.ce-steps-track::-webkit-scrollbar-track { background: transparent; }
+.ce-steps-track::-webkit-scrollbar-thumb { background: rgba(13,199,94,0.35); border-radius: 4px; }
+
+/* The card itself — simpler fade+rise instead of rotate/scale/translateX combo,
+   plus will-change so the browser pre-promotes it to its own layer instead of
+   building one mid-animation (this was the main source of the scroll jank) */
+.ce-step-card {
+  position: relative;
+  flex: 0 0 220px; height: 300px;
+  border-radius: 18px; overflow: hidden; cursor: pointer;
+  border: 1px solid rgba(255,255,255,0.08);
+  background: #080e1e;
+  scroll-snap-align: start;
+  opacity: 0;
+  transform: translateY(24px);
+  will-change: transform, opacity;
+  transition:
+    opacity .45s cubic-bezier(.22,1,.36,1),
+    transform .45s cubic-bezier(.22,1,.36,1),
+    box-shadow .3s;
+}
+.ce-step-card-in {
+  opacity: 1;
+  transform: translateY(0);
+}
+.ce-step-card:hover {
+  box-shadow: 0 20px 48px rgba(0,0,0,0.65);
+}
+
+/* Background image */
+.ce-step-bg-img {
+  position: absolute; inset: 0;
+  width: 100%; height: 100%; object-fit: cover;
+  transition: transform .5s ease;
+}
+.ce-step-card:hover .ce-step-bg-img { transform: scale(1.08); }
+
+/* Persistent dark gradient so image is always readable */
+.ce-step-base-overlay {
+  position: absolute; inset: 0;
+  background: linear-gradient(180deg, rgba(6,10,24,0.35) 0%, rgba(6,10,24,0.85) 100%);
+  z-index: 1;
+}
+
+/* Number badge — small rounded chip, top-left, single brand accent */
+.ce-step-corner {
+  position: absolute; top: 14px; left: 14px; z-index: 4;
+  width: 30px; height: 30px; border-radius: 9px;
+  background: rgba(6,10,24,0.7);
+  border: 1px solid rgba(13,199,94,0.45);
+  backdrop-filter: blur(6px);
+  display: flex; align-items: center; justify-content: center;
+}
+.ce-step-corner span {
+  font-size: 13px; font-weight: 800; color: #0dc75e; line-height: 1;
+}
+
+/* Default state: icon + title + short desc */
+.ce-step-default {
+  position: absolute; inset: 0; z-index: 2;
+  display: flex; flex-direction: column; align-items: center; justify-content: center;
+  padding: 24px 18px;
+  transition: opacity .3s ease, transform .3s ease;
+}
+.ce-step-default-hidden {
+  opacity: 0;
+  transform: translateY(-10px);
+  pointer-events: none;
+}
+.ce-step-icon {
+  width: 52px; height: 52px; border-radius: 14px;
+  display: flex; align-items: center; justify-content: center;
+  margin-bottom: 14px;
+  background: rgba(13,199,94,0.12);
+  color: #0dc75e;
+  border: 1px solid rgba(13,199,94,0.25);
+}
+.ce-step-default h5 { font-size: 14px; font-weight: 700; margin: 0 0 8px; text-align: center; color: #fff; }
+.ce-step-default p  { font-size: 11.5px; color: rgba(255,255,255,0.6); line-height: 1.5; margin: 0; text-align: center; }
+
+/* Reveal panel — slides up from bottom on hover */
+.ce-step-reveal {
+  position: absolute; left: 0; right: 0; bottom: 0;
+  height: 100%; z-index: 3;
+  display: flex; flex-direction: column; align-items: center; justify-content: center;
+  padding: 24px 18px;
+  transform: translateY(100%);
+  transition: transform .42s cubic-bezier(.22,1,.36,1);
+  backdrop-filter: blur(4px);
+  background: linear-gradient(160deg, rgba(13,199,94,0.14), #060c18 60%);
+  border-top: 2px solid rgba(13,199,94,0.4);
+}
+.ce-step-reveal-in {
+  transform: translateY(0);
+}
+.ce-step-reveal-icon {
+  width: 48px; height: 48px; border-radius: 14px;
+  display: flex; align-items: center; justify-content: center;
+  margin-bottom: 12px; flex-shrink: 0;
+  color: #0dc75e;
+  background: rgba(13,199,94,0.15);
+  border: 1px solid rgba(13,199,94,0.35);
+}
+.ce-step-reveal h5 { font-size: 14px; font-weight: 800; margin: 0 0 10px; text-align: center; color: #0dc75e; }
+.ce-step-reveal p  { font-size: 12px; line-height: 1.6; margin: 0 0 16px; text-align: center; color: rgba(255,255,255,0.8); }
+.ce-step-reveal-cta {
+  display: inline-flex; align-items: center; gap: 5px;
+  background: rgba(255,255,255,0.08); border-radius: 8px;
+  padding: 8px 14px; font-size: 12px; font-weight: 700; cursor: pointer;
+  font-family: inherit; transition: background .2s;
+  color: #0dc75e; border: 1px solid rgba(13,199,94,0.5);
+}
+.ce-step-reveal-cta:hover { background: rgba(255,255,255,0.14); }
+
+.ce-steps-cta { text-align: center; margin-top: 28px; }
+.ce-btn-outline {
+  display: inline-flex; align-items: center; gap: 7px;
+  background: none; border: 1px solid rgba(13,199,94,0.4); color: #0dc75e;
+  padding: 11px 24px; border-radius: 10px; font-size: 13px; font-weight: 700;
+  cursor: pointer; font-family: inherit; transition: background .2s;
+}
+.ce-btn-outline:hover { background: rgba(13,199,94,0.08); }
+
+/* ============================================================
+   TOOLS & RESOURCES — 3D tilt + scroll entrance + images
+   ============================================================ */
+.ce-link-purple {
+  display: inline-flex; align-items: center; gap: 5px;
+  background: none; border: none; color: #c084fc; font-size: 13px; font-weight: 700;
+  cursor: pointer; white-space: nowrap; font-family: inherit;
+}
+.ce-tools-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 18px; }
+
+.ce-tool-card {
+  position: relative;
+  border-radius: 18px; overflow: hidden;
+  background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.07);
+  cursor: pointer;
+  opacity: 0; transform: translateY(28px) scale(0.97);
+  transition: opacity .5s cubic-bezier(.22,1,.36,1), transform .25s cubic-bezier(.22,1,.36,1), box-shadow .25s;
+  will-change: transform;
+}
+.ce-tool-card-in { opacity: 1; transform: translateY(0) scale(1); }
+.ce-tool-card:hover { box-shadow: 0 22px 52px rgba(0,0,0,0.55); transform: translateY(-3px) scale(1); }
+
+.ce-tool-img-wrap { position: relative; height: 170px; overflow: hidden; }
+.ce-tool-img { width: 100%; height: 100%; object-fit: cover; transition: transform .5s ease; display: block; }
+.ce-tool-img-zoomed { transform: scale(1.07); }
+
+/* Dark gradient over image so the label + icon badge stay readable */
+.ce-tool-img-gradient {
+  position: absolute; inset: 0;
+  background: linear-gradient(180deg, rgba(6,12,28,0.05) 25%, rgba(6,12,28,0.95) 100%);
+  pointer-events: none;
+}
+
+/* Category pill, top-left of image (colors set inline per tool) */
+.ce-tool-label {
+  position: absolute; top: 12px; left: 12px; z-index: 2;
+  font-size: 10px; font-weight: 800; letter-spacing: 0.08em;
+  padding: 5px 9px; border-radius: 6px;
+  backdrop-filter: blur(6px);
+}
+
+/* Circular icon badge, centered on the bottom edge of the image (color set inline) */
+.ce-tool-icon-badge {
+  position: absolute; bottom: -20px; left: 20px; z-index: 3;
+  width: 42px; height: 42px; border-radius: 11px;
+  display: flex; align-items: center; justify-content: center;
+  color: #000;
+  box-shadow: 0 6px 18px rgba(0,0,0,0.4);
+}
+
+.ce-tool-body { padding: 30px 18px 20px; }
+.ce-tool-title { font-size: 14px; font-weight: 700; margin: 0 0 7px; color: #fff; }
+.ce-tool-desc  { font-size: 12.5px; color: rgba(255,255,255,0.52); line-height: 1.5; margin: 0 0 12px; }
+.ce-tool-cta {
+  display: inline-flex; align-items: center; gap: 4px;
+  font-size: 12.5px; font-weight: 700; color: #0dc75e;
+  opacity: 0.75; transform: translateX(0);
+  transition: opacity .2s ease, transform .2s ease;
+}
+.ce-tool-cta-in { opacity: 1; transform: translateX(3px); }
+
+.ce-tool-accent-bar {
+  position: absolute; left: 0; right: 0; bottom: 0; z-index: 3;
+  height: 3px;
+  transform-origin: left;
+  transition: transform .3s cubic-bezier(.22,1,.36,1);
+}
+
+/* ============================================================
+   TALK TO SALES
+   ============================================================ */
+.ce-sales-section { margin-bottom: 48px; }
+.ce-sales-grid {
+  display: grid; grid-template-columns: 1fr 1fr;
+  border-radius: 22px; overflow: hidden; border: 1px solid rgba(255,255,255,0.07);
+}
+.ce-sales-left { position: relative; min-height: 360px; padding: 40px; display: flex; align-items: flex-end; }
+.ce-sales-bg { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; }
+.ce-sales-overlay { position: absolute; inset: 0; background: linear-gradient(160deg, rgba(60,20,90,0.65), rgba(10,5,20,0.94)); }
+.ce-sales-left-content { position: relative; z-index: 2; }
+.ce-sales-left-content h3 { font-size: 20px; font-weight: 800; margin: 0 0 10px; max-width: 320px; }
+.ce-sales-left-content p  { font-size: 13px; color: rgba(255,255,255,0.72); margin: 0 0 18px; max-width: 320px; line-height: 1.55; }
+.ce-sales-left-content ul { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 9px; }
+.ce-sales-left-content li { display: flex; align-items: center; gap: 9px; font-size: 13px; color: #fff; }
+.ce-sales-left-content li svg { color: #0dc75e; flex-shrink: 0; }
+
+.ce-sales-right { background: #060c18; padding: 40px; }
+.ce-sales-right h3 { font-size: 19px; font-weight: 800; margin: 0 0 4px; }
+.ce-sales-right > p { font-size: 13px; color: rgba(255,255,255,0.52); margin: 0 0 24px; }
+
+.ce-form-row { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 10px; }
+.ce-sales-right input,
+.ce-sales-right textarea {
+  width: 100%; background: rgba(255,255,255,0.04); border: 1px solid rgba(255,255,255,0.1);
+  border-radius: 10px; padding: 12px 14px; color: #fff; font-size: 13px;
+  font-family: inherit; outline: none; box-sizing: border-box; transition: border-color .2s;
+}
+.ce-sales-right input:focus,
+.ce-sales-right textarea:focus { border-color: rgba(124,58,237,0.5); background: rgba(255,255,255,0.06); }
+.ce-sales-right textarea { resize: vertical; min-height: 82px; margin-bottom: 10px; }
+
+/* Custom dropdown */
+.ce-dropdown { position: relative; margin-bottom: 0; }
+.ce-dropdown-trigger {
+  width: 100%; display: flex; align-items: center; justify-content: space-between;
+  background: rgba(255,255,255,0.04); border: 1px solid rgba(255,255,255,0.1);
+  border-radius: 10px; padding: 12px 14px; color: #fff; font-size: 13px;
+  font-family: inherit; cursor: pointer; text-align: left; transition: border-color .2s;
+  box-sizing: border-box;
+}
+.ce-dropdown-trigger:hover { border-color: rgba(13,199,94,0.4); }
+.ce-dropdown-placeholder { color: rgba(255,255,255,0.38); }
+.ce-dropdown-chevron { color: rgba(255,255,255,0.45); transition: transform .25s; flex-shrink: 0; }
+.ce-dropdown-chevron-open { transform: rotate(180deg); }
+.ce-dropdown-menu {
+  position: absolute; top: calc(100% + 6px); left: 0; right: 0;
+  background: #0a1628; border: 1px solid rgba(13,199,94,0.28);
+  border-radius: 12px; padding: 6px; z-index: 50;
+  box-shadow: 0 16px 40px rgba(0,0,0,0.7);
+  max-height: 0; overflow: hidden; opacity: 0;
+  transition: max-height .3s cubic-bezier(.22,1,.36,1), opacity .2s;
+}
+.ce-dropdown-menu-open { max-height: 280px; overflow: auto; opacity: 1; }
+.ce-dropdown-item {
+  display: flex; align-items: center; justify-content: space-between;
+  width: 100%; text-align: left; padding: 10px 12px; border-radius: 8px;
+  background: none; border: none; color: rgba(255,255,255,0.78); font-size: 13px;
+  font-family: inherit; cursor: pointer; transition: background .15s, color .15s;
+}
+.ce-dropdown-item:hover { background: rgba(13,199,94,0.1); color: #fff; }
+.ce-dropdown-item-active { color: #0dc75e; font-weight: 700; }
+
+/* Animated submit button */
+.ce-btn-sales-submit {
+  width: 100%; position: relative; overflow: hidden;
+  display: flex; align-items: center; justify-content: center; gap: 8px;
+  background: linear-gradient(135deg, #7c3aed, #6d28d9);
+  border: none; color: #fff; font-weight: 700; font-size: 14px;
+  padding: 14px; border-radius: 12px; cursor: pointer; margin-top: 12px;
+  font-family: inherit;
+  transition: filter .2s, transform .2s, box-shadow .2s;
+  box-shadow: 0 4px 20px rgba(124,58,237,0.35);
+}
+.ce-btn-sales-submit:hover:not(:disabled) {
+  filter: brightness(1.12); transform: translateY(-2px);
+  box-shadow: 0 8px 30px rgba(124,58,237,0.55);
+}
+.ce-btn-sales-submit:disabled { opacity: 0.7; cursor: not-allowed; }
+.ce-btn-sales-submit::before {
+  content: ''; position: absolute; top: 0; left: -100%; width: 60%; height: 100%;
+  background: linear-gradient(90deg, transparent, rgba(255,255,255,0.14), transparent);
+  transition: left .55s ease;
+}
+.ce-btn-sales-submit:hover::before { left: 160%; }
+.ce-btn-sales-arrow { transition: transform .2s; }
+.ce-btn-sales-submit:hover .ce-btn-sales-arrow { transform: translateX(3px); }
+.ce-btn-spinner {
+  display: inline-block; width: 18px; height: 18px;
+  border: 2.5px solid rgba(255,255,255,0.25); border-top-color: #fff;
+  border-radius: 50%; animation: ce-spin .7s linear infinite; flex-shrink: 0;
+}
+@keyframes ce-spin { to { transform: rotate(360deg); } }
+
+.ce-form-status { font-size: 12.5px; margin: 10px 0 0; text-align: center; }
+.ce-form-status-success { color: #0dc75e; }
+.ce-form-status-error   { color: #f87171; }
+
+/* ============================================================
+   SUPPORT STRIP
+   ============================================================ */
+.ce-support-strip {
+  max-width: 1280px; margin: 0 auto; padding: 24px clamp(16px, 4%, 48px);
+  display: flex; align-items: center; justify-content: space-between; gap: 16px; flex-wrap: wrap;
+  border-top: 1px solid rgba(255,255,255,0.07);
+}
+.ce-support-strip-left { display: flex; align-items: center; gap: 14px; }
+.ce-support-strip-icon {
+  width: 42px; height: 42px; border-radius: 50%;
+  background: rgba(13,199,94,0.1); color: #0dc75e;
+  display: flex; align-items: center; justify-content: center; flex-shrink: 0;
+}
+.ce-support-strip-left h5 { font-size: 14px; font-weight: 700; margin: 0 0 2px; }
+.ce-support-strip-left p  { font-size: 12.5px; color: rgba(255,255,255,0.52); margin: 0; }
+.ce-support-strip-right { display: flex; align-items: center; gap: 10px; }
+.ce-btn-outline-green {
+  display: inline-flex; align-items: center; gap: 6px;
+  background: none; border: 1px solid rgba(13,199,94,0.4); color: #0dc75e;
+  padding: 10px 18px; border-radius: 10px; font-size: 13px; font-weight: 700;
+  cursor: pointer; font-family: inherit; transition: background .2s;
+}
+.ce-btn-outline-green:hover { background: rgba(13,199,94,0.08); }
+.ce-icon-btn-green {
+  width: 42px; height: 42px; border-radius: 10px;
+  background: rgba(13,199,94,0.1); border: 1px solid rgba(13,199,94,0.28); color: #0dc75e;
+  display: flex; align-items: center; justify-content: center; cursor: pointer; flex-shrink: 0;
+  transition: background .2s;
+}
+.ce-icon-btn-green:hover { background: rgba(13,199,94,0.18); }
+
+/* ============================================================
+   RESPONSIVE
+   ============================================================ */
+@media (max-width: 1024px) {
+  .ce-help-grid  { grid-template-columns: repeat(3, 1fr); }
+  .ce-tools-grid { grid-template-columns: repeat(2, 1fr); }
+  .ce-step-card  { flex: 0 0 200px; }
+}
+
+@media (max-width: 880px) {
+  .ce-hero { flex-direction: column; padding-top: 36px; gap: 32px; }
+  .ce-hero-left, .ce-hero-right { width: 100%; }
+  .ce-hero-img-stack { height: 280px; }
+  .ce-hero-badge { position: static; margin-top: 14px; max-width: 100%; }
+  .ce-help-grid  { grid-template-columns: repeat(2, 1fr); }
+  .ce-sales-grid { grid-template-columns: 1fr; }
+  .ce-sales-left { min-height: 220px; }
+}
+
+@media (max-width: 640px) {
+  .ce-hero-title { font-size: 28px; }
+  .ce-title-typed-row { min-height: 1.18em; }
+  .ce-hero-actions { flex-direction: column; align-items: stretch; width: 100%; }
+  .ce-btn-solid { justify-content: center; }
+  .ce-btn-text  { justify-content: center; }
+
+  .ce-guide-banner { flex-direction: column; padding: 28px 20px; gap: 20px; }
+  .ce-guide-stamp  { align-self: flex-end; }
+
+  .ce-help-grid  { grid-template-columns: 1fr; }
+  .ce-tools-grid { grid-template-columns: 1fr; }
+
+  .ce-step-card  { flex: 0 0 78vw; height: 280px; }
+
+  .ce-form-row   { grid-template-columns: 1fr; }
+  .ce-sales-right { padding: 24px 20px; }
+  .ce-sales-left  { padding: 24px 20px; }
+
+  .ce-support-strip { flex-direction: column; align-items: center; text-align: center; }
+  .ce-support-strip-left { flex-direction: column; text-align: center; }
+  .ce-support-strip-right { width: 100%; justify-content: center; }
+  .ce-btn-outline-green { flex: 1; justify-content: center; }
+
+  .ce-section-title { font-size: 20px; }
+  .ce-tools-header  { flex-direction: column; align-items: flex-start; }
+}

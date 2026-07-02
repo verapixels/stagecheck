@@ -9,6 +9,7 @@ import VenueSearch from '../Venuesearch'
 import type { VenueResult } from '../Venuesearch'
 import { OnboardingDatePicker, OnboardingTimePicker } from './Onboardingdatetimepickers'
 import { searchArtists, searchPublicFigures } from './Onboardingartistsearch'
+import OnboardingMultiDatePicker from './OnboardingMultiDatePicker'
 import type {
   OnboardingForm, MediaItem, FeaturedArtist, AgendaItem, FAQItem, GoodToKnow,
   RepeatingDate, LineupSearchMode,
@@ -31,6 +32,7 @@ type Props = {
 
   repeatingDates: RepeatingDate[]
   onAddRepeatingDate: () => void
+  onAddMultipleDates: (dates: string[]) => void
   onUpdateRepeatingDate: (id: string, field: keyof RepeatingDate, value: string) => void
   onRemoveRepeatingDate: (id: string) => void
 
@@ -69,7 +71,7 @@ export default function OnboardingEventDetailsStep(props: Props) {
     form, setForm, errors, descRef, onGenerateSummary, onGenerateDescription,
     generatingSummary, generatingDescription,
     mediaItems, onAddImage, onAddVideo, onRemoveMedia,
-    repeatingDates, onAddRepeatingDate, onUpdateRepeatingDate, onRemoveRepeatingDate,
+    repeatingDates, onAddRepeatingDate, onAddMultipleDates, onUpdateRepeatingDate, onRemoveRepeatingDate,
     featuredArtists, onAddArtist, onRemoveArtist, onUpdateArtistRole, onAddManualArtist,
     agendaItems, onAddAgenda, onUpdateAgenda, onRemoveAgenda,
     faqItems, onAddFAQ, onUpdateFAQ, onRemoveFAQ,
@@ -102,17 +104,17 @@ export default function OnboardingEventDetailsStep(props: Props) {
   const handleVenueChange = (result: VenueResult) => setForm(f => ({ ...f, venue: result.venue, address: result.address }))
 
   const runSearch = useCallback((q: string, mode: LineupSearchMode) => {
-    setArtistQuery(q); setArtistError(''); setArtistResults([])
-    if (!q.trim() || mode === 'manual') return
-    if (artistDebounce.current) clearTimeout(artistDebounce.current)
-    artistDebounce.current = setTimeout(async () => {
-      setArtistSearching(true)
-      const results = mode === 'artist' ? await searchArtists(q.trim()) : await searchPublicFigures(q.trim())
-      setArtistSearching(false)
-      if (results.length > 0) setArtistResults(results)
-      else setArtistError('No results found. Try a different name or add manually.')
-    }, 600)
-  }, [])
+  setArtistQuery(q); setArtistError(''); setArtistResults([])
+  if (artistDebounce.current) clearTimeout(artistDebounce.current)
+  if (!q.trim() || mode === 'manual') return
+  artistDebounce.current = setTimeout(async () => {
+    setArtistSearching(true)
+    const results = mode === 'artist' ? await searchArtists(q.trim()) : await searchPublicFigures(q.trim())
+    setArtistSearching(false)
+    if (results.length > 0) setArtistResults(results)
+    else setArtistError('No results found. Try a different name or add manually.')
+  }, 600)
+}, [])
 
   const handleManualArtistPhoto = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0]; if (!file) return
@@ -208,10 +210,7 @@ export default function OnboardingEventDetailsStep(props: Props) {
             <OnboardingTimePicker value={form.startTime} onChange={v => setForm({ ...form, startTime: v })} hasError={!!errors.startTime} />
             {errors.startTime && <span style={{ fontSize: 12, color: '#F87171' }}>{errors.startTime}</span>}
           </div>
-          <div>
-            <label style={labelStyle}><CalendarDays size={12} style={{ display: 'inline', marginRight: 4 }} />End Date</label>
-            <OnboardingDatePicker value={form.endDate} onChange={v => setForm({ ...form, endDate: v })} />
-          </div>
+          
           <div>
             <label style={labelStyle}><Clock size={12} style={{ display: 'inline', marginRight: 4 }} />End Time</label>
             <OnboardingTimePicker value={form.endTime} onChange={v => setForm({ ...form, endTime: v })} />
@@ -220,23 +219,33 @@ export default function OnboardingEventDetailsStep(props: Props) {
 
         {form.isRepeating && (
           <div style={{ background: 'rgba(34,197,94,0.05)', border: '1px solid rgba(34,197,94,0.15)', borderRadius: 12, padding: 16, marginBottom: 14 }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 12 }}>
-              <div style={{ fontSize: 13, fontWeight: 600, color: '#fff' }}>Additional Event Dates</div>
-              <button onClick={onAddRepeatingDate} style={{ background: 'rgba(34,197,94,0.15)', border: '1px solid rgba(34,197,94,0.3)', color: '#22C55E', fontSize: 11, fontWeight: 600, padding: '5px 10px', borderRadius: 7, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 4 }}><Plus size={11} /> Add Date</button>
-            </div>
-            {repeatingDates.map((rd, idx) => (
-              <div key={rd.id} style={{ background: 'rgba(255,255,255,0.04)', borderRadius: 10, padding: 12, marginBottom: 10 }}>
-                <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 10 }}>
-                  <div style={{ fontSize: 12, fontWeight: 600, color: '#22C55E' }}>Occurrence {idx + 2}</div>
-                  <button onClick={() => onRemoveRepeatingDate(rd.id)} style={{ background: 'rgba(239,68,68,0.1)', border: 'none', borderRadius: 6, width: 26, height: 26, cursor: 'pointer', color: '#F87171' }}><Trash2 size={11} /></button>
-                </div>
-                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(120px,1fr))', gap: 10 }}>
-                  <OnboardingDatePicker value={rd.date} onChange={v => onUpdateRepeatingDate(rd.id, 'date', v)} />
-                  <OnboardingTimePicker value={rd.startTime} onChange={v => onUpdateRepeatingDate(rd.id, 'startTime', v)} />
-                  <OnboardingTimePicker value={rd.endTime} onChange={v => onUpdateRepeatingDate(rd.id, 'endTime', v)} />
-                </div>
+            <div style={{ fontSize: 13, fontWeight: 600, color: '#fff', marginBottom: 12 }}>Pick Additional Event Dates</div>
+
+            <OnboardingMultiDatePicker
+              onAddDates={onAddMultipleDates}
+              excludeDates={[form.eventDate, ...repeatingDates.map(rd => rd.date)].filter(Boolean)}
+            />
+
+            {repeatingDates.length > 0 && (
+              <div style={{ marginTop: 14 }}>
+                {repeatingDates.map((rd, idx) => (
+                  <div key={rd.id} style={{ background: 'rgba(255,255,255,0.04)', borderRadius: 10, padding: 12, marginBottom: 10 }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 10 }}>
+                      <div style={{ fontSize: 12, fontWeight: 600, color: '#22C55E' }}>Occurrence {idx + 2} — {rd.date}</div>
+                      <button onClick={() => onRemoveRepeatingDate(rd.id)} style={{ background: 'rgba(239,68,68,0.1)', border: 'none', borderRadius: 6, width: 26, height: 26, cursor: 'pointer', color: '#F87171' }}><Trash2 size={11} /></button>
+                    </div>
+                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(120px,1fr))', gap: 10 }}>
+                      <OnboardingTimePicker value={rd.startTime} onChange={v => onUpdateRepeatingDate(rd.id, 'startTime', v)} />
+                      <OnboardingTimePicker value={rd.endTime} onChange={v => onUpdateRepeatingDate(rd.id, 'endTime', v)} />
+                    </div>
+                  </div>
+                ))}
               </div>
-            ))}
+            )}
+
+            <button onClick={onAddRepeatingDate} style={{ marginTop: 10, background: 'transparent', border: '1px dashed rgba(34,197,94,0.3)', borderRadius: 9, padding: '8px 14px', color: '#22C55E', fontSize: 12, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 6 }}>
+              <Plus size={12} /> Add a blank date manually
+            </button>
           </div>
         )}
 
@@ -327,10 +336,10 @@ export default function OnboardingEventDetailsStep(props: Props) {
                       const added = featuredArtists.some(f => f.name === a.name)
                       return (
                         <div key={a.name} onClick={() => onAddArtist(a)} style={{ background: added ? 'rgba(34,197,94,0.08)' : 'rgba(168,139,250,0.06)', border: `1px solid ${added ? 'rgba(34,197,94,0.3)' : 'rgba(168,139,250,0.2)'}`, borderRadius: 12, overflow: 'hidden', cursor: 'pointer' }}>
-                          <div style={{ height: 76, background: 'rgba(168,139,250,0.1)', position: 'relative' }}>
-                            {a.image ? <img src={a.image} alt={a.name} style={{ width: '100%', height: '100%', objectFit: 'cover' }} /> : <div style={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center' }}><User size={22} color="#A78BFA" /></div>}
-                            {added && <div style={{ position: 'absolute', inset: 0, background: 'rgba(34,197,94,0.3)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}><CheckCircle2 size={22} color="#22C55E" /></div>}
-                          </div>
+                          <div style={{ aspectRatio: '1/1', background: 'rgba(168,139,250,0.1)', position: 'relative' }}>
+  {a.image ? <img src={a.image} alt={a.name} style={{ width: '100%', height: '100%', objectFit: 'cover', objectPosition: 'center 20%' }} /> : <div style={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center' }}><User size={22} color="#A78BFA" /></div>}
+  {added && <div style={{ position: 'absolute', inset: 0, background: 'rgba(34,197,94,0.3)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}><CheckCircle2 size={22} color="#22C55E" /></div>}
+</div>
                           <div style={{ padding: '7px 9px' }}>
                             <div style={{ fontSize: 11, fontWeight: 700, color: '#fff', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{a.name}</div>
                             <div style={{ fontSize: 9, color: 'rgba(255,255,255,0.4)' }}>{a.listeners}</div>
@@ -348,7 +357,7 @@ export default function OnboardingEventDetailsStep(props: Props) {
               <div style={{ background: 'rgba(245,158,11,0.06)', border: '1px solid rgba(245,158,11,0.2)', borderRadius: 12, padding: 16 }}>
                 <div style={{ display: 'flex', gap: 14, alignItems: 'flex-start', flexWrap: 'wrap' }}>
                   <div onClick={() => manualArtistPhotoRef.current?.click()} style={{ width: 76, height: 76, borderRadius: 14, overflow: 'hidden', border: `2px dashed ${manualArtistPreview ? 'rgba(245,158,11,0.5)' : 'rgba(255,255,255,0.15)'}`, background: 'rgba(255,255,255,0.04)', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', flexShrink: 0 }}>
-                    {manualArtistPreview ? <img src={manualArtistPreview} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} /> : <ImageIcon size={18} color="rgba(255,255,255,0.4)" />}
+                   {manualArtistPreview ? <img src={manualArtistPreview} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover', objectPosition: 'center 20%' }} /> : <ImageIcon size={18} color="rgba(255,255,255,0.4)" />}
                   </div>
                   <input ref={manualArtistPhotoRef} type="file" accept="image/*" style={{ display: 'none' }} onChange={handleManualArtistPhoto} />
                   <div style={{ flex: 1, minWidth: 180, display: 'flex', flexDirection: 'column', gap: 10 }}>
@@ -366,15 +375,17 @@ export default function OnboardingEventDetailsStep(props: Props) {
               <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill,minmax(120px,1fr))', gap: 10, marginTop: 14 }}>
                 {featuredArtists.map(a => (
                   <div key={a.name} style={{ background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.08)', borderRadius: 14, overflow: 'hidden' }}>
-                    <div style={{ height: 80, position: 'relative', background: 'rgba(168,139,250,0.1)' }}>
-                      {a.image ? <img src={a.image} alt={a.name} style={{ width: '100%', height: '100%', objectFit: 'cover' }} /> : <div style={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center' }}><User size={24} color="#A78BFA" /></div>}
-                      <button onClick={() => onRemoveArtist(a.name)} style={{ position: 'absolute', top: 5, right: 5, background: 'rgba(0,0,0,0.7)', border: 'none', borderRadius: 6, width: 20, height: 20, cursor: 'pointer', color: '#fff' }}><X size={10} /></button>
-                    </div>
+                   <div style={{ aspectRatio: '1/1', position: 'relative', background: 'rgba(168,139,250,0.1)' }}>
+  {a.image ? <img src={a.image} alt={a.name} style={{ width: '100%', height: '100%', objectFit: 'cover', objectPosition: 'center 20%' }} /> : <div style={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center' }}><User size={24} color="#A78BFA" /></div>}
+  <button onClick={() => onRemoveArtist(a.name)} style={{ position: 'absolute', top: 5, right: 5, background: 'rgba(0,0,0,0.7)', border: 'none', borderRadius: 6, width: 20, height: 20, cursor: 'pointer', color: '#fff' }}><X size={10} /></button>
+</div>
                     <div style={{ padding: '7px 9px' }}>
                       <div style={{ fontSize: 11, fontWeight: 700, color: '#fff', marginBottom: 5, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{a.name}</div>
-                      <select value={a.role || 'Featured'} onChange={e => onUpdateArtistRole(a.name, e.target.value)} style={{ ...inputStyle(), padding: '3px 6px', fontSize: 10, borderRadius: 6 }}>
-                        {['Headliner', 'Featured', 'Keynote', 'Guest', 'Special Guest', 'DJ', 'Opening Act', 'Minister', 'Host'].map(r => <option key={r} value={r}>{r}</option>)}
-                      </select>
+                       <select value={a.role || 'Featured'} onChange={e => onUpdateArtistRole(a.name, e.target.value)} style={{ ...inputStyle(), padding: '3px 6px', fontSize: 10, borderRadius: 6 }}>
+  {['Headliner', 'Featured', 'Keynote', 'Guest', 'Special Guest', 'DJ', 'Opening Act', 'Minister', 'Host'].map(r => (
+    <option key={r} value={r} style={{ color: '#111827', background: '#fff' }}>{r}</option>
+  ))}
+</select>
                     </div>
                   </div>
                 ))}

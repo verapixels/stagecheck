@@ -145,7 +145,10 @@ export function useUserTickets(uid?: string, email?: string) {
 
         const hydrated = await Promise.all(
           raw.map(async t => {
-            if (t.eventName && t.eventDate) return t
+            // FIX: previously this returned early whenever eventName + eventDate
+            // were present, even if eventImage was missing — so the banner
+            // image never got backfilled for guest-linked tickets.
+            if (t.eventName && t.eventDate && t.eventImage) return t
             try {
               const evSnap = await getDoc(doc(db, 'events', t.eventId))
               if (!evSnap.exists()) return t
@@ -271,6 +274,7 @@ export async function saveTicketToUser(
   }, { merge: true })
 }
 
+// ─── Link guest-purchased tickets to a newly created/logged-in account ──────
 export async function linkGuestTicketsToUser(uid: string, email: string): Promise<void> {
   try {
     const q = query(
@@ -286,17 +290,26 @@ export async function linkGuestTicketsToUser(uid: string, email: string): Promis
         const eventId = d.ref.parent.parent?.id
         if (!eventId || !data.ticketCode) return
 
+        // FIX: attendee docs don't carry event-level fields like coverImage —
+        // that lives on the events/{eventId} doc, not the attendee record.
+        // Pull it from there so the banner image actually gets saved.
+        let ev: any = {}
+        try {
+          const evSnap = await getDoc(doc(db, 'events', eventId))
+          if (evSnap.exists()) ev = evSnap.data()
+        } catch { /* ignore */ }
+
         await saveTicketToUser(uid, {
           eventId,
-          eventName:     data.eventName     || '',
-          eventImage:    data.eventImage    || data.coverImage || '',
+          eventName:     data.eventName     || ev.name        || '',
+          eventImage:    data.eventImage    || data.coverImage || ev.coverImage || '',
           eventDate:     data.eventDate     || '',
-          eventTime:     data.eventTime     || '',
-          eventLocation: data.eventVenue    || data.eventLocation || '',
-          eventCategory: data.eventCategory || '',
+          eventTime:     data.eventTime     || ev.startTime    || '',
+          eventLocation: data.eventVenue    || data.eventLocation || ev.venue || ev.address || '',
+          eventCategory: data.eventCategory || ev.type || ev.category || '',
           ticketCode:    data.ticketCode,
           ticketType:    data.ticketType    || '',
-          qty:           data.quantity      || data.qty || 1,
+          qty:           data.quantity       || data.qty || 1,
           attendeeName:  data.name          || data.attendeeName || '',
           attendeeEmail: data.email         || '',
         })

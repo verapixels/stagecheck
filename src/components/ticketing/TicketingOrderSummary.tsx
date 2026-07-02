@@ -28,8 +28,8 @@ interface Props {
   onPaymentError?: (msg: string) => void
 }
 
-const PLATFORM_FEE_RATE   = 0.05   // 5% of subtotal
-const SERVICE_CHARGE_RATE = 0.075  // 7.5% of platform fee
+const PLATFORM_FEE_RATE   = 0.05   // 5% of the feeable portion of the subtotal
+const SERVICE_CHARGE_RATE = 0.075  // 7.5% of the platform fee
 
 function generateTicketCode() {
   const chars = 'ABCDEFGHJKMNPQRSTUVWXYZ23456789'
@@ -39,6 +39,16 @@ function generateTicketCode() {
       Array.from({ length: 4 }, () => chars[Math.floor(Math.random() * chars.length)]).join('')
     ).join('-')
   )
+}
+
+// Whether a given ticket line's fee gets passed on to the buyer at checkout.
+// Mirrors the "Push service charge to buyers" toggle set in the admin
+// ticket modal (RegularTicketModal.tsx). Ticket types without the field set
+// (older records, or ones created before this toggle existed) default to
+// `false` — organizer absorbs the fee, buyer sees no extra charge for that line.
+function ticketPassesFeeToBuyer(t: TicketType): boolean {
+  console.log('pushServiceCharge for', t.name, '=', (t as any).pushServiceCharge)
+  return (t as any).pushServiceCharge === true
 }
 
 export default function TicketingOrderSummary({
@@ -61,10 +71,25 @@ export default function TicketingOrderSummary({
     lines.reduce((s, t) => s + t.price * (quantities[t.id] || 0), 0) +
     addOnLines.reduce((s, a) => s + a.price * (addOnQuantities[a.id] || 0), 0)
 
-  const isFree        = subtotal === 0
-  const platformFee   = isFree ? 0 : Math.round(subtotal * PLATFORM_FEE_RATE)
+  const isFree = subtotal === 0
+
+  // Only the portion of the subtotal coming from ticket lines with
+  // pushServiceCharge=true is used to calculate the buyer-facing fee.
+  // Add-ons have no such toggle yet, so their cost is never fee-bearing —
+  // any fee on an add-on-only or pushServiceCharge=false line is instead
+  // deducted from the organizer's payout on the backend (see note below).
+  const feeableSubtotal = lines.reduce((s, t) => {
+    return ticketPassesFeeToBuyer(t) ? s + t.price * (quantities[t.id] || 0) : s
+  }, 0)
+
+  const platformFee   = isFree ? 0 : Math.round(feeableSubtotal * PLATFORM_FEE_RATE)
   const serviceCharge = isFree ? 0 : Math.round(platformFee * SERVICE_CHARGE_RATE)
-  const total         = subtotal + platformFee + serviceCharge
+  const total          = subtotal + platformFee + serviceCharge
+
+  // True only if every selected ticket line has the fee pushed to the buyer.
+  // Used purely to decide whether to show the fee rows at all — if nothing
+  // is feeable, there's nothing meaningful to break out for the buyer.
+  const hasFeeableLine = feeableSubtotal > 0
 
   const handleCTA = () => {
     if (!hasSelection) return
@@ -108,6 +133,12 @@ export default function TicketingOrderSummary({
       venueName:      event.venue || '',
       venueAddress:   event.address || '',
       organizerEmail: event.organizerEmail || (event.organizer as any)?.email || '',
+      // ── ADDED: lets the payment-verification / payout Cloud Function know
+      // how much of this charge (if any) was collected from the buyer as
+      // fee, vs. how much still needs to be deducted from the organizer's
+      // payout for non-fee-passed ticket lines.
+      platformFeeCollected: platformFee,
+      serviceChargeCollected: serviceCharge,
     }
 
     setPaying(true)
@@ -198,33 +229,41 @@ export default function TicketingOrderSummary({
       <div style={{ borderTop: '1px solid var(--card-border)', paddingTop: 12, marginBottom: 12 }}>
         <FeeRow label="Subtotal" value={isFree ? 'Free' : fmtNaira(subtotal)} />
 
-        <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 13.5, color: 'var(--text-muted)', marginBottom: 8 }}>
-          <span style={{ display: 'flex', alignItems: 'center', gap: 5 }}>
-            Platform Fee (5%)
-            <span style={{ position: 'relative', display: 'inline-flex', cursor: 'help' }}
-              onMouseEnter={() => showTooltip('platform')} onMouseLeave={hideTooltip}>
-              <RiInformationLine size={14} style={{ opacity: 0.55 }} />
-              {tooltip === 'platform' && (
-                <Tooltip text="A 5% platform fee applied to your ticket subtotal. This helps us maintain and improve StageCheck." />
-              )}
-            </span>
-          </span>
-          <span style={{ color: 'var(--text)', fontWeight: 600 }}>{isFree ? '—' : fmtNaira(platformFee)}</span>
-        </div>
+        {/* Only show fee rows when at least one selected ticket actually
+            passes its service charge on to the buyer. Otherwise the fee
+            is being absorbed by the organizer and there's nothing to
+            break out here. */}
+        {hasFeeableLine && (
+          <>
+            <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 13.5, color: 'var(--text-muted)', marginBottom: 8 }}>
+              <span style={{ display: 'flex', alignItems: 'center', gap: 5 }}>
+                Platform Fee (5%)
+                <span style={{ position: 'relative', display: 'inline-flex', cursor: 'help' }}
+                  onMouseEnter={() => showTooltip('platform')} onMouseLeave={hideTooltip}>
+                  <RiInformationLine size={14} style={{ opacity: 0.55 }} />
+                  {tooltip === 'platform' && (
+                    <Tooltip text="A 5% platform fee applied to the ticket types where the organizer has chosen to pass this charge on to you." />
+                  )}
+                </span>
+              </span>
+              <span style={{ color: 'var(--text)', fontWeight: 600 }}>{fmtNaira(platformFee)}</span>
+            </div>
 
-        <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 13.5, color: 'var(--text-muted)', marginBottom: 8 }}>
-          <span style={{ display: 'flex', alignItems: 'center', gap: 5 }}>
-            Service Charge (7.5%)
-            <span style={{ position: 'relative', display: 'inline-flex', cursor: 'help' }}
-              onMouseEnter={() => showTooltip('service')} onMouseLeave={hideTooltip}>
-              <RiInformationLine size={14} style={{ opacity: 0.55 }} />
-              {tooltip === 'service' && (
-                <Tooltip text="A 7.5% VAT/service charge applied to the platform fee only — as required by Nigerian tax law." />
-              )}
-            </span>
-          </span>
-          <span style={{ color: 'var(--text)', fontWeight: 600 }}>{isFree ? '—' : fmtNaira(serviceCharge)}</span>
-        </div>
+            <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 13.5, color: 'var(--text-muted)', marginBottom: 8 }}>
+              <span style={{ display: 'flex', alignItems: 'center', gap: 5 }}>
+                Service Charge (7.5%)
+                <span style={{ position: 'relative', display: 'inline-flex', cursor: 'help' }}
+                  onMouseEnter={() => showTooltip('service')} onMouseLeave={hideTooltip}>
+                  <RiInformationLine size={14} style={{ opacity: 0.55 }} />
+                  {tooltip === 'service' && (
+                    <Tooltip text="A 7.5% VAT/service charge applied to the platform fee only — as required by Nigerian tax law." />
+                  )}
+                </span>
+              </span>
+              <span style={{ color: 'var(--text)', fontWeight: 600 }}>{fmtNaira(serviceCharge)}</span>
+            </div>
+          </>
+        )}
       </div>
 
       {/* Total */}

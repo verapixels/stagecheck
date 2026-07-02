@@ -11,6 +11,8 @@ export { verifyAndFulfillPayment } from './Paystackfunctions'
 export { sendInvitation }        from './Sendinvitation' 
 export { sendVerificationCode, verifyEmailCode } from './SendVerificationCode'
 export { sendWelcomeEmail } from './Sendwelcomeemail'
+export { searchSpotifyArtists } from './Searchspotifyartists'
+export { sendSalesInquiry } from './Sendsalesinquiry'
 
 export const searchDeezerArtists = onRequest(async (req, res) => {
   res.set("Access-Control-Allow-Origin", "*");

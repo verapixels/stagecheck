@@ -27,9 +27,12 @@ export interface AddOn {
   sold: number
   description?: string
   color: string
-  imageUrl?: string
+  imageUrl?: string        // first/primary image — kept for backward compatibility
+  images?: string[]        // up to MAX_ADDON_IMAGES images
   category?: 'hospitality' | 'merchandise' | 'parking' | 'experience' | 'other'
   active?: boolean
+  requiresSize?: boolean
+  sizeOptions?: string[]
 }
 
 export interface Attendee {
@@ -84,6 +87,13 @@ export const ADDON_CATEGORIES = [
   { key: 'other',       label: 'Other' },
 ]
 
+// Common size presets offered as quick-add buttons in the admin modal —
+// organizers can still type their own custom sizes too.
+export const COMMON_SIZE_PRESETS = ['XS', 'S', 'M', 'L', 'XL', 'XXL']
+
+// Add-ons can have up to this many gallery images.
+export const MAX_ADDON_IMAGES = 3
+
 export const EMPTY_TICKET_FORM = {
   name: '', isFree: false, price: 0, quantity: 100,
   description: '', color: PRESET_COLORS[0],
@@ -95,7 +105,9 @@ export const EMPTY_TICKET_FORM = {
 export const EMPTY_ADDON_FORM = {
   name: '', isFree: false, price: 0, quantity: 50,
   description: '', color: PRESET_COLORS[3],
-  imageUrl: '', category: 'hospitality' as const, active: true,
+  imageUrl: '', images: [] as string[],
+  category: 'hospitality' as const, active: true,
+  requiresSize: false, sizeOptions: [] as string[],
 }
 
 export const isValidHex = (h: string) => /^#[0-9A-Fa-f]{6}$/.test(h)

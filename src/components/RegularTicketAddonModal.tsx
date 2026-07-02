@@ -1,89 +1,145 @@
 /* ─────────────────────────────────────────────────────────────
    RegularTicketAddonModal.tsx
    Wide centered modal for creating / editing add-ons.
-   Includes image upload (base64 preview + Firebase Storage URL).
+   Includes multi-image upload (up to MAX_ADDON_IMAGES images,
+   base64 preview + Firebase Storage URLs).
 ───────────────────────────────────────────────────────────── */
 import { useState, useEffect, useRef } from 'react'
 import {
-  X, Check, Loader2, Package, Gift, CreditCard, Upload, Trash2,
-  Eye, ChevronRight, ImageIcon,
+  X, Check, Loader2, Package, Gift, CreditCard, Upload,
+  Eye, ChevronRight, ImageIcon, Ruler, Plus,
 } from 'lucide-react'
 import { ref as storageRef, uploadBytes, getDownloadURL } from 'firebase/storage'
 import { storage } from'../lib/firebase'
 import {
-  G, TX1, TX2, TX3, BORDER, ADDON_CATEGORIES,
+  G, TX1, TX2, TX3, BORDER, ADDON_CATEGORIES, COMMON_SIZE_PRESETS, MAX_ADDON_IMAGES,
   EMPTY_ADDON_FORM, fmtNaira,
 } from '../pages/RegularTicket/RegularTicketTypes'
 import type { AddOn } from '../pages/RegularTicket/RegularTicketTypes'
+
+type ProductType = 'physical' | 'digital' | 'service'
+
+// One upload slot — either empty, holding a not-yet-uploaded File (shown via
+// a local data-url preview), or holding an already-uploaded Storage URL.
+interface ImageSlot {
+  file: File | null
+  preview: string | null   // data-url (pending) or https:// url (already saved)
+}
+const EMPTY_SLOT: ImageSlot = { file: null, preview: null }
 
 interface Props {
   open: boolean
   editing: AddOn | null
   eventId: string
   onClose: () => void
-  onSave: (data: typeof EMPTY_ADDON_FORM & { imageUrl: string }) => Promise<void>
+  onSave: (data: typeof EMPTY_ADDON_FORM & { imageUrl: string; images: string[] }) => Promise<void>
 }
 
 export default function RegularTicketAddonModal({ open, editing, eventId, onClose, onSave }: Props) {
   const [form, setForm]           = useState({ ...EMPTY_ADDON_FORM, imageUrl: '' })
+  const [productType, setProductType] = useState<ProductType>('physical')
+  const [sizeInput, setSizeInput] = useState('')
   const [saving, setSaving]       = useState(false)
   const [step, setStep]           = useState(1)
-  const [imgPreview, setImgPreview] = useState<string | null>(null)
-  const [imgFile, setImgFile]     = useState<File | null>(null)
+  const [slots, setSlots]         = useState<ImageSlot[]>([EMPTY_SLOT, EMPTY_SLOT, EMPTY_SLOT])
   const [imgUploading, setImgUploading] = useState(false)
   const [activePreview, setActivePreview] = useState<'desktop' | 'mobile'>('desktop')
+  const [previewImgIdx, setPreviewImgIdx] = useState(0)
   const overlayRef  = useRef<HTMLDivElement>(null)
   const fileInputRef = useRef<HTMLInputElement>(null)
+  const activeSlotIndex = useRef<number>(0)
+
+  const filledSlots = slots.filter(s => s.preview)
 
   useEffect(() => {
     if (!open) return
     setStep(1)
-    setImgFile(null)
+    setSizeInput('')
+    setPreviewImgIdx(0)
     if (editing) {
+      const existingImages = editing.images?.length ? editing.images : (editing.imageUrl ? [editing.imageUrl] : [])
+      const nextSlots: ImageSlot[] = [0, 1, 2].map(i => ({ file: null, preview: existingImages[i] || null }))
+      setSlots(nextSlots)
       setForm({
         name: editing.name, isFree: editing.isFree ?? editing.price === 0,
         price: editing.price, quantity: editing.quantity,
         description: editing.description || '',
         color: editing.color, imageUrl: editing.imageUrl || '',
+        images: existingImages,
         category: (editing.category || 'hospitality') as any, active: editing.active ?? true,
+        requiresSize: editing.requiresSize ?? false,
+        sizeOptions: editing.sizeOptions || [],
       })
-      setImgPreview(editing.imageUrl || null)
     } else {
       setForm({ ...EMPTY_ADDON_FORM, imageUrl: '' })
-      setImgPreview(null)
+      setSlots([EMPTY_SLOT, EMPTY_SLOT, EMPTY_SLOT])
+      setProductType('physical')
     }
   }, [open, editing])
 
   const patch = (p: Partial<typeof form>) => setForm(f => ({ ...f, ...p }))
 
+  const openFilePicker = (index: number) => {
+    activeSlotIndex.current = index
+    fileInputRef.current?.click()
+  }
+
   const handleImagePick = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0]
     if (!file) return
     if (file.size > 5 * 1024 * 1024) { alert('Image must be under 5MB'); return }
-    setImgFile(file)
+    const idx = activeSlotIndex.current
     const reader = new FileReader()
-    reader.onload = ev => setImgPreview(ev.target?.result as string)
+    reader.onload = ev => {
+      setSlots(s => s.map((slot, i) => i === idx ? { file, preview: ev.target?.result as string } : slot))
+    }
     reader.readAsDataURL(file)
+    e.target.value = '' // allow re-picking the same file
   }
 
-  const removeImage = () => {
-    setImgFile(null); setImgPreview(null); patch({ imageUrl: '' })
-    if (fileInputRef.current) fileInputRef.current.value = ''
+  const removeImage = (index: number) => {
+    setSlots(s => s.map((slot, i) => i === index ? { ...EMPTY_SLOT } : slot))
+  }
+
+  const addSize = (raw: string) => {
+    const val = raw.trim().toUpperCase()
+    if (!val) return
+    if (form.sizeOptions.includes(val)) { setSizeInput(''); return }
+    patch({ sizeOptions: [...form.sizeOptions, val] })
+    setSizeInput('')
+  }
+  const removeSize = (val: string) => {
+    patch({ sizeOptions: form.sizeOptions.filter(s => s !== val) })
   }
 
   const handleSave = async () => {
     if (!form.name.trim()) return
     setSaving(true)
     try {
-      let imageUrl = form.imageUrl
-      if (imgFile && eventId) {
-        setImgUploading(true)
-        const sRef = storageRef(storage, `events/${eventId}/addons/${Date.now()}_${imgFile.name}`)
-        await uploadBytes(sRef, imgFile)
-        imageUrl = await getDownloadURL(sRef)
-        setImgUploading(false)
+      setImgUploading(true)
+      const uploadedUrls: string[] = []
+      for (const slot of slots) {
+        if (!slot.preview) continue
+        if (slot.file) {
+          // pending upload — a data-url preview that hasn't hit Storage yet
+          const sRef = storageRef(storage, `events/${eventId}/addons/${Date.now()}_${slot.file.name}`)
+          await uploadBytes(sRef, slot.file)
+          const url = await getDownloadURL(sRef)
+          uploadedUrls.push(url)
+        } else {
+          // already a real Storage URL from a previous save
+          uploadedUrls.push(slot.preview)
+        }
       }
-      await onSave({ ...form, imageUrl })
+      setImgUploading(false)
+
+      const requiresSize = form.requiresSize && form.sizeOptions.length > 0
+      await onSave({
+        ...form,
+        images: uploadedUrls,
+        imageUrl: uploadedUrls[0] || '', // keep first image as the legacy single-image field
+        requiresSize,
+      })
     } finally {
       setSaving(false); setImgUploading(false)
     }
@@ -185,19 +241,31 @@ export default function RegularTicketAddonModal({ open, editing, eventId, onClos
                     <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
                       <label style={lbl}>Add-on Type</label>
                       <div style={{ display: 'flex', gap: 8 }}>
-                        {[
+                        {([
                           { key: 'physical', label: 'Physical' },
                           { key: 'digital',  label: 'Digital' },
                           { key: 'service',  label: 'Service' },
-                        ].map(t => (
-                          <button key={t.key} style={{
-                            flex: 1, padding: '10px 0', borderRadius: 9, cursor: 'pointer',
-                            border: `1px solid ${BORDER}`, background: 'rgba(255,255,255,0.03)',
-                            color: TX2, fontSize: 13, fontFamily: 'var(--font-body)',
-                          }}>
-                            {t.label}
-                          </button>
-                        ))}
+                        ] as { key: ProductType; label: string }[]).map(t => {
+                          const active = productType === t.key
+                          return (
+                            <button
+                              key={t.key}
+                              onClick={() => {
+                                setProductType(t.key)
+                                if (t.key !== 'physical') patch({ requiresSize: false })
+                              }}
+                              style={{
+                                flex: 1, padding: '10px 0', borderRadius: 9, cursor: 'pointer',
+                                border: `1.5px solid ${active ? 'rgba(139,92,246,0.6)' : BORDER}`,
+                                background: active ? 'rgba(139,92,246,0.12)' : 'rgba(255,255,255,0.03)',
+                                color: active ? '#8B5CF6' : TX2, fontSize: 13, fontWeight: active ? 700 : 500,
+                                fontFamily: 'var(--font-body)', transition: 'all 0.15s',
+                              }}
+                            >
+                              {t.label}
+                            </button>
+                          )
+                        })}
                       </div>
                     </div>
                   </div>
@@ -232,72 +300,167 @@ export default function RegularTicketAddonModal({ open, editing, eventId, onClos
                     </div>
                   </div>
 
-                  {/* Image upload */}
-                  <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-                    <label style={lbl}>Add-on Image *</label>
-                    <input ref={fileInputRef} type="file" accept="image/png,image/jpg,image/jpeg,image/webp" onChange={handleImagePick} style={{ display: 'none' }} />
-
-                    <div className="rt-addon-img-row">
-                      {/* Upload zone */}
-                      <div
-                        onClick={() => fileInputRef.current?.click()}
-                        style={{
-                          flex: 1, border: `2px dashed rgba(255,255,255,0.15)`,
-                          borderRadius: 12, padding: '28px 20px',
-                          textAlign: 'center', cursor: 'pointer',
-                          background: 'rgba(255,255,255,0.02)', transition: 'all 0.15s',
-                          minHeight: 130, display: 'flex', flexDirection: 'column',
-                          alignItems: 'center', justifyContent: 'center', gap: 8,
-                        }}
-                        onMouseEnter={e => (e.currentTarget.style.borderColor = 'rgba(139,92,246,0.5)')}
-                        onMouseLeave={e => (e.currentTarget.style.borderColor = 'rgba(255,255,255,0.15)')}
-                      >
-                        <div style={{ width: 44, height: 44, borderRadius: 12, background: 'rgba(139,92,246,0.1)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                          <Upload size={20} color="#8B5CF6" />
+                  {/* Sizes — only for Physical add-ons */}
+                  {productType === 'physical' && (
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+                      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '12px 14px', borderRadius: 12, background: 'rgba(255,255,255,0.03)', border: `1px solid ${BORDER}` }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 9 }}>
+                          <Ruler size={15} color={form.requiresSize ? '#8B5CF6' : TX3} />
+                          <div>
+                            <div style={{ fontSize: 13.5, fontWeight: 600, color: TX1 }}>Comes in different sizes?</div>
+                            <div style={{ fontSize: 11.5, color: TX3 }}>Attendees pick a size before adding it to their order.</div>
+                          </div>
                         </div>
-                        <div>
-                          <p style={{ margin: 0, fontSize: 13, color: TX2 }}>
-                            <span style={{ color: '#8B5CF6', fontWeight: 600 }}>Click to upload</span> or drag and drop
-                          </p>
-                          <p style={{ margin: '4px 0 0', fontSize: 12, color: TX3 }}>PNG, JPG or WEBP (Max. 5MB)</p>
-                          <p style={{ margin: '2px 0 0', fontSize: 11, color: TX3 }}>Recommended: 1200 × 800px</p>
-                        </div>
+                        <button onClick={() => patch({ requiresSize: !form.requiresSize })} style={{
+                          width: 40, height: 22, borderRadius: 11,
+                          background: form.requiresSize ? '#8B5CF6' : 'rgba(255,255,255,0.15)',
+                          border: 'none', cursor: 'pointer', position: 'relative', transition: 'background 0.2s', flexShrink: 0,
+                        }}>
+                          <div style={{ position: 'absolute', top: 2, left: form.requiresSize ? 20 : 2, width: 18, height: 18, borderRadius: '50%', background: '#fff', transition: 'left 0.2s', boxShadow: '0 1px 4px rgba(0,0,0,0.3)' }} />
+                        </button>
                       </div>
 
-                      {/* Preview */}
-                      {imgPreview && (
-                        <div style={{ position: 'relative', width: 160, flexShrink: 0 }}>
-                          <img src={imgPreview} alt="Preview" style={{
-                            width: '100%', height: 130, objectFit: 'cover',
-                            borderRadius: 12, border: `1px solid ${BORDER}`, display: 'block',
-                          }} />
-                          <button onClick={removeImage} style={{
-                            position: 'absolute', top: 6, right: 6,
-                            width: 26, height: 26, borderRadius: '50%',
-                            background: 'rgba(10,14,28,0.85)', border: `1px solid ${BORDER}`,
-                            display: 'flex', alignItems: 'center', justifyContent: 'center',
-                            cursor: 'pointer', color: '#F87171',
-                          }}>
-                            <X size={12} />
-                          </button>
+                      {form.requiresSize && (
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                          <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
+                            {COMMON_SIZE_PRESETS.map(s => {
+                              const active = form.sizeOptions.includes(s)
+                              return (
+                                <button key={s} onClick={() => active ? removeSize(s) : addSize(s)} style={{
+                                  padding: '6px 12px', borderRadius: 7, cursor: 'pointer',
+                                  border: `1px solid ${active ? 'rgba(139,92,246,0.6)' : BORDER}`,
+                                  background: active ? 'rgba(139,92,246,0.15)' : 'rgba(255,255,255,0.03)',
+                                  color: active ? '#8B5CF6' : TX2, fontSize: 12, fontWeight: 600,
+                                  fontFamily: 'var(--font-body)',
+                                }}>
+                                  {s}
+                                </button>
+                              )
+                            })}
+                          </div>
+
+                          <div style={{ display: 'flex', gap: 8 }}>
+                            <input
+                              value={sizeInput}
+                              onChange={e => setSizeInput(e.target.value)}
+                              onKeyDown={e => { if (e.key === 'Enter') { e.preventDefault(); addSize(sizeInput) } }}
+                              placeholder="Custom size — e.g. 42 or One Size"
+                              style={{ ...inp, flex: 1 }}
+                              onFocus={e => e.currentTarget.style.borderColor = 'rgba(139,92,246,0.5)'}
+                              onBlur={e => e.currentTarget.style.borderColor = BORDER}
+                            />
+                            <button onClick={() => addSize(sizeInput)} style={{
+                              display: 'flex', alignItems: 'center', gap: 5,
+                              padding: '0 16px', borderRadius: 10, border: '1px solid rgba(139,92,246,0.4)',
+                              background: 'rgba(139,92,246,0.1)', color: '#8B5CF6', cursor: 'pointer',
+                              fontSize: 13, fontWeight: 600, fontFamily: 'var(--font-body)', flexShrink: 0,
+                            }}>
+                              <Plus size={14} /> Add
+                            </button>
+                          </div>
+
+                          {form.sizeOptions.length > 0 && (
+                            <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
+                              {form.sizeOptions.map(s => (
+                                <span key={s} style={{
+                                  display: 'flex', alignItems: 'center', gap: 6,
+                                  padding: '5px 6px 5px 10px', borderRadius: 7,
+                                  background: 'rgba(139,92,246,0.12)', border: '1px solid rgba(139,92,246,0.3)',
+                                  color: TX1, fontSize: 12, fontWeight: 600,
+                                }}>
+                                  {s}
+                                  <button onClick={() => removeSize(s)} style={{
+                                    background: 'none', border: 'none', cursor: 'pointer', color: TX3,
+                                    display: 'flex', alignItems: 'center', padding: 2,
+                                  }}>
+                                    <X size={11} />
+                                  </button>
+                                </span>
+                              ))}
+                            </div>
+                          )}
+                          {form.sizeOptions.length === 0 && (
+                            <p style={{ margin: 0, fontSize: 11.5, color: '#F87171' }}>
+                              Add at least one size, or attendees won't be able to select this add-on.
+                            </p>
+                          )}
                         </div>
                       )}
                     </div>
+                  )}
+
+                  {/* Image upload — up to MAX_ADDON_IMAGES slots */}
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+                    <label style={lbl}>
+                      Add-on Images * <span style={{ color: TX3, fontWeight: 400, textTransform: 'none' }}>(up to {MAX_ADDON_IMAGES})</span>
+                    </label>
+                    <input ref={fileInputRef} type="file" accept="image/png,image/jpg,image/jpeg,image/webp" onChange={handleImagePick} style={{ display: 'none' }} />
+
+                    <div className="rt-addon-img-row">
+                      {slots.map((slot, i) => (
+                        <div key={i} style={{ position: 'relative', flex: 1, minWidth: 0 }}>
+                          {slot.preview ? (
+                            <div style={{ position: 'relative' }}>
+                              <img src={slot.preview} alt={`Image ${i + 1}`} style={{
+                                width: '100%', height: 130, objectFit: 'cover',
+                                borderRadius: 12, border: `1px solid ${BORDER}`, display: 'block',
+                              }} />
+                              {i === 0 && (
+                                <span style={{ position: 'absolute', bottom: 6, left: 6, fontSize: 9, fontWeight: 700, background: 'rgba(10,14,28,0.85)', color: '#8B5CF6', padding: '2px 7px', borderRadius: 4, textTransform: 'uppercase', letterSpacing: '0.06em' }}>
+                                  Main
+                                </span>
+                              )}
+                              <button onClick={() => removeImage(i)} style={{
+                                position: 'absolute', top: 6, right: 6,
+                                width: 24, height: 24, borderRadius: '50%',
+                                background: 'rgba(10,14,28,0.85)', border: `1px solid ${BORDER}`,
+                                display: 'flex', alignItems: 'center', justifyContent: 'center',
+                                cursor: 'pointer', color: '#F87171',
+                              }}>
+                                <X size={12} />
+                              </button>
+                            </div>
+                          ) : (
+                            <div
+                              onClick={() => openFilePicker(i)}
+                              style={{
+                                border: `2px dashed rgba(255,255,255,0.15)`,
+                                borderRadius: 12, padding: '20px 10px',
+                                textAlign: 'center', cursor: 'pointer',
+                                background: 'rgba(255,255,255,0.02)', transition: 'all 0.15s',
+                                height: 130, display: 'flex', flexDirection: 'column',
+                                alignItems: 'center', justifyContent: 'center', gap: 6,
+                              }}
+                              onMouseEnter={e => (e.currentTarget.style.borderColor = 'rgba(139,92,246,0.5)')}
+                              onMouseLeave={e => (e.currentTarget.style.borderColor = 'rgba(255,255,255,0.15)')}
+                            >
+                              <div style={{ width: 34, height: 34, borderRadius: 10, background: 'rgba(139,92,246,0.1)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                                <Upload size={16} color="#8B5CF6" />
+                              </div>
+                              <p style={{ margin: 0, fontSize: 11.5, color: TX2, lineHeight: 1.4 }}>
+                                {i === 0 ? 'Main image' : `Image ${i + 1} (optional)`}
+                              </p>
+                            </div>
+                          )}
+                        </div>
+                      ))}
+                    </div>
+                    <p style={{ margin: 0, fontSize: 11.5, color: TX3 }}>PNG, JPG or WEBP, max 5MB each. Recommended 1200 × 800px.</p>
 
                     {/* Tips */}
                     <div style={{ padding: '12px 14px', borderRadius: 10, background: 'rgba(34,197,94,0.05)', border: '1px solid rgba(34,197,94,0.15)', marginTop: 4 }}>
                       <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 8 }}>
                         <ImageIcon size={13} color={G} />
-                        <span style={{ fontSize: 12, fontWeight: 700, color: G }}>Tips for a great image</span>
+                        <span style={{ fontSize: 12, fontWeight: 700, color: G }}>Tips for great images</span>
                       </div>
-                      {['Use high-quality, clear images', 'Show what the add-on includes', 'Avoid text-heavy images'].map((tip, i) => (
+                      {['Use high-quality, clear images', 'Show what the add-on includes from different angles', 'Avoid text-heavy images'].map((tip, i) => (
                         <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 7, marginBottom: 5 }}>
                           <Check size={10} color={G} />
                           <span style={{ fontSize: 12, color: TX2 }}>{tip}</span>
                         </div>
                       ))}
                     </div>
-                    <p style={{ margin: 0, fontSize: 12, color: TX3 }}>This image will represent your add-on across the platform.</p>
+                    <p style={{ margin: 0, fontSize: 12, color: TX3 }}>Attendees can tap an image to view it larger and browse all {MAX_ADDON_IMAGES}.</p>
                   </div>
                 </div>
               )}
@@ -381,8 +544,12 @@ export default function RegularTicketAddonModal({ open, editing, eventId, onClos
                 <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
                   <div style={{ padding: '16px', borderRadius: 12, background: 'rgba(255,255,255,0.03)', border: `1px solid ${BORDER}` }}>
                     <div style={{ fontSize: 13, fontWeight: 700, color: TX2, marginBottom: 12, textTransform: 'uppercase', letterSpacing: '0.06em' }}>Add-on Details</div>
-                    {imgPreview && (
-                      <img src={imgPreview} alt="Add-on" style={{ width: '100%', height: 140, objectFit: 'cover', borderRadius: 10, marginBottom: 12 }} />
+                    {filledSlots.length > 0 && (
+                      <div style={{ display: 'flex', gap: 8, marginBottom: 12 }}>
+                        {filledSlots.map((s, i) => (
+                          <img key={i} src={s.preview!} alt={`Image ${i + 1}`} style={{ flex: 1, height: 100, objectFit: 'cover', borderRadius: 10 }} />
+                        ))}
+                      </div>
                     )}
                     {[
                       { label: 'Name',     value: form.name || '—' },
@@ -390,6 +557,7 @@ export default function RegularTicketAddonModal({ open, editing, eventId, onClos
                       { label: 'Type',     value: form.isFree ? 'Free' : 'Paid' },
                       { label: 'Price',    value: form.isFree ? 'Free' : fmtNaira(form.price) },
                       { label: 'Quantity', value: String(form.quantity) },
+                      { label: 'Sizes',    value: form.requiresSize && form.sizeOptions.length > 0 ? form.sizeOptions.join(', ') : 'None' },
                       { label: 'Visible',  value: form.active ? 'Yes' : 'No' },
                     ].map(row => (
                       <div key={row.label} style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 8 }}>
@@ -433,15 +601,29 @@ export default function RegularTicketAddonModal({ open, editing, eventId, onClos
                 maxWidth: activePreview === 'mobile' ? 180 : '100%',
                 margin: activePreview === 'mobile' ? '0 auto' : 0,
               }}>
-                {imgPreview ? (
+                {filledSlots.length > 0 ? (
                   <div style={{ position: 'relative' }}>
-                    <img src={imgPreview} alt="Preview" style={{ width: '100%', height: activePreview === 'mobile' ? 90 : 120, objectFit: 'cover', display: 'block' }} />
+                    <img
+                      src={filledSlots[Math.min(previewImgIdx, filledSlots.length - 1)].preview!}
+                      alt="Preview"
+                      style={{ width: '100%', height: activePreview === 'mobile' ? 90 : 120, objectFit: 'cover', display: 'block' }}
+                    />
                     <div style={{ position: 'absolute', top: 8, left: 8 }}>
                       <span style={{ fontSize: 9, fontWeight: 700, background: 'rgba(10,14,28,0.8)', color: '#8B5CF6', padding: '2px 7px', borderRadius: 4, textTransform: 'uppercase', letterSpacing: '0.08em' }}>ADD-ON</span>
                     </div>
                     {form.active && (
                       <div style={{ position: 'absolute', top: 8, right: 8 }}>
                         <span style={{ fontSize: 9, fontWeight: 700, background: 'rgba(10,14,28,0.8)', color: G, padding: '2px 7px', borderRadius: 4, textTransform: 'uppercase', letterSpacing: '0.08em' }}>AVAILABLE</span>
+                      </div>
+                    )}
+                    {filledSlots.length > 1 && (
+                      <div style={{ position: 'absolute', bottom: 8, left: '50%', transform: 'translateX(-50%)', display: 'flex', gap: 4 }}>
+                        {filledSlots.map((_, i) => (
+                          <button key={i} onClick={() => setPreviewImgIdx(i)} style={{
+                            width: 6, height: 6, borderRadius: '50%', border: 'none', cursor: 'pointer', padding: 0,
+                            background: i === previewImgIdx ? '#fff' : 'rgba(255,255,255,0.4)',
+                          }} />
+                        ))}
                       </div>
                     )}
                   </div>
@@ -457,6 +639,17 @@ export default function RegularTicketAddonModal({ open, editing, eventId, onClos
                   {form.description && (
                     <div style={{ fontSize: 11, color: TX2, lineHeight: 1.5, marginBottom: 10 }}>
                       {form.description.slice(0, 70)}{form.description.length > 70 ? '…' : ''}
+                    </div>
+                  )}
+                  {form.requiresSize && form.sizeOptions.length > 0 && (
+                    <div style={{ marginBottom: 10 }}>
+                      <select disabled style={{
+                        width: '100%', padding: '6px 10px', borderRadius: 7, fontSize: 11,
+                        background: 'rgba(255,255,255,0.05)', border: `1px solid ${BORDER}`, color: TX2,
+                      }}>
+                        <option>Select Size</option>
+                        {form.sizeOptions.map(s => <option key={s}>{s}</option>)}
+                      </select>
                     </div>
                   )}
                   <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
@@ -504,7 +697,7 @@ export default function RegularTicketAddonModal({ open, editing, eventId, onClos
                   display: 'flex', alignItems: 'center', gap: 6, opacity: saving ? 0.7 : 1,
                 }}>
                   {saving
-                    ? <><Loader2 size={14} style={{ animation: 'rtSpin 1s linear infinite' }} />{imgUploading ? 'Uploading image…' : 'Saving…'}</>
+                    ? <><Loader2 size={14} style={{ animation: 'rtSpin 1s linear infinite' }} />{imgUploading ? 'Uploading images…' : 'Saving…'}</>
                     : <><Check size={14} />{editing ? 'Save Changes' : 'Create Add-on'}</>
                   }
                 </button>
@@ -517,7 +710,7 @@ export default function RegularTicketAddonModal({ open, editing, eventId, onClos
       <style>{`
         .rt-modal-body    { display: flex; min-height: 400px; }
         .rt-modal-row     { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
-        .rt-addon-img-row { display: flex; gap: 12px; align-items: flex-start; }
+        .rt-addon-img-row { display: flex; gap: 10px; align-items: stretch; }
         @media (max-width: 860px) {
           .rt-modal-preview { display: none !important; }
           .rt-modal-row     { grid-template-columns: 1fr; }

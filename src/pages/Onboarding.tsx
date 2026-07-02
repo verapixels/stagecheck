@@ -48,6 +48,12 @@ export default function Onboarding() {
   const [faqItems, setFaqItems] = useState<FAQItem[]>([])
   const [goodToKnow, setGoodToKnow] = useState<GoodToKnow>({ ageInfo: '', doorTime: '', parkingInfo: '' })
   const [repeatingDates, setRepeatingDates] = useState<RepeatingDate[]>([])
+  const onAddMultipleDates = (dates: string[]) => {
+    setRepeatingDates(prev => [
+      ...prev,
+      ...dates.map(date => ({ id: crypto.randomUUID(), date, startTime: '', endTime: '', notes: '' })),
+    ])
+  }
   const [generatingSummary, setGeneratingSummary] = useState(false)
   const [generatingDescription, setGeneratingDescription] = useState(false)
 
@@ -250,7 +256,7 @@ export default function Onboarding() {
               featuredArtists={featuredArtists} onAddArtist={addArtist} onRemoveArtist={removeArtist} onUpdateArtistRole={updateArtistRole} onAddManualArtist={addManualArtist}
               agendaItems={agendaItems} onAddAgenda={addAgendaItem} onUpdateAgenda={updateAgendaItem} onRemoveAgenda={removeAgendaItem}
               faqItems={faqItems} onAddFAQ={addFAQ} onUpdateFAQ={updateFAQ} onRemoveFAQ={removeFAQ}
-              goodToKnow={goodToKnow} setGoodToKnow={setGoodToKnow}
+              goodToKnow={goodToKnow} setGoodToKnow={setGoodToKnow} onAddMultipleDates={onAddMultipleDates}
             />
           </OnboardingStepRow>
 
@@ -275,11 +281,12 @@ export default function Onboarding() {
 
         <div className="ob-preview-sidebar" style={{ display: 'block' }}>
           <OnboardingLivePreview
-            form={form}
-            mediaItems={mediaItems}
-            typeColor={selectedTypeData?.color}
-            typeLabel={selectedTypeData?.label}
-          />
+  form={form}
+  mediaItems={mediaItems}
+  repeatingDates={repeatingDates}
+  typeColor={selectedTypeData?.color}
+  typeLabel={selectedTypeData?.label}
+/>
         </div>
       </div>
 

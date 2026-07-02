@@ -16,7 +16,9 @@ export interface AddOn {
   name: string
   description: string
   price: number
-  icon?: string        // image url for the add-on thumbnail
+  imageUrl?: string     // first/primary image — kept for backward compatibility
+                         // with any older records that only ever had one image
+  images?: string[]     // up to 3 images, shown as a gallery in the lightbox
   requiresSize?: boolean
   sizeOptions?: string[]
 }

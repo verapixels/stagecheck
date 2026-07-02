@@ -4,7 +4,8 @@
 // the accent strip (matches EventDetailTicketDrawer's pattern) instead of
 // a separate category enum. Plus the "Make it even better" add-ons strip.
 
-import { RiTicketLine } from 'react-icons/ri'
+import { useState } from 'react'
+import { RiTicketLine, RiZoomInLine, RiCloseLine, RiArrowLeftSLine, RiArrowRightSLine } from 'react-icons/ri'
 import type { TicketType, AddOn } from './ticketingTypes'
 
 function fmtNaira(n: number) {
@@ -17,12 +18,40 @@ interface Props {
   onQtyChange: (ticketId: string, qty: number) => void
   addOns: AddOn[]
   addOnQuantities: Record<string, number>
-  onAddOnAdd: (addOnId: string) => void
+  // `size` is optional so this keeps working even before the parent page
+  // is updated to actually use it — it'll just come through as undefined
+  // until the parent's addOnQuantities/onAddOnAdd handling is updated to
+  // key by size too.
+  onAddOnAdd: (addOnId: string, size?: string) => void
+}
+
+function addOnImages(a: AddOn): string[] {
+  if (a.images?.length) return a.images
+  if (a.imageUrl) return [a.imageUrl]
+  return []
 }
 
 export default function TicketingTicketList({
   tickets, quantities, onQtyChange, addOns, addOnQuantities, onAddOnAdd,
 }: Props) {
+  // Track the currently-selected size per add-on locally, since the parent
+  // doesn't know about sizes yet. Keyed by add-on id.
+  const [selectedSizes, setSelectedSizes] = useState<Record<string, string>>({})
+
+  // Lightbox state: which add-on's gallery is open, and which image index.
+  const [lightboxAddOn, setLightboxAddOn] = useState<AddOn | null>(null)
+  const [lightboxIndex, setLightboxIndex] = useState(0)
+
+  const openLightbox = (a: AddOn) => {
+    if (addOnImages(a).length === 0) return
+    setLightboxAddOn(a)
+    setLightboxIndex(0)
+  }
+  const closeLightbox = () => setLightboxAddOn(null)
+  const lightboxImages = lightboxAddOn ? addOnImages(lightboxAddOn) : []
+  const showPrev = () => setLightboxIndex(i => (i - 1 + lightboxImages.length) % lightboxImages.length)
+  const showNext = () => setLightboxIndex(i => (i + 1) % lightboxImages.length)
+
   return (
     <div className="tk-fade-in">
       <h2 style={{ fontSize: 22, fontWeight: 800, margin: '0 0 4px', color: 'var(--text)' }}>
@@ -137,33 +166,153 @@ export default function TicketingTicketList({
             Elevate your experience with our premium add-ons.
           </p>
           <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-            {addOns.map(a => (
-              <div key={a.id} style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-                <div style={{
-                  width: 40, height: 40, borderRadius: 10, overflow: 'hidden', flexShrink: 0,
-                  background: 'rgba(255,255,255,0.05)',
-                }}>
-                  {a.icon && <img src={a.icon} alt={a.name} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />}
+            {addOns.map(a => {
+              const needsSize = a.requiresSize && (a.sizeOptions?.length ?? 0) > 0
+              const chosenSize = selectedSizes[a.id] || ''
+              const canAdd = !needsSize || chosenSize !== ''
+              const images = addOnImages(a)
+
+              return (
+                <div key={a.id} style={{ display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap' }}>
+                  <button
+                    onClick={() => openLightbox(a)}
+                    disabled={images.length === 0}
+                    style={{
+                      position: 'relative', width: 40, height: 40, borderRadius: 10, overflow: 'hidden', flexShrink: 0,
+                      background: 'rgba(255,255,255,0.05)', border: 'none', padding: 0,
+                      cursor: images.length > 0 ? 'pointer' : 'default',
+                    }}
+                    title={images.length > 0 ? 'Tap to view larger' : undefined}
+                  >
+                    {images[0] && <img src={images[0]} alt={a.name} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />}
+                    {images.length > 0 && (
+                      <span style={{
+                        position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center',
+                        background: 'rgba(0,0,0,0)', transition: 'background 0.15s',
+                      }}
+                        onMouseEnter={e => e.currentTarget.style.background = 'rgba(0,0,0,0.35)'}
+                        onMouseLeave={e => e.currentTarget.style.background = 'rgba(0,0,0,0)'}
+                      >
+                        <RiZoomInLine size={14} color="#fff" style={{ opacity: 0 }} className="tk-zoom-icon" />
+                      </span>
+                    )}
+                  </button>
+                  <div style={{ flex: 1, minWidth: 120 }}>
+                    <div style={{ fontWeight: 600, fontSize: 14.5, color: 'var(--text)' }}>{a.name}</div>
+                    <div style={{ fontSize: 12.5, color: 'var(--text-muted)' }}>{a.description}</div>
+                  </div>
+                  {needsSize && (
+                    <select
+                      className="tk-input"
+                      value={chosenSize}
+                      onChange={e => setSelectedSizes(s => ({ ...s, [a.id]: e.target.value }))}
+                      style={{ width: 130, padding: '7px 10px', fontSize: 13 }}
+                    >
+                      <option value="">Select Size</option>
+                      {a.sizeOptions?.map(s => <option key={s} value={s}>{s}</option>)}
+                    </select>
+                  )}
+                  <span style={{ fontWeight: 700, fontSize: 14.5, color: 'var(--text)', minWidth: 70, textAlign: 'right' }}>
+                    {fmtNaira(a.price)}
+                  </span>
+                  <button
+                    onClick={() => canAdd && onAddOnAdd(a.id, needsSize ? chosenSize : undefined)}
+                    disabled={!canAdd}
+                    className="tk-qty-btn"
+                    style={{ width: 32, height: 32, opacity: canAdd ? 1 : 0.4, cursor: canAdd ? 'pointer' : 'not-allowed' }}
+                    title={!canAdd ? 'Select a size first' : undefined}
+                  >+</button>
                 </div>
-                <div style={{ flex: 1 }}>
-                  <div style={{ fontWeight: 600, fontSize: 14.5, color: 'var(--text)' }}>{a.name}</div>
-                  <div style={{ fontSize: 12.5, color: 'var(--text-muted)' }}>{a.description}</div>
-                </div>
-                {a.requiresSize && (
-                  <select className="tk-input" style={{ width: 130, padding: '7px 10px', fontSize: 13 }}>
-                    <option>Select Size</option>
-                    {a.sizeOptions?.map(s => <option key={s} value={s}>{s}</option>)}
-                  </select>
-                )}
-                <span style={{ fontWeight: 700, fontSize: 14.5, color: 'var(--text)', minWidth: 70, textAlign: 'right' }}>
-                  {fmtNaira(a.price)}
-                </span>
-                <button onClick={() => onAddOnAdd(a.id)} className="tk-qty-btn" style={{ width: 32, height: 32 }}>+</button>
-              </div>
-            ))}
+              )
+            })}
           </div>
         </div>
       )}
+
+      {/* Lightbox */}
+      {lightboxAddOn && (
+        <div
+          onClick={closeLightbox}
+          style={{
+            position: 'fixed', inset: 0, zIndex: 300,
+            background: 'rgba(0,0,0,0.88)', backdropFilter: 'blur(4px)',
+            display: 'flex', alignItems: 'center', justifyContent: 'center',
+            padding: 24, animation: 'tkFadeIn 0.15s ease',
+          }}
+        >
+          <button
+            onClick={closeLightbox}
+            style={{
+              position: 'absolute', top: 20, right: 20,
+              width: 40, height: 40, borderRadius: '50%',
+              background: 'rgba(255,255,255,0.1)', border: '1px solid rgba(255,255,255,0.2)',
+              color: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center',
+              cursor: 'pointer',
+            }}
+          >
+            <RiCloseLine size={20} />
+          </button>
+
+          {/*
+            No stopPropagation wrapper here on purpose — tapping the image
+            or caption area also closes the lightbox now, same as tapping
+            the backdrop. On mobile this wrapper takes up almost the whole
+            screen, so requiring a tap strictly *outside* it left barely
+            any tappable area, which is why closing wasn't working.
+            Only the actual controls below (prev/next/dots/close) stop
+            propagation, since those need their own click behavior.
+          */}
+          <div style={{ maxWidth: 'min(720px, 92vw)', width: '100%' }}>
+            <div style={{ position: 'relative' }}>
+              <img
+                src={lightboxImages[lightboxIndex]}
+                alt={lightboxAddOn.name}
+                style={{ width: '100%', maxHeight: '72vh', objectFit: 'contain', borderRadius: 14, display: 'block', background: '#0a0f1e' }}
+              />
+              {lightboxImages.length > 1 && (
+                <>
+                  <button onClick={e => { e.stopPropagation(); showPrev() }} style={{
+                    position: 'absolute', left: 10, top: '50%', transform: 'translateY(-50%)',
+                    width: 38, height: 38, borderRadius: '50%',
+                    background: 'rgba(0,0,0,0.55)', border: '1px solid rgba(255,255,255,0.2)',
+                    color: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer',
+                  }}>
+                    <RiArrowLeftSLine size={20} />
+                  </button>
+                  <button onClick={e => { e.stopPropagation(); showNext() }} style={{
+                    position: 'absolute', right: 10, top: '50%', transform: 'translateY(-50%)',
+                    width: 38, height: 38, borderRadius: '50%',
+                    background: 'rgba(0,0,0,0.55)', border: '1px solid rgba(255,255,255,0.2)',
+                    color: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer',
+                  }}>
+                    <RiArrowRightSLine size={20} />
+                  </button>
+                </>
+              )}
+            </div>
+
+            <div style={{ marginTop: 14, textAlign: 'center' }}>
+              <div style={{ fontWeight: 700, fontSize: 15, color: '#fff' }}>{lightboxAddOn.name}</div>
+              {lightboxImages.length > 1 && (
+                <div style={{ display: 'flex', gap: 6, justifyContent: 'center', marginTop: 10 }}>
+                  {lightboxImages.map((_, i) => (
+                    <button key={i} onClick={e => { e.stopPropagation(); setLightboxIndex(i) }} style={{
+                      width: 7, height: 7, borderRadius: '50%', border: 'none', cursor: 'pointer', padding: 0,
+                      background: i === lightboxIndex ? '#fff' : 'rgba(255,255,255,0.35)',
+                    }} />
+                  ))}
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
+
+      <style>{`
+        .tk-zoom-icon { transition: opacity 0.15s; }
+        button:hover > span > .tk-zoom-icon { opacity: 1; }
+        @keyframes tkFadeIn { from { opacity: 0; } to { opacity: 1; } }
+      `}</style>
     </div>
   )
 }
